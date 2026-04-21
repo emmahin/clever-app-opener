@@ -4,6 +4,7 @@
  */
 export { webChatService as chatService } from "./chatService";
 export { webVoiceService as voiceService } from "./voiceService";
-export { mockNewsService as newsService } from "./newsService";
+export { rssNewsService as newsService } from "./newsService";
+export { yahooStockService as stockService } from "./stockService";
 export { mockAppLauncherService as appLauncherService } from "./appLauncherService";
 export * from "./types";
