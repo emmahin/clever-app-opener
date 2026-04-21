@@ -441,6 +441,16 @@ Deno.serve(async (req) => {
         const send = (obj: any) => controller.enqueue(enc.encode(`data: ${JSON.stringify(obj)}\n\n`));
 
         try {
+          const inferredImageQuery = inferImageSearchQuery(latestUserText(messages));
+          if (inferredImageQuery) {
+            const { widget, summary } = await callTool("search_images", { query: inferredImageQuery, count: 8 });
+            if (widget) send({ widgets: [widget] });
+            send({ delta: `Bien sûr monsieur — j’ai compris que vous parlez des sneakers Nike Air Force 1. Voici des exemples visuels pertinents.\n\n${summary}` });
+            send({ done: true });
+            controller.close();
+            return;
+          }
+
           // Force tool choice when user explicitly clicked a tool button
           let phase1ToolChoice: any = "auto";
           if (forceTool === "image") {
@@ -510,10 +520,7 @@ Deno.serve(async (req) => {
             send({ widgets });
 
             // Phase 3: streaming synthesis with tool results
-            const phase3 = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-              method: "POST",
-              headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-              body: JSON.stringify({
+            const phase3Body = {
                 model: "google/gemini-3-flash-preview",
                 messages: [
                   { role: "system", content: SYSTEM_PROMPT },
@@ -521,36 +528,9 @@ Deno.serve(async (req) => {
                   { role: "assistant", content: msg.content || "", tool_calls: toolCalls },
                   ...toolResults,
                 ],
-                stream: true,
-              }),
-            });
-
-            if (!phase3.ok || !phase3.body) {
-              send({ error: "Erreur lors de la synthèse." });
-              controller.close(); return;
-            }
-
-            const reader = phase3.body.getReader();
-            const dec = new TextDecoder();
-            let buf = "";
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              buf += dec.decode(value, { stream: true });
-              let nl;
-              while ((nl = buf.indexOf("\n")) !== -1) {
-                const line = buf.slice(0, nl).replace(/\r$/, "");
-                buf = buf.slice(nl + 1);
-                if (!line.startsWith("data: ")) continue;
-                const json = line.slice(6).trim();
-                if (json === "[DONE]") continue;
-                try {
-                  const p = JSON.parse(json);
-                  const delta = p.choices?.[0]?.delta?.content;
-                  if (delta) send({ delta });
-                } catch { /* ignore partial */ }
-              }
-            }
+            };
+            const streamed = await streamModelResponse(phase3Body, send);
+            if (!streamed.trim()) send({ delta: `Voilà monsieur.\n\n${toolResults.map((r) => r.content).join("\n")}` });
           } else {
             // No tools: stream the direct response token by token
             // Re-call with stream=true (since phase1 was not streamed)
