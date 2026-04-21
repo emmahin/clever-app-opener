@@ -14,6 +14,7 @@ import Settings from "./pages/Settings.tsx";
 import VideoEditor from "./pages/VideoEditor.tsx";
 import Documents from "./pages/Documents.tsx";
 import WhatsApp from "./pages/WhatsApp.tsx";
+import Notifications from "./pages/Notifications.tsx";
 
 const queryClient = new QueryClient();
 
@@ -34,6 +35,7 @@ const App = () => (
             <Route path="/video" element={<VideoEditor />} />
             <Route path="/documents" element={<Documents />} />
             <Route path="/whatsapp" element={<WhatsApp />} />
+            <Route path="/notifications" element={<Notifications />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

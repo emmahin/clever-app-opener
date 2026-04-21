@@ -1,6 +1,7 @@
-import { Bell, User, Plus } from "lucide-react";
+import { User, Plus } from "lucide-react";
 import { ReactNode } from "react";
 import { useLanguage } from "@/i18n/LanguageProvider";
+import { NotificationBell } from "./NotificationBell";
 
 interface HeaderProps {
   onNewChat?: () => void;
@@ -27,9 +28,7 @@ export function Header({ onNewChat, searchSlot }: HeaderProps = {}) {
             {t("newChat")}
           </button>
         )}
-        <button className="w-9 h-9 rounded-lg flex items-center justify-center text-white/80 hover:bg-white/15 transition-colors">
-          <Bell className="w-5 h-5" />
-        </button>
+        <NotificationBell />
         <button className="w-9 h-9 rounded-lg bg-white/20 flex items-center justify-center text-white hover:bg-white/25 transition-colors">
           <User className="w-5 h-5" />
         </button>
