@@ -29,6 +29,7 @@ function buildSystemPrompt(opts: {
   aiName?: string;
   webSearch?: boolean;
   forceTool?: string | null;
+  schedule?: Array<{ title: string; start_iso: string; end_iso?: string; location?: string; notes?: string }>;
 }): string {
   const name = LANG_NAMES[opts.lang] || "français";
   const detail = DETAIL_STYLES[opts.detailLevel || "normal"] || DETAIL_STYLES.normal;
@@ -38,6 +39,12 @@ function buildSystemPrompt(opts: {
     ? `\n\nINSTRUCTIONS PERSONNALISÉES DE L'UTILISATEUR (à respecter en priorité tant qu'elles ne contredisent pas les règles ci-dessus) :\n${opts.customInstructions.trim()}`
     : "";
   const nowIso = new Date().toISOString();
+  const sched = (opts.schedule || []).slice().sort((a, b) => Date.parse(a.start_iso) - Date.parse(b.start_iso));
+  const schedBlock = sched.length
+    ? `\n\nEMPLOI DU TEMPS ACTUEL DE L'UTILISATEUR (${sched.length} événement(s)) :\n` +
+      sched.map((e) => `- ${e.start_iso}${e.end_iso ? ` → ${e.end_iso}` : ""} : ${e.title}${e.location ? ` @ ${e.location}` : ""}${e.notes ? ` (${e.notes})` : ""}`).join("\n") +
+      `\nUtilise ces informations pour répondre aux questions sur le planning, détecter les conflits, et calculer les disponibilités.`
+    : `\n\nEMPLOI DU TEMPS ACTUEL : vide.`;
   const webHint = opts.webSearch
     ? `\n\nMODE RECHERCHE WEB ACTIVÉ : utilise OBLIGATOIREMENT l'outil web_search pour appuyer ta réponse sur des sources web fraîches. Cite les sources dans ta réponse.`
     : "";
@@ -51,7 +58,7 @@ function buildSystemPrompt(opts: {
 ${aiIdentity}
 IMPORTANT : tu réponds TOUJOURS en ${name}, en markdown. Even if the user writes in another language, answer in ${name}.
 
-CONTEXTE TEMPOREL : la date/heure courante est ${nowIso}. Utilise-la pour calculer les dates ISO des rappels (ex: "dans 1h" → +3600s, "demain à 15h" → date du lendemain à 15:00 dans le fuseau local).
+CONTEXTE TEMPOREL : la date/heure courante est ${nowIso}. Utilise-la pour calculer les dates ISO des rappels (ex: "dans 1h" → +3600s, "demain à 15h" → date du lendemain à 15:00 dans le fuseau local).${schedBlock}
 
 Tu disposes d'OUTILS pour récupérer des données réelles :
 - fetch_news : dernières actualités (catégories: à_la_une, tech, économie, international, all)
