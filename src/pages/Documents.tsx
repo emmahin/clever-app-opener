@@ -394,6 +394,15 @@ export default function Documents() {
               <div className="flex items-center gap-1 px-2 py-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 text-xs">
                 <Zap className="w-3 h-3" /> Tri local
               </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowRules((v) => !v)}
+                className="gap-1 text-xs h-8"
+              >
+                <Wand2 className="w-3 h-3" /> Mes règles
+                {showRules ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+              </Button>
               {/* Option année */}
               <div className="flex items-center gap-2">
                 <Switch id="year" checked={groupByYear} onCheckedChange={setGroupByYear} />
@@ -407,6 +416,28 @@ export default function Documents() {
               </Button>
             </div>
           </div>
+
+          {showRules && (
+            <div className="mb-4 rounded-xl border border-border/40 bg-background/40 p-3">
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-xs font-medium flex items-center gap-1">
+                  <Wand2 className="w-3 h-3 text-primary" /> Règles personnalisées (prioritaires)
+                </Label>
+                <span className="text-[10px] text-muted-foreground">
+                  {parseCustomRules(customRulesText).length} règle(s) détectée(s)
+                </span>
+              </div>
+              <Textarea
+                value={customRulesText}
+                onChange={(e) => setCustomRulesText(e.target.value)}
+                placeholder={`Une règle par ligne. Format : critère(s) -> dossier/cible\n\nExemples :\nfacture, invoice -> Comptabilité/Factures\n.pdf -> Documents/PDFs\nphoto, img -> Médias/Photos\nfacture + .pdf -> Comptabilité/Factures-PDF\ncv, resume -> Personnel/CV`}
+                className="min-h-[120px] text-xs font-mono resize-y"
+              />
+              <p className="text-[10px] text-muted-foreground mt-2">
+                💡 Mots-clés séparés par des virgules. Préfixez les extensions par <code>.</code> (ex: <code>.pdf</code>). Combinez avec <code>+</code> (ex: <code>facture + .pdf</code>). Ces règles passent <strong>avant</strong> les règles automatiques.
+              </p>
+            </div>
+          )}
 
           <div className="rounded-xl bg-background/40 border border-border/40 p-3 max-h-[360px] overflow-y-auto space-y-3">
             {chat.map((m, i) => (
