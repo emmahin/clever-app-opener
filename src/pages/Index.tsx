@@ -127,23 +127,23 @@ export default function Index() {
       <main className="ml-[72px] pt-14 min-h-screen flex">
         {/* Main chat area */}
         <div className="flex-1 flex flex-col relative">
-          {/* Title bar */}
-          <div className="px-6 py-4 flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-semibold flex items-center gap-2">
+          {/* Floating title + actions (no background bar) */}
+          <div className="absolute top-0 left-0 right-0 px-6 py-4 flex items-start justify-between pointer-events-none z-20">
+            <div className="pointer-events-auto">
+              <h1 className="text-2xl font-semibold flex items-center gap-2 drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]">
                 <Sparkles className="w-6 h-6 text-primary" />
                 {settings.aiName || "Jarvis"}
               </h1>
-              <p className="text-muted-foreground text-sm mt-1">
+              <p className="text-muted-foreground text-sm mt-1 drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)]">
                 {t("appSubtitle")}
               </p>
             </div>
-            <div className="flex gap-2">
-              <button className="px-3 py-1.5 rounded-lg bg-secondary text-sm font-medium flex items-center gap-2 hover:bg-secondary/80 transition-colors">
+            <div className="flex gap-2 pointer-events-auto">
+              <button className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 backdrop-blur-md text-sm font-medium flex items-center gap-2 transition-colors">
                 <Expand className="w-4 h-4" />
                 {t("fullscreen")}
               </button>
-              <button className="px-3 py-1.5 rounded-lg bg-secondary text-sm font-medium flex items-center gap-2 hover:bg-secondary/80 transition-colors">
+              <button className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 backdrop-blur-md text-sm font-medium flex items-center gap-2 transition-colors">
                 <Settings2 className="w-4 h-4" />
                 {t("options")}
               </button>
