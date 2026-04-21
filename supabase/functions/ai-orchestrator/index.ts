@@ -763,9 +763,9 @@ Deno.serve(async (req) => {
           if (a.kind === "image" && typeof a.dataUrl === "string") {
             parts.push({ type: "image_url", image_url: { url: a.dataUrl } });
           } else if (a.kind === "document" && typeof a.text === "string") {
-            docTexts.push(`\n\n--- Document joint: ${a.name || "document"} ---\n${a.text.slice(0, 60000)}\n--- fin du document ---`);
+            docTexts.push(`\n\n--- Document joint: ${a.name || "document"} ---\n${a.text.slice(0, 12000)}\n--- fin du document ---`);
           } else if (a.kind === "audio" && typeof a.text === "string") {
-            docTexts.push(`\n\n--- Transcription audio: ${a.name || "audio"} ---\n${a.text}\n--- fin transcription ---`);
+            docTexts.push(`\n\n--- Transcription audio: ${a.name || "audio"} ---\n${a.text.slice(0, 8000)}\n--- fin transcription ---`);
           }
         }
         if (docTexts.length) parts[0].text = String(last.content || "") + docTexts.join("");
@@ -808,9 +808,9 @@ Deno.serve(async (req) => {
             phase1ToolChoice = { type: "function", function: { name: "web_search" } };
           }
           const phase1Body: any = {
-            model: deepThink ? "google/gemini-2.5-pro" : "google/gemini-2.5-flash",
+            model: deepThink ? "google/gemini-3.1-pro-preview" : "google/gemini-3-flash-preview",
             messages: [{ role: "system", content: SYSTEM_PROMPT }, ...messages],
-            tools: TOOLS,
+            tools: filterToolsForMessage(userText, messages, !!webSearch, forceTool),
             tool_choice: phase1ToolChoice,
           };
           if (deepThink) phase1Body.reasoning = { effort: "medium" };
