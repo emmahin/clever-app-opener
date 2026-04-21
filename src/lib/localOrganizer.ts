@@ -69,13 +69,76 @@ export interface OrganizeOptions {
   groupByYear?: boolean;
   useSubcategories?: boolean;
   rootName?: string;
+  /** Règles personnalisées de l'utilisateur, prioritaires sur les règles par défaut. */
+  customRules?: CustomRule[];
+}
+
+/** Règle utilisateur : si le nom de fichier contient un mot-clé OU correspond à une extension,
+ *  alors le fichier est placé dans le dossier `target`. */
+export interface CustomRule {
+  keywords: string[]; // mots-clés à chercher dans le nom (insensible à la casse)
+  extensions: string[]; // extensions ciblées (sans le point), vide = toutes
+  target: string; // chemin de dossier cible, ex: "Comptabilité/2024"
+  label?: string; // étiquette lisible pour le journal
+}
+
+/** Parse un texte libre en règles structurées.
+ *  Format simple, une règle par ligne :
+ *    - "facture, invoice -> Comptabilité/Factures"
+ *    - ".pdf -> Documents/PDFs"
+ *    - "photo, img -> Médias/Photos"
+ *    - "facture + .pdf -> Comptabilité/Factures-PDF"
+ */
+export function parseCustomRules(text: string): CustomRule[] {
+  if (!text || !text.trim()) return [];
+  const rules: CustomRule[] = [];
+  const lines = text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l && !l.startsWith("#"));
+
+  for (const line of lines) {
+    // Accepte ->, →, =>, :
+    const m = line.match(/^(.+?)\s*(?:->|→|=>|:)\s*(.+)$/);
+    if (!m) continue;
+    const left = m[1].trim();
+    const target = m[2].trim().replace(/^\/+|\/+$/g, "");
+    if (!target) continue;
+
+    const tokens = left.split(/[,+]/).map((t) => t.trim()).filter(Boolean);
+    const keywords: string[] = [];
+    const extensions: string[] = [];
+    for (const tok of tokens) {
+      if (tok.startsWith(".")) extensions.push(tok.slice(1).toLowerCase());
+      else keywords.push(tok.toLowerCase());
+    }
+    rules.push({ keywords, extensions, target, label: line });
+  }
+  return rules;
+}
+
+function matchesRule(name: string, ext: string, rule: CustomRule): boolean {
+  const lower = name.toLowerCase();
+  const kwOk = rule.keywords.length === 0 || rule.keywords.some((k) => lower.includes(k));
+  const extOk = rule.extensions.length === 0 || rule.extensions.includes(ext);
+  // Si l'utilisateur a fourni les deux, il faut que les deux matchent.
+  if (rule.keywords.length && rule.extensions.length) return kwOk && extOk;
+  // Sinon, au moins un critère doit matcher (et celui défini doit matcher).
+  if (rule.keywords.length) return kwOk;
+  if (rule.extensions.length) return extOk;
+  return false;
 }
 
 export function organizeLocally(
   paths: string[],
   opts: OrganizeOptions = {},
 ): OrganizeResult {
-  const { groupByYear = false, useSubcategories = true, rootName = "Dossier-Reorganise" } = opts;
+  const {
+    groupByYear = false,
+    useSubcategories = true,
+    rootName = "Dossier-Reorganise",
+    customRules = [],
+  } = opts;
 
   const mapping: Mapping[] = [];
   const categories: Record<string, number> = {};
@@ -85,24 +148,40 @@ export function organizeLocally(
   for (const from of paths) {
     const base = from.split("/").pop() || from;
     const ext = getExt(base);
-    const cat = categoryFor(ext);
-    rulesApplied.add(`Extension .${ext || "?"} → ${cat}`);
 
-    const segments: string[] = [cat];
-
-    if (useSubcategories) {
-      const sub = subcategoryFor(base);
-      if (sub) {
-        segments.push(sub);
-        rulesApplied.add(`Mot-clé détecté → ${sub}`);
+    // 1) Règles utilisateur prioritaires
+    let segments: string[] | null = null;
+    let categoryLabel = "";
+    for (const rule of customRules) {
+      if (matchesRule(base, ext, rule)) {
+        segments = rule.target.split("/").filter(Boolean);
+        categoryLabel = segments[0] || rule.target;
+        rulesApplied.add(`Règle personnalisée : "${rule.label || rule.target}"`);
+        break;
       }
     }
 
-    if (groupByYear) {
-      const y = yearFromName(base);
-      if (y) {
-        segments.push(y);
-        rulesApplied.add(`Année ${y} détectée dans le nom`);
+    // 2) Règles par défaut si aucune règle utilisateur n'a matché
+    if (!segments) {
+      const cat = categoryFor(ext);
+      categoryLabel = cat;
+      rulesApplied.add(`Extension .${ext || "?"} → ${cat}`);
+      segments = [cat];
+
+      if (useSubcategories) {
+        const sub = subcategoryFor(base);
+        if (sub) {
+          segments.push(sub);
+          rulesApplied.add(`Mot-clé détecté → ${sub}`);
+        }
+      }
+
+      if (groupByYear) {
+        const y = yearFromName(base);
+        if (y) {
+          segments.push(y);
+          rulesApplied.add(`Année ${y} détectée dans le nom`);
+        }
       }
     }
 
@@ -119,7 +198,7 @@ export function organizeLocally(
     usedNames.add(to);
 
     mapping.push({ from, to });
-    categories[cat] = (categories[cat] || 0) + 1;
+    categories[categoryLabel] = (categories[categoryLabel] || 0) + 1;
   }
 
   const topCats = Object.entries(categories)
@@ -130,6 +209,7 @@ export function organizeLocally(
   const explanation =
     `Tri local effectué sur ${paths.length} fichiers. ` +
     `Catégories : ${topCats}.` +
+    (customRules.length ? ` ${customRules.length} règle(s) personnalisée(s) appliquée(s).` : "") +
     (groupByYear ? " Regroupement par année activé." : "") +
     (useSubcategories ? " Sous-dossiers thématiques activés (factures, contrats, photos…)." : "");
 

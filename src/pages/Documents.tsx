@@ -2,16 +2,17 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Sidebar } from "@/components/chatbot/Sidebar";
 import { Header } from "@/components/chatbot/Header";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronRight, File, Folder, FolderTree, Loader2, Sparkles, Upload, Download, Bot, User, Zap, Cloud } from "lucide-react";
+import { ChevronDown, ChevronRight, File, Folder, FolderTree, Loader2, Sparkles, Upload, Download, Bot, User, Zap, Cloud, Wand2, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
 import { FloatingProjectsBar } from "@/components/chatbot/FloatingProjectsBar";
-import { organizeLocally } from "@/lib/localOrganizer";
+import { organizeLocally, parseCustomRules } from "@/lib/localOrganizer";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 type TreeNode = {
   name: string;
@@ -132,6 +133,8 @@ export default function Documents() {
   const [newRootName, setNewRootName] = useState("Dossier-Reorganise");
   const [groupByYear, setGroupByYear] = useState(false);
   const [explaining, setExplaining] = useState(false);
+  const [customRulesText, setCustomRulesText] = useState("");
+  const [showRules, setShowRules] = useState(false);
   // Chat de récap : messages échangés entre l'utilisateur et le "trieur"
   type ChatMsg = { role: "user" | "assistant"; content: string; ts: number };
   const [chat, setChat] = useState<ChatMsg[]>([
@@ -176,13 +179,16 @@ export default function Documents() {
     setOrganizing(true);
     setMapping(null);
     const paths = files.map((f) => (f as any).webkitRelativePath || f.name);
+    const customRules = parseCustomRules(customRulesText);
     pushChat({
       role: "user",
-      content: `Organise mes ${paths.length} fichiers${groupByYear ? " (regroupés par année)" : ""}.`,
+      content:
+        `Organise mes ${paths.length} fichiers${groupByYear ? " (regroupés par année)" : ""}` +
+        (customRules.length ? ` avec ${customRules.length} règle(s) perso.` : "."),
     });
     try {
       // ⚡ Tri 100% local — aucun token consommé pour le tri lui-même
-      const result = organizeLocally(paths, { groupByYear, useSubcategories: true });
+      const result = organizeLocally(paths, { groupByYear, useSubcategories: true, customRules });
       setMapping(result.mapping);
       setExplanation(result.explanation);
       setNewRootName(result.rootName);
@@ -202,7 +208,10 @@ export default function Documents() {
       setExplaining(true);
       try {
         const { data, error } = await supabase.functions.invoke("explain-organization", {
-          body: { stats: result.stats, options: { groupByYear } },
+          body: {
+            stats: result.stats,
+            options: { groupByYear, customRulesCount: customRules.length },
+          },
         });
         if (error) throw error;
         if (data?.explanation) {
@@ -385,6 +394,15 @@ export default function Documents() {
               <div className="flex items-center gap-1 px-2 py-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 text-xs">
                 <Zap className="w-3 h-3" /> Tri local
               </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowRules((v) => !v)}
+                className="gap-1 text-xs h-8"
+              >
+                <Wand2 className="w-3 h-3" /> Mes règles
+                {showRules ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+              </Button>
               {/* Option année */}
               <div className="flex items-center gap-2">
                 <Switch id="year" checked={groupByYear} onCheckedChange={setGroupByYear} />
@@ -398,6 +416,28 @@ export default function Documents() {
               </Button>
             </div>
           </div>
+
+          {showRules && (
+            <div className="mb-4 rounded-xl border border-border/40 bg-background/40 p-3">
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-xs font-medium flex items-center gap-1">
+                  <Wand2 className="w-3 h-3 text-primary" /> Règles personnalisées (prioritaires)
+                </Label>
+                <span className="text-[10px] text-muted-foreground">
+                  {parseCustomRules(customRulesText).length} règle(s) détectée(s)
+                </span>
+              </div>
+              <Textarea
+                value={customRulesText}
+                onChange={(e) => setCustomRulesText(e.target.value)}
+                placeholder={`Une règle par ligne. Format : critère(s) -> dossier/cible\n\nExemples :\nfacture, invoice -> Comptabilité/Factures\n.pdf -> Documents/PDFs\nphoto, img -> Médias/Photos\nfacture + .pdf -> Comptabilité/Factures-PDF\ncv, resume -> Personnel/CV`}
+                className="min-h-[120px] text-xs font-mono resize-y"
+              />
+              <p className="text-[10px] text-muted-foreground mt-2">
+                💡 Mots-clés séparés par des virgules. Préfixez les extensions par <code>.</code> (ex: <code>.pdf</code>). Combinez avec <code>+</code> (ex: <code>facture + .pdf</code>). Ces règles passent <strong>avant</strong> les règles automatiques.
+              </p>
+            </div>
+          )}
 
           <div className="rounded-xl bg-background/40 border border-border/40 p-3 max-h-[360px] overflow-y-auto space-y-3">
             {chat.map((m, i) => (
