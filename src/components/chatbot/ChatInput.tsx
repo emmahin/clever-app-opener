@@ -35,6 +35,74 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
   const isRecordingRef = useRef(false);
   useEffect(() => { isRecordingRef.current = isRecording; }, [isRecording]);
 
+  // Visualisation audio + dur\u00e9e
+  const [recordSeconds, setRecordSeconds] = useState(0);
+  const [waveform, setWaveform] = useState<number[]>(Array(28).fill(0));
+  const [transcribing, setTranscribing] = useState(false);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const timerRef = useRef<number | null>(null);
+  const recordStartRef = useRef<number>(0);
+
+  const startVisualizer = () => {
+    const stream = voiceService.getStream?.();
+    if (!stream) return;
+    try {
+      const AC = window.AudioContext || (window as any).webkitAudioContext;
+      const ctx = new AC();
+      audioCtxRef.current = ctx;
+      const source = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 512;
+      source.connect(analyser);
+      const data = new Uint8Array(analyser.fftSize);
+      const BARS = 28;
+      const tick = () => {
+        analyser.getByteTimeDomainData(data);
+        const slice = Math.floor(data.length / BARS);
+        const bars: number[] = [];
+        for (let i = 0; i < BARS; i++) {
+          let sum = 0;
+          for (let j = 0; j < slice; j++) {
+            const v = (data[i * slice + j] - 128) / 128;
+            sum += v * v;
+          }
+          const rms = Math.sqrt(sum / slice);
+          bars.push(Math.min(1, rms * 4));
+        }
+        setWaveform(bars);
+        rafRef.current = requestAnimationFrame(tick);
+      };
+      rafRef.current = requestAnimationFrame(tick);
+    } catch (e) {
+      console.warn("Visualizer init failed", e);
+    }
+  };
+
+  const stopVisualizer = () => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = null;
+    try { audioCtxRef.current?.close(); } catch {}
+    audioCtxRef.current = null;
+    setWaveform(Array(28).fill(0));
+  };
+
+  const startTimer = () => {
+    recordStartRef.current = Date.now();
+    setRecordSeconds(0);
+    timerRef.current = window.setInterval(() => {
+      setRecordSeconds(Math.floor((Date.now() - recordStartRef.current) / 1000));
+    }, 250);
+  };
+
+  const stopTimer = () => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = null;
+  };
+
+  // Garde une r\u00e9f\u00e9rence au handleSend le plus r\u00e9cent
+  const handleSendRef = useRef<() => void>(() => {});
+
   const handleSend = () => {
     if ((!value.trim() && attachments.length === 0) || disabled || processing) return;
     onSend(
@@ -46,6 +114,7 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
     setAttachments([]);
     setNextTool(null); // one-shot
   };
+  useEffect(() => { handleSendRef.current = handleSend; });
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -105,7 +174,8 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
         try {
           setIsRecording(true);
           await voiceService.startRecording();
-          toast.message("\ud83c\udf99\ufe0f Enregistrement\u2026 rel\u00e2chez Ctrl pour transcrire");
+          startVisualizer();
+          startTimer();
         } catch (err: any) {
           setIsRecording(false);
           ctrlHoldingRef.current = false;
@@ -118,11 +188,20 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
         ctrlHoldingRef.current = false;
         if (isRecordingRef.current) {
           setIsRecording(false);
+          stopVisualizer();
+          stopTimer();
+          setTranscribing(true);
           try {
             const text = await voiceService.stopAndTranscribe();
-            if (text) setValue((v) => (v ? v + " " : "") + text);
+            if (text) {
+              // Ins\u00e8re puis envoie automatiquement
+              setValue(text);
+              setTimeout(() => handleSendRef.current(), 50);
+            }
           } catch (err) {
             console.error("Voice error:", err);
+          } finally {
+            setTranscribing(false);
           }
         }
       }
@@ -131,6 +210,8 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
       if (ctrlHoldingRef.current && isRecordingRef.current) {
         ctrlHoldingRef.current = false;
         setIsRecording(false);
+        stopVisualizer();
+        stopTimer();
         voiceService.stopAndTranscribe().catch(() => {});
       }
     };
@@ -186,6 +267,38 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
                 <Loader2 className="w-3 h-3 animate-spin" />
                 {t("processingFile")}
               </div>
+            )}
+          </div>
+        )}
+
+        {/* Overlay enregistrement / transcription */}
+        {(isRecording || transcribing) && (
+          <div className="mb-3 flex items-center gap-3 px-3 py-2.5 rounded-xl bg-primary/10 border border-primary/30">
+            {isRecording ? (
+              <>
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-destructive" />
+                </span>
+                <div className="flex items-end gap-[3px] h-8 flex-1">
+                  {waveform.map((v, i) => (
+                    <div
+                      key={i}
+                      className="w-1 rounded-full bg-gradient-to-t from-primary to-fuchsia-400 transition-all duration-75"
+                      style={{ height: `${Math.max(6, v * 100)}%` }}
+                    />
+                  ))}
+                </div>
+                <span className="text-sm font-mono tabular-nums text-foreground/90 min-w-[42px] text-right">
+                  {String(Math.floor(recordSeconds / 60)).padStart(2, "0")}:
+                  {String(recordSeconds % 60).padStart(2, "0")}
+                </span>
+              </>
+            ) : (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                <span className="text-sm text-foreground/90">Transcription…</span>
+              </>
             )}
           </div>
         )}
