@@ -27,6 +27,8 @@ function buildSystemPrompt(opts: {
   detailLevel?: string;
   customInstructions?: string;
   aiName?: string;
+  webSearch?: boolean;
+  forceTool?: string | null;
 }): string {
   const name = LANG_NAMES[opts.lang] || "français";
   const detail = DETAIL_STYLES[opts.detailLevel || "normal"] || DETAIL_STYLES.normal;
@@ -34,6 +36,14 @@ function buildSystemPrompt(opts: {
   const aiIdentity = `Tu t'appelles "${aiNameFinal}". Présente-toi sous ce nom si on te le demande.`;
   const userCustom = opts.customInstructions?.trim()
     ? `\n\nINSTRUCTIONS PERSONNALISÉES DE L'UTILISATEUR (à respecter en priorité tant qu'elles ne contredisent pas les règles ci-dessus) :\n${opts.customInstructions.trim()}`
+    : "";
+  const webHint = opts.webSearch
+    ? `\n\nMODE RECHERCHE WEB ACTIVÉ : utilise OBLIGATOIREMENT l'outil web_search pour appuyer ta réponse sur des sources web fraîches. Cite les sources dans ta réponse.`
+    : "";
+  const forceHint = opts.forceTool === "image"
+    ? `\n\nL'UTILISATEUR DEMANDE UNE IMAGE : appelle OBLIGATOIREMENT generate_image avec un prompt riche et descriptif (en anglais de préférence), puis ajoute une courte légende.`
+    : opts.forceTool === "code"
+    ? `\n\nMODE CODE : réponds avec du code propre et complet dans des blocs \`\`\`langue. Explique brièvement avant et après.`
     : "";
 
   return `Tu es un assistant IA analyste pour un dashboard.
@@ -43,18 +53,22 @@ IMPORTANT : tu réponds TOUJOURS en ${name}, en markdown. Even if the user write
 Tu disposes d'OUTILS pour récupérer des données réelles :
 - fetch_news : dernières actualités (catégories: à_la_une, tech, économie, international, all)
 - fetch_stocks : cours boursiers et performance 6 mois
+- web_search : recherche web instantanée (DuckDuckGo) pour faits récents, définitions, comparaisons
+- generate_image : génère une image à partir d'un prompt descriptif
 
 RÈGLES :
 1. Si l'utilisateur demande une vue d'ensemble / "que se passe-t-il" / "situation actuelle" → appelle fetch_news ET fetch_stocks.
 2. Question finance/marché → fetch_stocks.
 3. Question actu/politique/évènements → fetch_news.
-4. Sinon, réponds directement sans outils.
+4. Question nécessitant des faits récents/inconnus → web_search.
+5. Demande explicite d'image / illustration / dessin / photo → generate_image.
+6. Sinon, réponds directement sans outils.
 
 STYLE DE SYNTHÈSE :
 - ${detail}
 - Pas de titres lourds, pas de répétition des données déjà visibles dans les widgets.
 - Ton fluide, naturel.
-- Réponse OBLIGATOIREMENT en ${name}.${userCustom}`;
+- Réponse OBLIGATOIREMENT en ${name}.${webHint}${forceHint}${userCustom}`;
 }
 
 const TOOLS = [
@@ -90,6 +104,34 @@ const TOOLS = [
             description: "Liste optionnelle de tickers (symboles boursiers en majuscules)",
           },
         },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "web_search",
+      description: "Recherche web instantanée pour récupérer faits récents, définitions, comparaisons, actualités sur un sujet précis. Renvoie des extraits + sources.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Requête de recherche" },
+        },
+        required: ["query"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "generate_image",
+      description: "Génère une image à partir d'un prompt descriptif. Utiliser pour toute demande visuelle.",
+      parameters: {
+        type: "object",
+        properties: {
+          prompt: { type: "string", description: "Description détaillée de l'image (de préférence en anglais)" },
+        },
+        required: ["prompt"],
       },
     },
   },
@@ -130,6 +172,83 @@ async function callTool(name: string, args: any): Promise<{ widget: any; summary
     return { widget: { type: "stocks", items: stocks }, summary };
   }
 
+  if (name === "web_search") {
+    try {
+      const q = String(args.query || "").trim();
+      if (!q) return { widget: null, summary: "Requête vide" };
+      // DuckDuckGo Instant Answer + HTML scrape fallback
+      const ddg = await fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(q)}&format=json&no_html=1&skip_disambig=1`);
+      const dj = await ddg.json().catch(() => ({}));
+      const items: any[] = [];
+      if (dj.AbstractText && dj.AbstractURL) {
+        items.push({ title: dj.Heading || q, url: dj.AbstractURL, snippet: dj.AbstractText });
+      }
+      for (const t of (dj.RelatedTopics || []).slice(0, 8)) {
+        if (t.FirstURL && t.Text) {
+          items.push({ title: t.Text.split(" - ")[0].slice(0, 120), url: t.FirstURL, snippet: t.Text });
+        }
+      }
+      // Fallback: scrape HTML SERP if no instant answer
+      if (items.length < 3) {
+        try {
+          const html = await fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(q)}`, {
+            headers: { "User-Agent": "Mozilla/5.0" },
+          }).then((r) => r.text());
+          const re = /<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>([^<]+)<\/a>[\s\S]*?<a[^>]+class="result__snippet"[^>]*>([\s\S]*?)<\/a>/g;
+          let m: RegExpExecArray | null;
+          let count = 0;
+          while ((m = re.exec(html)) && count < 8) {
+            let url = m[1];
+            // unwrap duckduckgo redirect
+            const u = new URL(url, "https://duckduckgo.com");
+            const real = u.searchParams.get("uddg") || url;
+            const decoded = decodeURIComponent(real);
+            const title = m[2].replace(/<[^>]+>/g, "").trim();
+            const snippet = m[3].replace(/<[^>]+>/g, "").trim();
+            if (decoded.startsWith("http")) {
+              items.push({ title, url: decoded, snippet });
+              count++;
+            }
+          }
+        } catch (e) { console.error("ddg html error", e); }
+      }
+      const top = items.slice(0, 8);
+      const summary = top.map((it, i) => `${i + 1}. ${it.title} — ${it.snippet || ""} (${it.url})`).join("\n") || "Aucun résultat.";
+      return { widget: { type: "web_sources", items: top }, summary };
+    } catch (e) {
+      console.error("web_search error", e);
+      return { widget: null, summary: "Recherche web échouée." };
+    }
+  }
+
+  if (name === "generate_image") {
+    try {
+      const prompt = String(args.prompt || "").trim();
+      if (!prompt) return { widget: null, summary: "Prompt vide" };
+      const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash-image",
+          messages: [{ role: "user", content: prompt }],
+          modalities: ["image", "text"],
+        }),
+      });
+      if (!r.ok) {
+        const t = await r.text();
+        console.error("image gen error", r.status, t);
+        return { widget: null, summary: "Génération d'image échouée." };
+      }
+      const data = await r.json();
+      const url = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+      if (!url) return { widget: null, summary: "Aucune image renvoyée." };
+      return { widget: { type: "image", url, prompt }, summary: `Image générée pour : "${prompt}".` };
+    } catch (e) {
+      console.error("generate_image error", e);
+      return { widget: null, summary: "Erreur génération image." };
+    }
+  }
+
   return { widget: null, summary: "Outil inconnu" };
 }
 
@@ -137,12 +256,14 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages, lang, detailLevel, customInstructions, aiName, attachments } = await req.json();
+    const { messages, lang, detailLevel, customInstructions, aiName, attachments, webSearch, deepThink, forceTool } = await req.json();
     const SYSTEM_PROMPT = buildSystemPrompt({
       lang: typeof lang === "string" ? lang : "fr",
       detailLevel: typeof detailLevel === "string" ? detailLevel : "normal",
       customInstructions: typeof customInstructions === "string" ? customInstructions : "",
       aiName: typeof aiName === "string" ? aiName : "",
+      webSearch: !!webSearch,
+      forceTool: typeof forceTool === "string" ? forceTool : null,
     });
     if (!Array.isArray(messages)) {
       return new Response(JSON.stringify({ error: "messages must be an array" }), {
