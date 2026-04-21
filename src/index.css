@@ -94,24 +94,24 @@
     50% { transform: translateY(-8px); }
   }
   .animate-float { animation: float-slow 6s ease-in-out infinite; }
-  @keyframes halo-breathe {
-    0%, 100% { transform: scale(1); opacity: 0.7; filter: blur(60px) hue-rotate(0deg); }
-    50%      { transform: scale(1.15); opacity: 1; filter: blur(80px) hue-rotate(40deg); }
+  @keyframes galaxy-idle {
+    0% { transform: scale(1) rotate(0deg); }
+    50% { transform: scale(1.03) rotate(180deg); }
+    100% { transform: scale(1) rotate(360deg); }
   }
-  .animate-halo { animation: halo-breathe 6s ease-in-out infinite; }
-  @keyframes halo-listening {
-    0%, 100% { transform: scale(1); opacity: 0.85; filter: blur(60px) hue-rotate(0deg); }
-    50%      { transform: scale(1.25); opacity: 1; filter: blur(90px) hue-rotate(-30deg); }
+  @keyframes galaxy-listening {
+    0% { transform: scale(1.04) rotate(0deg); }
+    50% { transform: scale(1.14) rotate(180deg); }
+    100% { transform: scale(1.04) rotate(360deg); }
   }
-  .animate-halo-listening { animation: halo-listening 2.4s ease-in-out infinite; }
-  @keyframes halo-thinking {
-    0%   { transform: scale(1) rotate(0deg);   opacity: 0.8; filter: blur(70px) hue-rotate(0deg); }
-    100% { transform: scale(1) rotate(360deg); opacity: 0.8; filter: blur(70px) hue-rotate(360deg); }
+  @keyframes galaxy-thinking {
+    0% { transform: scale(1.02) rotate(0deg); }
+    50% { transform: scale(1.08) rotate(180deg); }
+    100% { transform: scale(1.02) rotate(360deg); }
   }
-  .animate-halo-thinking { animation: halo-thinking 8s linear infinite; }
-  @keyframes halo-speaking {
-    0%, 100% { transform: scale(1.05); opacity: 0.9; filter: blur(70px) hue-rotate(20deg); }
-    50%      { transform: scale(1.2);  opacity: 1;   filter: blur(90px) hue-rotate(-20deg); }
+  @keyframes galaxy-speaking {
+    0% { transform: scale(1.05) rotate(0deg); }
+    50% { transform: scale(1.12) rotate(180deg); }
+    100% { transform: scale(1.05) rotate(360deg); }
   }
-  .animate-halo-speaking { animation: halo-speaking 1.6s ease-in-out infinite; }
 }
