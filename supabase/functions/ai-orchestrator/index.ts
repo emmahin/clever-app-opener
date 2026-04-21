@@ -65,7 +65,7 @@ RÈGLES :
 4. Question nécessitant des faits récents/inconnus → web_search.
 5. Demande explicite d'image / illustration / dessin / photo → generate_image.
 6. Demande d'EXEMPLES VISUELS / MODÈLES / RÉFÉRENCES (ex: "models de jordans", "photos de chats", "exemples de logos minimalistes") → search_images.
-7. Demande de VIDÉO ou URL vidéo collée → search_videos (passe `url` si une URL est fournie, sinon `query`).
+7. Demande de VIDÉO ou URL vidéo collée → search_videos (passe le paramètre 'url' si une URL est fournie, sinon 'query').
 8. Sinon, réponds directement sans outils.
 
 DÉSAMBIGUÏSATION DU CONTEXTE (TRÈS IMPORTANT pour search_images et generate_image) :
@@ -185,7 +185,7 @@ const TOOLS = [
         "Cherche des vidéos YouTube à partir de mots-clés OU intègre une vidéo précise depuis son URL " +
         "(YouTube, Vimeo, TikTok, Instagram, X/Twitter, MP4 direct). " +
         "Renvoie un widget avec lecteur intégré + lien vers la source. " +
-        "Donne `url` si l'utilisateur a collé un lien vidéo, sinon `query` avec des mots-clés.",
+        "Donne le paramètre 'url' si l'utilisateur a collé un lien vidéo, sinon 'query' avec des mots-clés.",
       parameters: {
         type: "object",
         properties: {
