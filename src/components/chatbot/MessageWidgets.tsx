@@ -1,6 +1,6 @@
 import { ChatWidget, NewsItem, Stock, WebSource, GalleryImage } from "@/services";
 import { ExternalLink, Newspaper, TrendingUp, TrendingDown, BarChart3, Globe, ImageIcon, Images } from "lucide-react";
-import { Area, AreaChart, ResponsiveContainer, Tooltip } from "recharts";
+import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 export function MessageWidgets({ widgets }: { widgets: ChatWidget[] }) {
   if (!widgets?.length) return null;
@@ -187,15 +187,32 @@ function StocksWidget({ items }: { items: Stock[] }) {
                   </div>
                 </div>
               </div>
-              <div className="h-10 -mx-1">
+              <div className="h-28 -mx-1 mt-1">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={s.series}>
+                  <LineChart data={s.series} margin={{ top: 6, right: 12, left: 2, bottom: 2 }}>
                     <defs>
-                      <linearGradient id={`mw-${s.symbol}`} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={stroke} stopOpacity={0.5} />
-                        <stop offset="100%" stopColor={stroke} stopOpacity={0} />
-                      </linearGradient>
+                      <marker id={`mwAx-${s.symbol}`} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+                        <path d="M0,0 L10,5 L0,10 z" fill="hsl(250, 15%, 55%)" />
+                      </marker>
+                      <marker id={`mwAy-${s.symbol}`} viewBox="0 0 10 10" refX="5" refY="2" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+                        <path d="M0,10 L5,0 L10,10 z" fill="hsl(250, 15%, 55%)" />
+                      </marker>
                     </defs>
+                    <CartesianGrid stroke="hsl(250, 15%, 45% / 0.22)" strokeWidth={0.5} />
+                    <XAxis
+                      dataKey="t"
+                      tick={{ fill: "hsl(250, 15%, 70%)", fontSize: 8 }}
+                      tickLine={false}
+                      axisLine={{ stroke: "hsl(250, 15%, 55%)", strokeWidth: 1, markerEnd: `url(#mwAx-${s.symbol})` }}
+                      interval="preserveStartEnd"
+                    />
+                    <YAxis
+                      tick={{ fill: "hsl(250, 15%, 70%)", fontSize: 8 }}
+                      tickLine={false}
+                      axisLine={{ stroke: "hsl(250, 15%, 55%)", strokeWidth: 1, markerEnd: `url(#mwAy-${s.symbol})` }}
+                      width={24}
+                      domain={["auto", "auto"]}
+                    />
                     <Tooltip
                       contentStyle={{
                         background: "hsl(250, 35%, 9%)",
@@ -206,8 +223,8 @@ function StocksWidget({ items }: { items: Stock[] }) {
                       labelStyle={{ color: "hsl(250, 15%, 65%)" }}
                       formatter={(v: number) => [v.toFixed(2), "Cours"]}
                     />
-                    <Area type="monotone" dataKey="close" stroke={stroke} strokeWidth={1.5} fill={`url(#mw-${s.symbol})`} isAnimationActive={false} />
-                  </AreaChart>
+                    <Line type="monotone" dataKey="close" stroke={stroke} strokeWidth={2} dot={{ fill: stroke, stroke: stroke, r: 2.5 }} activeDot={{ r: 3.5 }} isAnimationActive={false} />
+                  </LineChart>
                 </ResponsiveContainer>
               </div>
             </a>
