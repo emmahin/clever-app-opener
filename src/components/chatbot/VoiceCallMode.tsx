@@ -4,6 +4,7 @@ import { voiceService, chatService } from "@/services";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useSettings } from "@/contexts/SettingsProvider";
 import { toast } from "sonner";
+import galaxyOrb from "@/assets/voice-orb-galaxy.png";
 
 type Phase = "idle" | "listening" | "thinking" | "speaking";
 
