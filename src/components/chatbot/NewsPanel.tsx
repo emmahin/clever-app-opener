@@ -17,7 +17,7 @@ export function NewsPanel() {
     <div className="w-80 glass rounded-2xl p-4 h-[calc(100vh-200px)] overflow-y-auto">
       <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
         <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-        Latest AI News
+        Dernières actus
       </h3>
 
       {loading ? (
