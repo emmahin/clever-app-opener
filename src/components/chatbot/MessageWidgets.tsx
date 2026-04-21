@@ -1,5 +1,5 @@
-import { ChatWidget, NewsItem, Stock, WebSource } from "@/services";
-import { ExternalLink, Newspaper, TrendingUp, TrendingDown, BarChart3, Globe, ImageIcon } from "lucide-react";
+import { ChatWidget, NewsItem, Stock, WebSource, GalleryImage } from "@/services";
+import { ExternalLink, Newspaper, TrendingUp, TrendingDown, BarChart3, Globe, ImageIcon, Images } from "lucide-react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip } from "recharts";
 
 export function MessageWidgets({ widgets }: { widgets: ChatWidget[] }) {
@@ -10,9 +10,53 @@ export function MessageWidgets({ widgets }: { widgets: ChatWidget[] }) {
         if (w.type === "news") return <NewsWidget key={i} items={w.items} />;
         if (w.type === "stocks") return <StocksWidget key={i} items={w.items} />;
         if (w.type === "image") return <ImageWidget key={i} url={w.url} prompt={w.prompt} />;
+        if (w.type === "image_gallery") return <ImageGalleryWidget key={i} query={w.query} items={w.items} />;
         if (w.type === "web_sources") return <WebSourcesWidget key={i} items={w.items} />;
         return null;
       })}
+    </div>
+  );
+}
+
+function ImageGalleryWidget({ query, items }: { query: string; items: GalleryImage[] }) {
+  if (!items?.length) {
+    return (
+      <div className="rounded-xl border border-border/40 bg-white/5 p-3 text-xs text-muted-foreground">
+        Aucune image trouvée pour « {query} ».
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-xl border border-border/40 bg-white/5 p-3">
+      <div className="text-xs font-semibold text-muted-foreground mb-3 flex items-center gap-2">
+        <Images className="w-3.5 h-3.5 text-primary" />
+        GALERIE · {items.length} image(s) — « {query} »
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+        {items.map((img) => (
+          <a
+            key={img.id}
+            href={img.page || img.full}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group relative aspect-square rounded-lg overflow-hidden bg-black/20 border border-border/30 hover:border-primary/50 transition-all"
+          >
+            <img
+              src={img.thumb}
+              alt={img.tags || query}
+              loading="lazy"
+              referrerPolicy="no-referrer"
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            />
+            {img.tags && (
+              <div className="absolute inset-x-0 bottom-0 p-1.5 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+                <p className="text-[9px] text-white/90 line-clamp-1">{img.tags}</p>
+              </div>
+            )}
+          </a>
+        ))}
+      </div>
+      <p className="text-[10px] text-muted-foreground/60 mt-2">Source : Pixabay · libre de droits</p>
     </div>
   );
 }

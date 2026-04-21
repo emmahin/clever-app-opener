@@ -4,6 +4,7 @@ export type ChatWidget =
   | { type: "news"; items: NewsItem[] }
   | { type: "stocks"; items: Stock[] }
   | { type: "image"; url: string; prompt: string }
+  | { type: "image_gallery"; query: string; items: GalleryImage[] }
   | { type: "web_sources"; items: WebSource[] };
 
 export interface ChatMessage {
@@ -29,6 +30,17 @@ export interface WebSource {
   title: string;
   url: string;
   snippet?: string;
+}
+
+export interface GalleryImage {
+  id: string;
+  thumb: string;
+  full: string;
+  page?: string;
+  tags?: string;
+  user?: string;
+  width?: number;
+  height?: number;
 }
 
 export interface StockPoint {
