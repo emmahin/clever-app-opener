@@ -16,7 +16,7 @@ export function Sidebar() {
   const { pathname } = useLocation();
   return (
     <aside className="fixed left-0 top-0 h-full w-[72px] flex flex-col items-center py-4 z-50"
-      style={{ background: "linear-gradient(180deg, hsl(280, 70%, 45%), hsl(315, 75%, 55%))" }}>
+      style={{ background: "linear-gradient(180deg, hsl(0, 0%, 4%), hsl(275, 85%, 45%))" }}>
       {/* Logo */}
       <div className="mb-6 w-10 h-10 rounded-xl overflow-hidden bg-black/40 flex items-center justify-center ring-1 ring-white/20 shadow-[0_0_20px_rgba(168,85,247,0.5)]">
         <img src={nexLogo} alt="Nex" className="w-full h-full object-cover" />
