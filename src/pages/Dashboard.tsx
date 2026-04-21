@@ -2,17 +2,12 @@ import { Sidebar } from "@/components/chatbot/Sidebar";
 import { Header } from "@/components/chatbot/Header";
 import { NewsPanel } from "@/components/chatbot/NewsPanel";
 import { Newspaper } from "lucide-react";
-import { FloatingProjectsBar } from "@/components/chatbot/FloatingProjectsBar";
 
 export default function Dashboard() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Sidebar />
       <Header />
-      <FloatingProjectsBar
-        category="dashboard"
-        getSnapshot={() => ({ savedAt: Date.now() })}
-      />
       <main className="ml-[72px] pt-14 min-h-screen">
         <div className="px-6 py-4">
           <h1 className="text-2xl font-semibold flex items-center gap-2">
