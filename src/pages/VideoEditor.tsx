@@ -9,6 +9,9 @@ import {
   Youtube, Smartphone, Volume2, FileVideo, FileAudio,
 } from "lucide-react";
 import { toast } from "sonner";
+import { Switch } from "@/components/ui/switch";
+import { parseLocalCommand } from "@/lib/localVideoEditor";
+import { supabase } from "@/integrations/supabase/client";
 
 /* ============================== Types ============================== */
 
