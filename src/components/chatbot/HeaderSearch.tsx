@@ -9,13 +9,8 @@ import {
   X,
 } from "lucide-react";
 import { newsService, appLauncherService, NewsItem, AppDescriptor, ChatMessage } from "@/services";
-
-const SUGGESTIONS = [
-  "Analyse les tendances du marché aujourd'hui",
-  "Résume les dernières actus tech & IA",
-  "Quelle est la situation actuelle du monde ?",
-  "Montre-moi les performances boursières",
-];
+import { useLanguage } from "@/i18n/LanguageProvider";
+import { useTranslatedNews } from "@/hooks/useTranslatedNews";
 
 interface HeaderSearchProps {
   messages: ChatMessage[];
@@ -24,9 +19,17 @@ interface HeaderSearchProps {
 }
 
 export function HeaderSearch({ messages, onJumpToMessage, onSuggestion }: HeaderSearchProps) {
+  const { t } = useLanguage();
+  const SUGGESTIONS = [
+    t("suggestion1"),
+    t("suggestion2"),
+    t("suggestion3"),
+    t("suggestion4"),
+  ];
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
-  const [news, setNews] = useState<NewsItem[]>([]);
+  const [rawNews, setRawNews] = useState<NewsItem[]>([]);
+  const { news } = useTranslatedNews(rawNews);
   const [apps, setApps] = useState<AppDescriptor[]>([]);
   const wrapRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -34,9 +37,9 @@ export function HeaderSearch({ messages, onJumpToMessage, onSuggestion }: Header
   // Charger une fois (au focus)
   useEffect(() => {
     if (!open) return;
-    if (news.length === 0) newsService.getLatest().then(setNews);
+    if (rawNews.length === 0) newsService.getLatest().then(setRawNews);
     if (apps.length === 0) appLauncherService.listApps().then(setApps);
-  }, [open, news.length, apps.length]);
+  }, [open, rawNews.length, apps.length]);
 
   // Fermer au clic extérieur
   useEffect(() => {
@@ -105,7 +108,7 @@ export function HeaderSearch({ messages, onJumpToMessage, onSuggestion }: Header
           setOpen(true);
         }}
         onFocus={() => setOpen(true)}
-        placeholder="Rechercher conversations, actus, apps…"
+        placeholder={t("searchPlaceholder")}
         className="w-full h-9 pl-10 pr-16 rounded-lg bg-white/10 border border-white/20 text-white text-sm placeholder:text-white/50 focus:outline-none focus:bg-white/15 transition-all"
       />
       {query ? (
@@ -126,7 +129,7 @@ export function HeaderSearch({ messages, onJumpToMessage, onSuggestion }: Header
         <div className="absolute left-0 right-0 mt-2 max-h-[70vh] overflow-y-auto rounded-xl border border-border/60 bg-popover text-popover-foreground shadow-2xl z-50">
           {/* Suggestions (champ vide) */}
           {!q && onSuggestion && (
-            <Section title="Suggestions">
+            <Section title={t("suggestions")}>
               {SUGGESTIONS.map((s) => (
                 <Row
                   key={s}
@@ -144,7 +147,7 @@ export function HeaderSearch({ messages, onJumpToMessage, onSuggestion }: Header
 
           {/* Conversations */}
           {matchedMessages.length > 0 && (
-            <Section title="Conversations">
+            <Section title={t("conversations")}>
               {matchedMessages.map((m) => (
                 <Row
                   key={m.id}
@@ -155,7 +158,7 @@ export function HeaderSearch({ messages, onJumpToMessage, onSuggestion }: Header
                   }}
                 >
                   <span className="text-xs opacity-60 mr-2">
-                    {m.role === "user" ? "Vous" : "IA"}
+                    {m.role === "user" ? t("you") : t("ai")}
                   </span>
                   <span className="truncate">{m.content.slice(0, 100)}</span>
                 </Row>
@@ -165,7 +168,7 @@ export function HeaderSearch({ messages, onJumpToMessage, onSuggestion }: Header
 
           {/* Actualités */}
           {matchedNews.length > 0 && (
-            <Section title="Actualités">
+            <Section title={t("news")}>
               {matchedNews.map((n) => (
                 <Row
                   key={n.id}
@@ -179,7 +182,7 @@ export function HeaderSearch({ messages, onJumpToMessage, onSuggestion }: Header
                   <div className="flex-1 min-w-0">
                     <div className="truncate text-sm">{n.title}</div>
                     <div className="text-xs opacity-60 truncate">
-                      {n.source} · {n.category || "Actualités"}
+                      {n.source} · {n.category || t("news")}
                     </div>
                   </div>
                 </Row>
@@ -189,12 +192,12 @@ export function HeaderSearch({ messages, onJumpToMessage, onSuggestion }: Header
 
           {/* Apps */}
           {matchedApps.length > 0 && (
-            <Section title="Applications (Windows)">
+            <Section title={t("apps")}>
               {matchedApps.map((a) => (
                 <Row
                   key={a.id}
                   icon={<AppWindow className="w-4 h-4 opacity-60" />}
-                  trailing={<span className="text-xs opacity-50">Lancer</span>}
+                  trailing={<span className="text-xs opacity-50">{t("launch")}</span>}
                   onClick={async () => {
                     const res = await appLauncherService.launchByName(a.name);
                     console.info("[launch]", res.message);
@@ -209,7 +212,7 @@ export function HeaderSearch({ messages, onJumpToMessage, onSuggestion }: Header
 
           {q && totalResults === 0 && (
             <div className="px-4 py-6 text-center text-sm text-muted-foreground">
-              Aucun résultat pour « {query} »
+              {t("noResultsFor")} « {query} »
             </div>
           )}
         </div>
