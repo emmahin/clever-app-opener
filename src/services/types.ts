@@ -2,7 +2,9 @@ export type ChatRole = "user" | "assistant" | "system";
 
 export type ChatWidget =
   | { type: "news"; items: NewsItem[] }
-  | { type: "stocks"; items: Stock[] };
+  | { type: "stocks"; items: Stock[] }
+  | { type: "image"; url: string; prompt: string }
+  | { type: "web_sources"; items: WebSource[] };
 
 export interface ChatMessage {
   id: string;
@@ -21,6 +23,12 @@ export interface NewsItem {
   summary?: string;
   image?: string;
   category?: string;
+}
+
+export interface WebSource {
+  title: string;
+  url: string;
+  snippet?: string;
 }
 
 export interface StockPoint {
