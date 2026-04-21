@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Sidebar } from "@/components/chatbot/Sidebar";
 import { Header } from "@/components/chatbot/Header";
+import { FloatingProjectsBar } from "@/components/chatbot/FloatingProjectsBar";
 import {
   Clapperboard, Upload, Play, Pause, Scissors, Trash2, Type, Download,
   ChevronLeft, ChevronRight, Loader2, Music, Sparkles, Send,
@@ -402,6 +403,10 @@ export default function VideoEditor() {
     <div className="min-h-screen bg-background text-foreground">
       <Sidebar />
       <Header />
+      <FloatingProjectsBar
+        category="video"
+        getSnapshot={() => ({ savedAt: Date.now(), preset })}
+      />
       <main className="ml-[72px] pt-14 min-h-screen flex flex-col">
         {/* Top bar */}
         <div className="px-6 py-3 flex items-center justify-between border-b border-border/40 flex-wrap gap-3">
