@@ -175,7 +175,7 @@ export default function Index() {
           {/* Input area */}
           <div className="absolute bottom-0 left-0 right-0 px-6 pb-6 bg-gradient-to-t from-background via-background to-transparent">
             <div className="max-w-3xl mx-auto">
-              <ChatInput onSend={sendMessage} disabled={isLoading} />
+              <ChatInput onSend={sendMessage} disabled={isLoading} onOpenVoiceCall={() => setVoiceCallOpen(true)} />
 
               {/* Suggestions */}
               <div className="mt-4">
@@ -195,6 +195,7 @@ export default function Index() {
         </div>
 
       </main>
+      <VoiceCallMode open={voiceCallOpen} onClose={() => setVoiceCallOpen(false)} />
     </div>
   );
 }
