@@ -1,6 +1,5 @@
 import { Bell, User, Plus } from "lucide-react";
 import { ReactNode } from "react";
-import { LanguageSelector } from "./LanguageSelector";
 import { useLanguage } from "@/i18n/LanguageProvider";
 
 interface HeaderProps {
@@ -18,7 +17,6 @@ export function Header({ onNewChat, searchSlot }: HeaderProps = {}) {
 
       {/* Right actions */}
       <div className="flex items-center gap-3">
-        <LanguageSelector />
         {onNewChat && (
           <button
             onClick={onNewChat}
