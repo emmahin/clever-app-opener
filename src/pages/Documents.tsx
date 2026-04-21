@@ -135,6 +135,8 @@ export default function Documents() {
   const [explaining, setExplaining] = useState(false);
   const [customRulesText, setCustomRulesText] = useState("");
   const [showRules, setShowRules] = useState(false);
+  const [chatInput, setChatInput] = useState("");
+  const [interpreting, setInterpreting] = useState(false);
   // Chat de récap : messages échangés entre l'utilisateur et le "trieur"
   type ChatMsg = { role: "user" | "assistant"; content: string; ts: number };
   const [chat, setChat] = useState<ChatMsg[]>([
@@ -171,24 +173,15 @@ export default function Documents() {
     toast.success(`${arr.length} fichiers importés`);
   };
 
-  const handleOrganize = async () => {
-    if (!files.length) {
-      toast.error("Importez d'abord un dossier");
-      return;
-    }
+  /** Cœur du tri : applique des règles + l'option année et lance l'explication IA. */
+  const runOrganize = async (customRules: any[], year: boolean) => {
+    if (!files.length) return;
     setOrganizing(true);
     setMapping(null);
     const paths = files.map((f) => (f as any).webkitRelativePath || f.name);
-    const customRules = parseCustomRules(customRulesText);
-    pushChat({
-      role: "user",
-      content:
-        `Organise mes ${paths.length} fichiers${groupByYear ? " (regroupés par année)" : ""}` +
-        (customRules.length ? ` avec ${customRules.length} règle(s) perso.` : "."),
-    });
     try {
       // ⚡ Tri 100% local — aucun token consommé pour le tri lui-même
-      const result = organizeLocally(paths, { groupByYear, useSubcategories: true, customRules });
+      const result = organizeLocally(paths, { groupByYear: year, useSubcategories: true, customRules });
       setMapping(result.mapping);
       setExplanation(result.explanation);
       setNewRootName(result.rootName);
@@ -210,7 +203,7 @@ export default function Documents() {
         const { data, error } = await supabase.functions.invoke("explain-organization", {
           body: {
             stats: result.stats,
-            options: { groupByYear, customRulesCount: customRules.length },
+            options: { groupByYear: year, customRulesCount: customRules.length },
           },
         });
         if (error) throw error;
@@ -230,6 +223,91 @@ export default function Documents() {
       toast.error(e.message || "Erreur d'organisation");
     } finally {
       setOrganizing(false);
+    }
+  };
+
+  const handleOrganize = async () => {
+    if (!files.length) {
+      toast.error("Importez d'abord un dossier");
+      return;
+    }
+    const customRules = parseCustomRules(customRulesText);
+    pushChat({
+      role: "user",
+      content:
+        `Organise mes ${files.length} fichiers${groupByYear ? " (regroupés par année)" : ""}` +
+        (customRules.length ? ` avec ${customRules.length} règle(s) perso.` : "."),
+    });
+    await runOrganize(customRules, groupByYear);
+  };
+
+  /** Convertit une consigne en français en règles + lance l'organisation. */
+  const handleNaturalLanguage = async () => {
+    const prompt = chatInput.trim();
+    if (!prompt) return;
+    if (!files.length) {
+      toast.error("Importez d'abord un dossier");
+      return;
+    }
+    setChatInput("");
+    pushChat({ role: "user", content: prompt });
+    setInterpreting(true);
+    try {
+      // Extensions uniques (max 50) — contexte minimal pour l'IA
+      const extSet = new Set<string>();
+      for (const f of files) {
+        const n = (f as any).webkitRelativePath || f.name;
+        const i = n.lastIndexOf(".");
+        if (i > 0) extSet.add(n.slice(i + 1).toLowerCase());
+      }
+      const { data, error } = await supabase.functions.invoke("rules-from-prompt", {
+        body: { prompt, extensions: Array.from(extSet).slice(0, 50) },
+      });
+      if (error) throw error;
+
+      const rules = Array.isArray(data?.rules) ? data.rules : [];
+      const wantYear = !!data?.groupByYear;
+      const summary = data?.summary || "Compris.";
+
+      pushChat({
+        role: "assistant",
+        content:
+          `🧠 **J'ai compris :** ${summary}\n\n` +
+          (rules.length
+            ? `📋 **${rules.length} règle(s) générée(s)** :\n` +
+              rules
+                .map((r: any) => {
+                  const crit: string[] = [];
+                  if (r.keywords?.length) crit.push(r.keywords.join(", "));
+                  if (r.extensions?.length) crit.push(r.extensions.map((e: string) => "." + e).join(", "));
+                  return `• ${crit.join(" + ") || "(aucun critère)"} → **${r.target}**`;
+                })
+                .join("\n")
+            : "_Aucune règle spécifique — j'utilise le tri par défaut._") +
+          (wantYear ? "\n\n📅 Regroupement par année activé." : ""),
+      });
+
+      // Synchronise l'éditeur de règles + option année
+      const asText = rules
+        .map((r: any) => {
+          const left: string[] = [];
+          if (r.keywords?.length) left.push(r.keywords.join(", "));
+          if (r.extensions?.length) left.push(r.extensions.map((e: string) => "." + e).join(", "));
+          return `${left.join(" + ")} -> ${r.target}`;
+        })
+        .join("\n");
+      setCustomRulesText(asText);
+      if (wantYear) setGroupByYear(true);
+
+      // Lance le tri local immédiatement avec ces règles
+      await runOrganize(rules, wantYear || groupByYear);
+    } catch (e: any) {
+      pushChat({
+        role: "assistant",
+        content: `❌ Désolé, je n'ai pas pu interpréter (${e.message || "erreur"}). Essaye d'écrire la consigne autrement.`,
+      });
+    } finally {
+      setInterpreting(false);
     }
   };
 
@@ -481,6 +559,40 @@ export default function Documents() {
             <Cloud className="w-3 h-3 text-primary ml-1" />
             Seule l'explication est rédigée par l'IA (~150 tokens).
             {explaining && <span className="ml-2 italic text-primary">L'IA rédige son explication…</span>}
+          </p>
+
+          {/* Champ de chat : consigne en français */}
+          <div className="mt-4 flex items-end gap-2">
+            <div className="flex-1 relative">
+              <Textarea
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleNaturalLanguage();
+                  }
+                }}
+                placeholder={
+                  files.length
+                    ? "Dis-moi en français comment organiser… (ex: « range mes factures par année et mets les photos dans un dossier Médias »)"
+                    : "Importez d'abord un dossier pour activer le chat."
+                }
+                disabled={!files.length || interpreting || organizing}
+                className="min-h-[60px] pr-12 resize-none text-sm"
+              />
+            </div>
+            <Button
+              onClick={handleNaturalLanguage}
+              disabled={!chatInput.trim() || !files.length || interpreting || organizing}
+              className="gap-1 h-[60px]"
+            >
+              {interpreting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              Envoyer
+            </Button>
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-1">
+            💬 L'IA traduit ta phrase en règles (~200 tokens), puis le logiciel local trie. Tes noms de fichiers ne sont jamais envoyés.
           </p>
         </div>
       </main>
