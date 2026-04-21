@@ -191,17 +191,17 @@ export function WhatsAppSendWidget({
     );
   }
 
-  // === No matching contact ===
-  if (matches.length === 0) {
+  // === No matching contact at all (not even fuzzy) ===
+  if (ranked.length === 0) {
     return (
       <div className="rounded-xl border border-border/40 bg-white/5 p-4">
         <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-3">
-          <MessageCircle className="w-3.5 h-3.5 text-primary" />
-          WHATSAPP — Contact introuvable
+          <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+          WHATSAPP — Aucun contact trouvé
         </div>
         <p className="text-sm text-foreground mb-3">
-          Aucun contact "<span className="text-primary font-medium">{contact_name}</span>" dans ton WhatsApp.
-          Tu peux le créer rapidement :
+          Aucun contact ne correspond à "<span className="text-primary font-medium">{contact_name}</span>" dans ton WhatsApp.
+          Vérifie l'orthographe, ou crée le contact si c'est une nouvelle personne.
         </p>
         <div className="rounded-lg bg-background/40 border border-border/30 p-3 mb-3">
           <p className="text-[11px] text-muted-foreground mb-1">Message à envoyer</p>
@@ -238,38 +238,110 @@ export function WhatsAppSendWidget({
     );
   }
 
-  const selected = matches.find((c) => c.id === selectedId) || matches[0];
+  const selected =
+    ranked.find((r) => r.contact.id === selectedId)?.contact ?? ranked[0].contact;
 
-  // === Match(es) found — preview & confirm ===
-  return (
-    <div className="rounded-xl border border-primary/40 bg-gradient-to-br from-purple-900/30 to-fuchsia-900/20 p-4">
-      <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-3">
-        <MessageCircle className="w-3.5 h-3.5 text-primary" />
-        WHATSAPP — Confirmer l'envoi
-      </div>
+  const kindLabel = (k: Scored["kind"]) =>
+    k === "exact" ? "Exact" : k === "starts" ? "Commence par" : k === "contains" ? "Contient" : k === "token" ? "Prénom/nom" : "Approximatif";
 
-      {matches.length > 1 && (
-        <div className="mb-3">
-          <p className="text-[11px] text-muted-foreground mb-1.5">Plusieurs contacts trouvés — choisis :</p>
-          <div className="flex flex-wrap gap-1.5">
-            {matches.map((c) => (
+  // === STEP 1: SELECT — always shown when match isn't a single exact one ===
+  if (step === "select") {
+    return (
+      <div className="rounded-xl border border-primary/40 bg-gradient-to-br from-purple-900/30 to-fuchsia-900/20 p-4">
+        <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-3">
+          <Users className="w-3.5 h-3.5 text-primary" />
+          WHATSAPP — {hasMultipleStrong ? "Plusieurs contacts similaires" : "Vérifie le contact"}
+        </div>
+        <p className="text-sm text-foreground mb-3">
+          Tu as demandé d'écrire à <span className="font-semibold text-primary">{contact_name}</span>.
+          {!exact && " Aucun match exact trouvé — choisis le bon contact :"}
+          {exact && hasMultipleStrong && " Confirme lequel :"}
+        </p>
+
+        <div className="space-y-1.5 mb-3 max-h-64 overflow-y-auto pr-1">
+          {ranked.map((r) => {
+            const isSel = r.contact.id === selected.id;
+            return (
               <button
-                key={c.id}
-                onClick={() => setSelectedId(c.id)}
-                className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
-                  selected.id === c.id
-                    ? "bg-primary/20 border-primary text-foreground"
-                    : "bg-background/40 border-border/40 text-muted-foreground hover:border-primary/40"
+                key={r.contact.id}
+                onClick={() => setSelectedId(r.contact.id)}
+                className={`w-full flex items-center gap-3 p-2.5 rounded-lg border text-left transition-colors ${
+                  isSel
+                    ? "bg-primary/15 border-primary"
+                    : "bg-background/40 border-border/40 hover:border-primary/40"
                 }`}
               >
-                {c.name}
+                <div className={`w-9 h-9 rounded-full bg-gradient-to-br ${r.contact.avatarColor} flex items-center justify-center text-white text-xs font-semibold shrink-0`}>
+                  {initials(r.contact.name)}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-foreground truncate">{r.contact.name}</p>
+                  <p className="text-[11px] text-muted-foreground truncate">{r.contact.phone}</p>
+                </div>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 ${
+                  r.kind === "exact" ? "bg-emerald-500/20 text-emerald-300" : "bg-muted/40 text-muted-foreground"
+                }`}>
+                  {kindLabel(r.kind)}
+                </span>
               </button>
-            ))}
-          </div>
+            );
+          })}
         </div>
-      )}
 
-      <div className="flex items-center gap-3 mb-3">
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            onClick={() => { setConfirmChecked(false); setStep("confirm"); }}
+            disabled={!selected}
+            className="flex-1 bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 text-white"
+          >
+            Continuer avec {selected.name.split(" ")[0]}
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setShowCreate(true)}>
+            <UserPlus className="w-3.5 h-3.5 mr-1" /> Nouveau
+          </Button>
+        </div>
+
+        {showCreate && (
+          <div className="mt-3 p-3 rounded-lg bg-background/40 border border-border/30 space-y-2">
+            <p className="text-[11px] text-muted-foreground">Créer "{contact_name}" comme nouveau contact</p>
+            <Input
+              placeholder="Numéro de téléphone (+33...)"
+              value={newPhone}
+              onChange={(e) => setNewPhone(e.target.value)}
+              className="bg-background/40"
+            />
+            <div className="flex gap-2">
+              <Button size="sm" onClick={handleCreateAndSend} className="flex-1">
+                <Send className="w-3.5 h-3.5 mr-1" /> Créer & envoyer
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setShowCreate(false)}>Annuler</Button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // === STEP 2: CONFIRM — final validation before sending ===
+  return (
+    <div className="rounded-xl border border-primary/40 bg-gradient-to-br from-purple-900/30 to-fuchsia-900/20 p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+          <Check className="w-3.5 h-3.5 text-primary" />
+          WHATSAPP — Confirmer l'envoi
+        </div>
+        {ranked.length > 1 && (
+          <button
+            onClick={() => setStep("select")}
+            className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1"
+          >
+            <ArrowLeft className="w-3 h-3" /> Changer
+          </button>
+        )}
+      </div>
+
+      <div className="flex items-center gap-3 mb-3 p-2.5 rounded-lg bg-background/40 border border-primary/20">
         <div className={`w-11 h-11 rounded-full bg-gradient-to-br ${selected.avatarColor} flex items-center justify-center text-white font-semibold shrink-0`}>
           {initials(selected.name)}
         </div>
@@ -289,19 +361,32 @@ export function WhatsAppSendWidget({
         />
       ) : (
         <div
-          className="rounded-lg bg-gradient-to-br from-purple-600/30 to-fuchsia-600/20 border border-primary/20 p-3 mb-3 cursor-text"
+          className="rounded-lg bg-gradient-to-br from-purple-600/30 to-fuchsia-600/20 border border-primary/20 p-3 mb-1 cursor-text"
           onClick={() => setEditing(true)}
         >
+          <p className="text-[10px] text-muted-foreground mb-1">MESSAGE</p>
           <p className="text-sm text-foreground whitespace-pre-wrap">{draft}</p>
         </div>
       )}
+
+      <label className="flex items-start gap-2 mt-3 cursor-pointer select-none">
+        <input
+          type="checkbox"
+          checked={confirmChecked}
+          onChange={(e) => setConfirmChecked(e.target.checked)}
+          className="mt-0.5 accent-primary"
+        />
+        <span className="text-xs text-muted-foreground leading-snug">
+          Je confirme envoyer ce message à <span className="text-foreground font-medium">{selected.name}</span> ({selected.phone}).
+        </span>
+      </label>
 
       <div className="flex gap-2 mt-3">
         <Button
           size="sm"
           onClick={() => sendTo(selected)}
-          disabled={!draft.trim()}
-          className="flex-1 bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 text-white"
+          disabled={!draft.trim() || !confirmChecked}
+          className="flex-1 bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 text-white disabled:opacity-50"
         >
           <Send className="w-3.5 h-3.5 mr-1.5" /> Envoyer
         </Button>
