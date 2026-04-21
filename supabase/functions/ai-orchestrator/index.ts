@@ -287,6 +287,68 @@ TOOLS.push({
   },
 });
 
+TOOLS.push({
+  type: "function",
+  function: {
+    name: "add_schedule_event",
+    description:
+      "Ajoute un événement à l'emploi du temps de l'utilisateur (rendez-vous, cours, réunion, sport, etc.). " +
+      "Calcule start_iso en ISO 8601 à partir de la date courante. " +
+      "Si la durée est précisée, fournis aussi end_iso.",
+    parameters: {
+      type: "object",
+      properties: {
+        title: { type: "string", description: "Titre court de l'événement (ex: 'Dentiste', 'Réunion projet X')." },
+        start_iso: { type: "string", description: "Début au format ISO 8601 (ex: '2026-04-22T14:30:00')." },
+        end_iso: { type: "string", description: "Fin au format ISO 8601 (optionnel)." },
+        location: { type: "string", description: "Lieu (optionnel)." },
+        notes: { type: "string", description: "Notes / détails (optionnel)." },
+      },
+      required: ["title", "start_iso"],
+    },
+  },
+});
+
+TOOLS.push({
+  type: "function",
+  function: {
+    name: "list_schedule",
+    description:
+      "Affiche l'emploi du temps de l'utilisateur sous forme de carte. " +
+      "Choisis la plage selon ce que demande l'utilisateur. " +
+      "Pour répondre à une question analytique (libre ?, conflit ?, combien ?), n'appelle PAS cet outil : " +
+      "utilise directement le bloc EMPLOI DU TEMPS ACTUEL fourni dans le contexte.",
+    parameters: {
+      type: "object",
+      properties: {
+        range: {
+          type: "string",
+          enum: ["today", "tomorrow", "week", "month", "all"],
+          description: "Plage temporelle à afficher.",
+        },
+      },
+      required: ["range"],
+    },
+  },
+});
+
+TOOLS.push({
+  type: "function",
+  function: {
+    name: "remove_schedule_event",
+    description:
+      "Supprime un ou plusieurs événements de l'emploi du temps dont le titre contient title_query (insensible à la casse). " +
+      "Utilise un mot-clé court et discriminant (ex: 'dentiste', 'Léa').",
+    parameters: {
+      type: "object",
+      properties: {
+        title_query: { type: "string", description: "Mot-clé contenu dans le titre de l'événement à supprimer." },
+      },
+      required: ["title_query"],
+    },
+  },
+});
+
 async function callTool(name: string, args: any): Promise<{ widget: any; summary: string }> {
   const headers = { Authorization: `Bearer ${ANON}` };
 
