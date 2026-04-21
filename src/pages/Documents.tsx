@@ -130,9 +130,8 @@ export default function Documents() {
   const [mapping, setMapping] = useState<{ from: string; to: string }[] | null>(null);
   const [explanation, setExplanation] = useState<string>("");
   const [newRootName, setNewRootName] = useState("Dossier-Reorganise");
-  // Mode de tri : "local" (gratuit, 0 token) ou "ai" (Lovable AI)
-  const [engine, setEngine] = useState<"local" | "ai">("local");
   const [groupByYear, setGroupByYear] = useState(false);
+  const [explaining, setExplaining] = useState(false);
   // Chat de récap : messages échangés entre l'utilisateur et le "trieur"
   type ChatMsg = { role: "user" | "assistant"; content: string; ts: number };
   const [chat, setChat] = useState<ChatMsg[]>([
@@ -179,46 +178,43 @@ export default function Documents() {
     const paths = files.map((f) => (f as any).webkitRelativePath || f.name);
     pushChat({
       role: "user",
-      content: `Organise mes ${paths.length} fichiers (mode : ${engine === "local" ? "local gratuit" : "IA"}${groupByYear ? ", regroupé par année" : ""}).`,
+      content: `Organise mes ${paths.length} fichiers${groupByYear ? " (regroupés par année)" : ""}.`,
     });
     try {
-      if (engine === "local") {
-        // ⚡ 100% local — aucun token consommé
-        const result = organizeLocally(paths, { groupByYear, useSubcategories: true });
-        setMapping(result.mapping);
-        setExplanation(result.explanation);
-        setNewRootName(result.rootName);
-        const cats = Object.entries(result.stats.categories)
-          .sort((a, b) => b[1] - a[1])
-          .map(([k, v]) => `• **${k}** : ${v} fichier${v > 1 ? "s" : ""}`)
-          .join("\n");
-        pushChat({
-          role: "assistant",
-          content:
-            `✅ **Tri local terminé** (0 token consommé) — ${result.stats.total} fichiers traités.\n\n` +
-            `📂 **Catégories créées :**\n${cats}\n\n` +
-            `🧠 **Règles appliquées :**\n${result.stats.rulesApplied.map((r) => `• ${r}`).join("\n")}\n\n` +
-            `Vous pouvez télécharger le ZIP réorganisé via le bouton ci-dessus.`,
-        });
-        toast.success("Tri local terminé");
-      } else {
-        const { data, error } = await supabase.functions.invoke("organize-documents", {
-          body: { files: paths, instructions: groupByYear ? "Regroupe par année si possible." : "" },
+      // ⚡ Tri 100% local — aucun token consommé pour le tri lui-même
+      const result = organizeLocally(paths, { groupByYear, useSubcategories: true });
+      setMapping(result.mapping);
+      setExplanation(result.explanation);
+      setNewRootName(result.rootName);
+      const cats = Object.entries(result.stats.categories)
+        .sort((a, b) => b[1] - a[1])
+        .map(([k, v]) => `• **${k}** : ${v} fichier${v > 1 ? "s" : ""}`)
+        .join("\n");
+      pushChat({
+        role: "assistant",
+        content:
+          `✅ **Tri local terminé** — ${result.stats.total} fichiers traités, 0 token utilisé pour le tri.\n\n` +
+          `📂 **Catégories créées :**\n${cats}`,
+      });
+      toast.success("Tri local terminé");
+
+      // 🤖 Demande à l'IA d'expliquer ce que le logiciel a fait (stats uniquement, ~150 tokens)
+      setExplaining(true);
+      try {
+        const { data, error } = await supabase.functions.invoke("explain-organization", {
+          body: { stats: result.stats, options: { groupByYear } },
         });
         if (error) throw error;
-        const map = Array.isArray(data?.mapping) ? data.mapping : [];
-        if (!map.length) throw new Error("Réponse IA invalide");
-        setMapping(map);
-        setExplanation(data?.explanation || "");
-        setNewRootName(data?.rootName || "Dossier-Reorganise");
-        const folders = new Set(map.map((m: any) => m.to.split("/").slice(0, -1).join("/") || "racine"));
+        if (data?.explanation) {
+          pushChat({ role: "assistant", content: `🤖 **L'IA explique :**\n\n${data.explanation}` });
+        }
+      } catch (err: any) {
         pushChat({
           role: "assistant",
-          content:
-            `🤖 **Tri IA terminé** — ${map.length} fichiers réorganisés en ${folders.size} dossier(s).\n\n` +
-            (data?.explanation ? `💡 ${data.explanation}` : ""),
+          content: `⚠️ Impossible d'obtenir l'explication IA (${err.message || "erreur"}). Le tri local est néanmoins complet.`,
         });
-        toast.success("Arborescence proposée par l'IA");
+      } finally {
+        setExplaining(false);
       }
     } catch (e: any) {
       pushChat({ role: "assistant", content: `❌ Erreur : ${e.message || "organisation impossible"}` });
