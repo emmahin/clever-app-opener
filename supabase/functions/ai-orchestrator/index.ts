@@ -313,6 +313,86 @@ async function callTool(name: string, args: any): Promise<{ widget: any; summary
   return { widget: null, summary: "Outil inconnu" };
 }
 
+function latestUserText(messages: any[]): string {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m?.role !== "user") continue;
+    if (typeof m.content === "string") return m.content;
+    if (Array.isArray(m.content)) {
+      return m.content
+        .filter((p: any) => p?.type === "text" && typeof p.text === "string")
+        .map((p: any) => p.text)
+        .join("\n");
+    }
+  }
+  return "";
+}
+
+function inferImageSearchQuery(text: string): string | null {
+  const raw = text.toLowerCase();
+  const asksForRealImages = /\b(photo|photos|image|images|mod[eè]le|mod[eè]les|exemple|exemples|montre|voir|visuel|r[ée]f[ée]rence|r[ée]f[ée]rences)\b/i.test(raw);
+  if (!asksForRealImages) return null;
+
+  if (/\b(air\s*force\s*(one|1)?|af1)\b/i.test(raw)) return "Nike Air Force 1 sneakers shoes white";
+  if (/\b(jordan|jordans|air\s*jordan)\b/i.test(raw)) return "Air Jordan basketball sneakers shoes";
+  if (/\b(yeezy|yeezys)\b/i.test(raw)) return "Adidas Yeezy sneakers shoes";
+
+  return null;
+}
+
+async function streamModelResponse(body: any, send: (obj: any) => void): Promise<string> {
+  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ ...body, stream: true }),
+  });
+
+  if (!response.ok || !response.body) throw new Error(`IA ${response.status}`);
+
+  const reader = response.body.getReader();
+  const dec = new TextDecoder();
+  let buf = "";
+  let fullText = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    let nl;
+    while ((nl = buf.indexOf("\n")) !== -1) {
+      const line = buf.slice(0, nl).replace(/\r$/, "");
+      buf = buf.slice(nl + 1);
+      if (!line.startsWith("data: ")) continue;
+      const json = line.slice(6).trim();
+      if (!json || json === "[DONE]") continue;
+      try {
+        const p = JSON.parse(json);
+        const delta =
+          p.choices?.[0]?.delta?.content ??
+          p.choices?.[0]?.message?.content ??
+          p.delta ??
+          p.content ??
+          "";
+        if (delta) {
+          fullText += delta;
+          send({ delta });
+        }
+      } catch { /* ignore partial */ }
+    }
+  }
+  return fullText;
+}
+
+async function completeModelResponse(body: any): Promise<string> {
+  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) throw new Error(`IA ${response.status}`);
+  const data = await response.json();
+  return String(data.choices?.[0]?.message?.content || data.choices?.[0]?.text || "").trim();
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
