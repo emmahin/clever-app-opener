@@ -18,8 +18,8 @@ export default function Dashboard() {
             Dernières actualités IA et tech depuis Le Monde, Les Echos, Reuters, BBC
           </p>
         </div>
-        <div className="px-6 pb-8 max-w-5xl">
-          <NewsPanel />
+        <div className="px-6 pb-8">
+          <NewsPanel layout="horizontal" />
         </div>
       </main>
     </div>
