@@ -7,6 +7,8 @@ export interface IVoiceService {
   stopAndTranscribe(): Promise<string>;
   /** True si en cours d'enregistrement. */
   isRecording(): boolean;
+  /** Retourne le MediaStream actif (pour analyse audio externe). */
+  getStream(): MediaStream | null;
 }
 
 class WebVoiceService implements IVoiceService {
@@ -16,6 +18,10 @@ class WebVoiceService implements IVoiceService {
 
   isRecording() {
     return this.mediaRecorder?.state === "recording";
+  }
+
+  getStream() {
+    return this.stream;
   }
 
   async startRecording() {
