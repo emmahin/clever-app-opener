@@ -200,6 +200,32 @@ const TOOLS = [
   },
 ];
 
+// Inserted after TOOLS array — extend it with the WhatsApp tool.
+TOOLS.push({
+  type: "function",
+  function: {
+    name: "send_whatsapp_message",
+    description:
+      "Prépare l'envoi d'un message WhatsApp à un contact local de l'utilisateur. " +
+      "Le message n'est PAS envoyé directement : une carte de confirmation s'affiche dans le chat. " +
+      "Utilise cet outil dès que l'utilisateur demande 'envoie un message à …', 'écris à …', 'dis à … sur WhatsApp', etc.",
+    parameters: {
+      type: "object",
+      properties: {
+        contact_name: {
+          type: "string",
+          description: "Nom (ou prénom) du contact tel que mentionné par l'utilisateur. Ex: 'Léa', 'Paul Martin'.",
+        },
+        body: {
+          type: "string",
+          description: "Texte exact du message à envoyer, dans la langue de l'utilisateur, prêt à l'envoi.",
+        },
+      },
+      required: ["contact_name", "body"],
+    },
+  },
+});
+
 async function callTool(name: string, args: any): Promise<{ widget: any; summary: string }> {
   const headers = { Authorization: `Bearer ${ANON}` };
 
@@ -355,6 +381,18 @@ async function callTool(name: string, args: any): Promise<{ widget: any; summary
       console.error("search_videos error", e);
       return { widget: null, summary: "Recherche vidéo échouée." };
     }
+  }
+
+  if (name === "send_whatsapp_message") {
+    const contact_name = String(args.contact_name || "").trim();
+    const body = String(args.body || "").trim();
+    if (!contact_name || !body) {
+      return { widget: null, summary: "Nom de contact ou message manquant." };
+    }
+    return {
+      widget: { type: "whatsapp_send", contact_name, body },
+      summary: `Message WhatsApp préparé pour ${contact_name} : « ${body} ». En attente de confirmation de l'utilisateur dans la carte.`,
+    };
   }
 
   return { widget: null, summary: "Outil inconnu" };
