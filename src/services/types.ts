@@ -16,6 +16,20 @@ export interface NewsItem {
   summary?: string;
 }
 
+export interface StockPoint {
+  date: string;
+  close: number;
+}
+
+export interface Stock {
+  symbol: string;
+  name: string;
+  currency: string;
+  price: number;
+  changePct: number;
+  series: StockPoint[];
+}
+
 export interface AppDescriptor {
   id: string;
   name: string;
