@@ -175,19 +175,57 @@ export default function Documents() {
 
   const handleDownload = async () => {
     if (!mapping || !files.length) return;
-    const zip = new JSZip();
-    const root = zip.folder(newRootName)!;
-    const byPath = new Map<string, File>();
-    for (const f of files) byPath.set((f as any).webkitRelativePath || f.name, f);
-    for (const m of mapping) {
-      // strip leading source folder if AI kept it
-      const src = byPath.get(m.from) || byPath.get(`${folderName}/${m.from}`);
-      if (!src) continue;
-      root.file(m.to, src);
+    try {
+      const zip = new JSZip();
+      const root = zip.folder(newRootName) || zip;
+
+      // Build robust lookup: full path, path without root, basename
+      const byFull = new Map<string, File>();
+      const byStripped = new Map<string, File>();
+      const byBase = new Map<string, File>();
+      for (const f of files) {
+        const full = (f as any).webkitRelativePath || f.name;
+        byFull.set(full, f);
+        const stripped = full.includes("/") ? full.split("/").slice(1).join("/") : full;
+        byStripped.set(stripped, f);
+        byBase.set(full.split("/").pop() || full, f);
+      }
+
+      const norm = (p: string) => p.replace(/^\.?\/+/, "").replace(/\\/g, "/");
+      let added = 0;
+      const missing: string[] = [];
+      for (const m of mapping) {
+        const from = norm(m.from);
+        const to = norm(m.to);
+        const fromStripped = from.includes("/") ? from.split("/").slice(1).join("/") : from;
+        const base = from.split("/").pop() || from;
+        const src =
+          byFull.get(from) ||
+          byStripped.get(from) ||
+          byFull.get(`${folderName}/${from}`) ||
+          byStripped.get(fromStripped) ||
+          byBase.get(base);
+        if (!src) {
+          missing.push(from);
+          continue;
+        }
+        root.file(to, src);
+        added++;
+      }
+
+      if (added === 0) {
+        console.error("ZIP empty. Mapping sample:", mapping.slice(0, 3), "Files sample:", Array.from(byFull.keys()).slice(0, 3));
+        toast.error("Aucun fichier n'a pu être associé. Réessayez l'organisation.");
+        return;
+      }
+
+      const blob = await zip.generateAsync({ type: "blob" });
+      saveAs(blob, `${newRootName}.zip`);
+      toast.success(`ZIP téléchargé (${added} fichiers${missing.length ? `, ${missing.length} introuvables` : ""})`);
+    } catch (err: any) {
+      console.error("ZIP error", err);
+      toast.error(err?.message || "Erreur lors de la création du ZIP");
     }
-    const blob = await zip.generateAsync({ type: "blob" });
-    saveAs(blob, `${newRootName}.zip`);
-    toast.success("ZIP téléchargé");
   };
 
   return (
