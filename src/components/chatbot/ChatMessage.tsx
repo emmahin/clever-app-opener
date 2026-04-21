@@ -2,6 +2,8 @@ import { ChatMessage as ChatMessageType } from "@/services";
 import { MessageWidgets } from "./MessageWidgets";
 import { TypewriterMarkdown } from "./TypewriterMarkdown";
 import { ThinkingIndicator } from "./ThinkingIndicator";
+import ReactMarkdown from "react-markdown";
+import { useSettings } from "@/contexts/SettingsProvider";
 
 interface ChatMessageProps {
   message: ChatMessageType;
@@ -9,6 +11,7 @@ interface ChatMessageProps {
 }
 
 export function ChatMessageItem({ message, isThinking }: ChatMessageProps) {
+  const { settings } = useSettings();
   const isUser = message.role === "user";
   const hasContent = !!message.content;
   const hasWidgets = !!message.widgets?.length;
@@ -33,7 +36,13 @@ export function ChatMessageItem({ message, isThinking }: ChatMessageProps) {
             {hasWidgets && <MessageWidgets widgets={message.widgets!} />}
             {hasContent && (
               <div className={hasWidgets ? "mt-3" : ""}>
-                <TypewriterMarkdown text={message.content} />
+                {settings.typewriter ? (
+                  <TypewriterMarkdown text={message.content} />
+                ) : (
+                  <div className="prose prose-sm prose-invert max-w-none">
+                    <ReactMarkdown>{message.content}</ReactMarkdown>
+                  </div>
+                )}
               </div>
             )}
           </>

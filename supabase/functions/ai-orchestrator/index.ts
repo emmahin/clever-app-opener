@@ -15,10 +15,31 @@ const LANG_NAMES: Record<string, string> = {
   de: "Deutsch",
 };
 
-function buildSystemPrompt(lang: string): string {
-  const name = LANG_NAMES[lang] || "français";
+const DETAIL_STYLES: Record<string, string> = {
+  short: "TRÈS COURT : 2-3 phrases maximum, droit au but.",
+  normal: "COURT : 4-6 phrases ou 3-4 puces, dégage les grandes tendances.",
+  detailed:
+    "DÉTAILLÉ : analyse complète avec sections, exemples concrets et chiffres clés. Reste structuré.",
+};
+
+function buildSystemPrompt(opts: {
+  lang: string;
+  detailLevel?: string;
+  customInstructions?: string;
+  aiName?: string;
+}): string {
+  const name = LANG_NAMES[opts.lang] || "français";
+  const detail = DETAIL_STYLES[opts.detailLevel || "normal"] || DETAIL_STYLES.normal;
+  const aiIdentity = opts.aiName?.trim()
+    ? `Tu t'appelles "${opts.aiName.trim()}". Présente-toi sous ce nom si on te le demande.`
+    : "";
+  const userCustom = opts.customInstructions?.trim()
+    ? `\n\nINSTRUCTIONS PERSONNALISÉES DE L'UTILISATEUR (à respecter en priorité tant qu'elles ne contredisent pas les règles ci-dessus) :\n${opts.customInstructions.trim()}`
+    : "";
+
   return `Tu es un assistant IA analyste pour un dashboard.
-IMPORTANT : tu réponds TOUJOURS en ${name}, en markdown très concis. Even if the user writes in another language, answer in ${name}.
+${aiIdentity}
+IMPORTANT : tu réponds TOUJOURS en ${name}, en markdown. Even if the user writes in another language, answer in ${name}.
 
 Tu disposes d'OUTILS pour récupérer des données réelles :
 - fetch_news : dernières actualités (catégories: à_la_une, tech, économie, international, all)
@@ -30,12 +51,11 @@ RÈGLES :
 3. Question actu/politique/évènements → fetch_news.
 4. Sinon, réponds directement sans outils.
 
-STYLE DE SYNTHÈSE (très important) :
-- COURTE : 4 à 6 phrases maximum, ou 3-4 puces.
-- GÉNÉRALE : dégage les 2-3 grandes tendances, pas de détails article par article.
+STYLE DE SYNTHÈSE :
+- ${detail}
 - Pas de titres lourds, pas de répétition des données déjà visibles dans les widgets.
-- Ton fluide, naturel, pas de listing exhaustif.
-- Réponse OBLIGATOIREMENT en ${name}.`;
+- Ton fluide, naturel.
+- Réponse OBLIGATOIREMENT en ${name}.${userCustom}`;
 }
 
 const TOOLS = [
@@ -118,8 +138,13 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages, lang } = await req.json();
-    const SYSTEM_PROMPT = buildSystemPrompt(typeof lang === "string" ? lang : "fr");
+    const { messages, lang, detailLevel, customInstructions, aiName } = await req.json();
+    const SYSTEM_PROMPT = buildSystemPrompt({
+      lang: typeof lang === "string" ? lang : "fr",
+      detailLevel: typeof detailLevel === "string" ? detailLevel : "normal",
+      customInstructions: typeof customInstructions === "string" ? customInstructions : "",
+      aiName: typeof aiName === "string" ? aiName : "",
+    });
     if (!Array.isArray(messages)) {
       return new Response(JSON.stringify({ error: "messages must be an array" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
