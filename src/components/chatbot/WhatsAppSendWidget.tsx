@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { MessageCircle, Send, Check, ExternalLink, UserPlus, Edit3 } from "lucide-react";
+import { MessageCircle, Send, Check, ExternalLink, UserPlus, Edit3, AlertTriangle, ArrowLeft, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
@@ -45,12 +45,55 @@ function initials(name: string): string {
     .map((n) => n[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
 }
 
-function findMatches(contacts: Contact[], query: string): Contact[] {
-  const q = query.trim().toLowerCase();
+function normalize(s: string): string {
+  return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+/** Levenshtein distance (small strings, OK perf). */
+function lev(a: string, b: string): number {
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+  const m = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+  for (let j = 0; j <= b.length; j++) m[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      m[i][j] = Math.min(m[i - 1][j] + 1, m[i][j - 1] + 1, m[i - 1][j - 1] + cost);
+    }
+  }
+  return m[a.length][b.length];
+}
+
+interface Scored { contact: Contact; score: number; kind: "exact" | "starts" | "contains" | "token" | "fuzzy" }
+
+/**
+ * Returns ranked candidates. Score 1.0 = exact, lower = looser.
+ * Includes fuzzy matches (typos) + token-by-token matching.
+ */
+function rankMatches(contacts: Contact[], query: string): Scored[] {
+  const q = normalize(query);
   if (!q) return [];
-  const exact = contacts.filter((c) => c.name.toLowerCase() === q);
-  if (exact.length) return exact;
-  return contacts.filter((c) => c.name.toLowerCase().includes(q));
+  const qTokens = q.split(" ");
+  const out: Scored[] = [];
+  for (const c of contacts) {
+    const n = normalize(c.name);
+    if (!n) continue;
+    if (n === q) { out.push({ contact: c, score: 1, kind: "exact" }); continue; }
+    if (n.startsWith(q)) { out.push({ contact: c, score: 0.92, kind: "starts" }); continue; }
+    if (n.includes(q)) { out.push({ contact: c, score: 0.85, kind: "contains" }); continue; }
+    // token match: any query token matches a name token start
+    const nTokens = n.split(" ");
+    const tokenHit = qTokens.some((qt) => nTokens.some((nt) => nt.startsWith(qt) || qt.startsWith(nt)));
+    if (tokenHit) { out.push({ contact: c, score: 0.7, kind: "token" }); continue; }
+    // fuzzy: distance relative to length
+    const d = lev(q, n);
+    const maxLen = Math.max(q.length, n.length);
+    const sim = 1 - d / maxLen;
+    if (sim >= 0.6 && d <= 3) out.push({ contact: c, score: sim * 0.7, kind: "fuzzy" });
+  }
+  out.sort((a, b) => b.score - a.score);
+  return out.slice(0, 6);
 }
 
 export function WhatsAppSendWidget({
