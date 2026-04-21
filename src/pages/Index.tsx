@@ -51,6 +51,11 @@ export default function Index() {
           prev.map((m) => (m.id === assistantId ? { ...m, content: accumulated } : m))
         );
       },
+      onWidgets: (widgets) => {
+        setMessages((prev) =>
+          prev.map((m) => (m.id === assistantId ? { ...m, widgets } : m))
+        );
+      },
       onDone: () => setIsLoading(false),
       onError: (err) => {
         setIsLoading(false);

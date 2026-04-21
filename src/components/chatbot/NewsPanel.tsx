@@ -20,13 +20,20 @@ export function NewsPanel({ layout = "vertical", perRowLimit = 12 }: NewsPanelPr
   }, []);
 
   const grouped = useMemo(() => {
+    const ORDER = ["À la une", "Tech & IA", "Économie", "International"];
     const map = new Map<string, NewsItem[]>();
     for (const n of news) {
       const cat = n.category || "Actualités";
       if (!map.has(cat)) map.set(cat, []);
       map.get(cat)!.push(n);
     }
-    return Array.from(map.entries()).map(([cat, items]) => [cat, items.slice(0, perRowLimit)] as const);
+    return Array.from(map.entries())
+      .sort(([a], [b]) => {
+        const ia = ORDER.indexOf(a);
+        const ib = ORDER.indexOf(b);
+        return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+      })
+      .map(([cat, items]) => [cat, items.slice(0, perRowLimit)] as const);
   }, [news, perRowLimit]);
 
   if (layout === "vertical") {
