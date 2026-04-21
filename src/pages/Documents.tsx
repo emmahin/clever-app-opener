@@ -381,28 +381,9 @@ export default function Documents() {
               <Bot className="w-4 h-4 text-primary" /> Journal du trieur
             </h2>
             <div className="flex items-center gap-4 flex-wrap">
-              {/* Moteur */}
-              <div className="flex items-center gap-1 rounded-lg border border-border/60 p-1 bg-background/40">
-                <button
-                  onClick={() => setEngine("local")}
-                  className={cn(
-                    "px-2.5 py-1 rounded text-xs flex items-center gap-1 transition",
-                    engine === "local" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
-                  )}
-                  title="Tri local — gratuit, 0 token"
-                >
-                  <Zap className="w-3 h-3" /> Local (gratuit)
-                </button>
-                <button
-                  onClick={() => setEngine("ai")}
-                  className={cn(
-                    "px-2.5 py-1 rounded text-xs flex items-center gap-1 transition",
-                    engine === "ai" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
-                  )}
-                  title="Tri par IA — consomme des tokens"
-                >
-                  <Cloud className="w-3 h-3" /> IA
-                </button>
+              {/* Badge moteur */}
+              <div className="flex items-center gap-1 px-2 py-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 text-xs">
+                <Zap className="w-3 h-3" /> Tri local
               </div>
               {/* Option année */}
               <div className="flex items-center gap-2">
@@ -454,12 +435,12 @@ export default function Documents() {
             <div ref={chatEndRef} />
           </div>
 
-          <p className="text-[11px] text-muted-foreground mt-2 flex items-center gap-1">
-            {engine === "local" ? (
-              <><Zap className="w-3 h-3 text-emerald-400" /> Mode local actif — aucun token consommé, tout se passe dans votre navigateur.</>
-            ) : (
-              <><Cloud className="w-3 h-3 text-amber-400" /> Mode IA actif — consomme des tokens à chaque organisation.</>
-            )}
+          <p className="text-[11px] text-muted-foreground mt-2 flex items-center gap-1 flex-wrap">
+            <Zap className="w-3 h-3 text-emerald-400" />
+            Le tri est 100% local (0 token).
+            <Cloud className="w-3 h-3 text-primary ml-1" />
+            Seule l'explication est rédigée par l'IA (~150 tokens).
+            {explaining && <span className="ml-2 italic text-primary">L'IA rédige son explication…</span>}
           </p>
         </div>
       </main>
