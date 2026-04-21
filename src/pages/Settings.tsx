@@ -144,6 +144,96 @@ export default function Settings() {
             </div>
           </Section>
 
+          {/* Notifications */}
+          <Section
+            icon={<Bell className="w-5 h-5" />}
+            title="Notifications"
+            description="Gère ce que tu reçois et quand."
+          >
+            <div className="space-y-5">
+              <ToggleRow
+                label="Activer les notifications"
+                description="Désactive pour couper toasts + cloche."
+                checked={notifPrefs.enabled}
+                onChange={(v) => updateNotif({ enabled: v })}
+              />
+              <ToggleRow
+                label="Ne pas déranger"
+                description="Garde l'historique mais bloque toasts et sons."
+                checked={notifPrefs.doNotDisturb}
+                onChange={(v) => updateNotif({ doNotDisturb: v })}
+              />
+
+              <div>
+                <label className="text-sm font-medium block mb-2">Heures silencieuses</label>
+                <div className="flex items-center gap-3 text-sm">
+                  <span className="text-muted-foreground">De</span>
+                  <select
+                    value={notifPrefs.quietStartHour}
+                    onChange={(e) => updateNotif({ quietStartHour: parseInt(e.target.value, 10) })}
+                    className="px-2 py-1.5 rounded-lg bg-secondary/40 border border-border/60 text-sm focus:outline-none focus:border-primary"
+                  >
+                    {Array.from({ length: 24 }, (_, i) => (
+                      <option key={i} value={i}>{String(i).padStart(2, "0")}h</option>
+                    ))}
+                  </select>
+                  <span className="text-muted-foreground">à</span>
+                  <select
+                    value={notifPrefs.quietEndHour}
+                    onChange={(e) => updateNotif({ quietEndHour: parseInt(e.target.value, 10) })}
+                    className="px-2 py-1.5 rounded-lg bg-secondary/40 border border-border/60 text-sm focus:outline-none focus:border-primary"
+                  >
+                    {Array.from({ length: 24 }, (_, i) => (
+                      <option key={i} value={i}>{String(i).padStart(2, "0")}h</option>
+                    ))}
+                  </select>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1.5">Les notifs sont silencieuses dans cette plage. L'historique reste disponible.</p>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium block mb-2">Catégories</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {([
+                    ["chat_response", "Réponses IA"],
+                    ["whatsapp_message", "Messages WhatsApp"],
+                    ["news", "Actualités"],
+                    ["stock_alert", "Alertes boursières"],
+                    ["reminder", "Rappels"],
+                    ["ai_insight", "Insights IA"],
+                    ["system", "Système"],
+                  ] as Array<[NotificationType, string]>).map(([key, label]) => (
+                    <label key={key} className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-secondary/40 border border-border/60 cursor-pointer hover:bg-secondary/60 transition-colors">
+                      <span className="text-sm">{label}</span>
+                      <input
+                        type="checkbox"
+                        checked={notifPrefs.byType[key]}
+                        onChange={(e) => updateNotif({ byType: { ...notifPrefs.byType, [key]: e.target.checked } })}
+                        className="accent-primary w-4 h-4"
+                      />
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium block mb-2">
+                  Seuil d'alerte boursière : <span className="text-primary">±{notifPrefs.stockAlertThreshold}%</span>
+                </label>
+                <input
+                  type="range"
+                  min={1}
+                  max={15}
+                  step={1}
+                  value={notifPrefs.stockAlertThreshold}
+                  onChange={(e) => updateNotif({ stockAlertThreshold: parseInt(e.target.value, 10) })}
+                  className="w-full accent-primary"
+                />
+                <p className="text-xs text-muted-foreground mt-1">Tu reçois une alerte si une valeur de ta watchlist bouge de ce pourcentage.</p>
+              </div>
+            </div>
+          </Section>
+
           {/* Confidentialité */}
           <Section
             icon={<Trash2 className="w-5 h-5" />}
