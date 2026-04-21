@@ -267,6 +267,27 @@ async function callTool(name: string, args: any): Promise<{ widget: any; summary
     }
   }
 
+  if (name === "search_images") {
+    try {
+      const q = String(args.query || "").trim();
+      if (!q) return { widget: null, summary: "Requête vide" };
+      const count = Math.min(12, Math.max(4, parseInt(args.count, 10) || 8));
+      const r = await fetch(
+        `${SUPABASE_URL}/functions/v1/image-search?q=${encodeURIComponent(q)}&per_page=${count}`,
+        { headers },
+      );
+      const data = await r.json();
+      const items = data.items || [];
+      const summary = items.length
+        ? `${items.length} image(s) trouvée(s) pour "${q}". Tags : ${items.slice(0, 3).map((i: any) => i.tags).join(" / ")}.`
+        : `Aucune image trouvée pour "${q}".`;
+      return { widget: { type: "image_gallery", query: q, items }, summary };
+    } catch (e) {
+      console.error("search_images error", e);
+      return { widget: null, summary: "Recherche d'images échouée." };
+    }
+  }
+
   return { widget: null, summary: "Outil inconnu" };
 }
 
