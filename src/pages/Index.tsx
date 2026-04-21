@@ -10,12 +10,14 @@ import { chatService, ChatMessage, ChatAttachment } from "@/services";
 import { Expand, Settings2, Sparkles } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useSettings } from "@/contexts/SettingsProvider";
+import { VoiceCallMode } from "@/components/chatbot/VoiceCallMode";
 
 export default function Index() {
   const { lang, t } = useLanguage();
   const { settings } = useSettings();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [voiceCallOpen, setVoiceCallOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
