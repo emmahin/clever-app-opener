@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Plus, Globe, Sparkles, Code, Mic, X, FileText, Image as ImageIcon, Music, Loader2, Phone } from "lucide-react";
+import { Plus, Globe, Sparkles, Code, Mic, X, FileText, Image as ImageIcon, Music, Loader2, AudioLines } from "lucide-react";
 import { voiceService, ChatAttachment } from "@/services";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { processFile } from "@/lib/attachments";
@@ -227,14 +227,14 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
               <TooltipTrigger asChild>
                 <button
                   onClick={onOpenVoiceCall}
-                  className="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center hover:scale-105 transition-transform shadow-lg"
+                  className="w-10 h-10 rounded-full bg-foreground text-background flex items-center justify-center hover:scale-105 transition-transform shadow-lg"
                 >
-                  <Phone className="w-5 h-5" />
+                  <AudioLines className="w-5 h-5" />
                 </button>
               </TooltipTrigger>
               <TooltipContent side="top">
                 <div className="flex items-center gap-2">
-                  <Phone className="w-3.5 h-3.5" />
+                  <AudioLines className="w-3.5 h-3.5" />
                   <span>{t("voiceCall")}</span>
                 </div>
               </TooltipContent>
