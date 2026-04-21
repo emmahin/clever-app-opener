@@ -16,7 +16,7 @@ export type ChatWidget =
       range_start_iso?: string;
       range_end_iso?: string;
       added?: { title: string; start_iso: string; end_iso?: string; location?: string; notes?: string };
-      removed_count?: number;
+      remove_query?: string;
     };
 
 export interface ChatMessage {

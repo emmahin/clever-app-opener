@@ -28,7 +28,7 @@ export function MessageWidgets({ widgets }: { widgets: ChatWidget[] }) {
             range_start_iso={w.range_start_iso}
             range_end_iso={w.range_end_iso}
             added={w.added}
-            removed_count={w.removed_count}
+            remove_query={w.remove_query}
           />
         );
         return null;

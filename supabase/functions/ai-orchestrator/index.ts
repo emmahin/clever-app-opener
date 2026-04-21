@@ -587,7 +587,7 @@ async function callTool(name: string, args: any): Promise<{ widget: any; summary
     const q = String(args.title_query || "").trim();
     if (!q) return { widget: null, summary: "Mot-clé manquant pour la suppression." };
     return {
-      widget: { type: "schedule", removed_count: -1, range_label: `Recherche : "${q}"`, added: undefined } as any,
+      widget: { type: "schedule", remove_query: q } as any,
       summary: `Suppression demandée pour les événements contenant "${q}". Le widget effectue la suppression côté client.`,
     };
   }
