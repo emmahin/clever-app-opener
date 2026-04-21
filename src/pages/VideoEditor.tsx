@@ -52,7 +52,7 @@ export default function VideoEditor() {
   const [currentTime, setCurrentTime] = useState(0);
   const [exporting, setExporting] = useState(false);
   const [chat, setChat] = useState<ChatMsg[]>([
-    { role: "assistant", content: "Salut ! Mode **Montage local** activé (gratuit). Importe tes vidéos puis dis-moi : « monte tout seul », « coupe le clip 1 à 5s », « supprime le dernier clip », « format reels »… L'IA n'intervient que pour t'expliquer le résultat." },
+    { role: "assistant", content: "Salut ! Mode **Montage hybride** activé. Les commandes connues (monte tout seul, coupe, format reels…) sont gratuites. Pour les demandes en langage libre, une IA légère (~300 tokens) traduit ta phrase en actions concrètes — bien moins cher que l'agent complet." },
   ]);
   const [chatInput, setChatInput] = useState("");
   const [aiThinking, setAiThinking] = useState(false);
@@ -347,10 +347,40 @@ export default function VideoEditor() {
         });
 
         if (result.unrecognized) {
-          setChat((p) => [...p, {
-            role: "assistant",
-            content: "🤖 Commande non reconnue par le moteur local. Essaie : « monte tout seul », « coupe le clip 1 à 5s », « supprime le dernier clip », « format reels », « ajoute le texte \"Bonjour\" sur le clip 1 ». Ou active le **Mode IA avancé** pour les demandes complexes.",
-          }]);
+          // 🤖 Fallback léger : l'IA traduit la demande en actions structurées (~200-400 tokens)
+          try {
+            const { data, error } = await supabase.functions.invoke("video-command-from-prompt", {
+              body: {
+                prompt: text,
+                preset,
+                clips: clips.map((c) => ({
+                  id: c.id, name: c.name, duration: c.duration,
+                  inPoint: c.inPoint, outPoint: c.outPoint,
+                })),
+              },
+            });
+            if (error) throw error;
+            const aiActions = Array.isArray(data?.actions) ? data.actions : [];
+            const aiMessage = data?.message || "OK";
+
+            if (aiActions.length === 0) {
+              setChat((p) => [...p, {
+                role: "assistant",
+                content: `🤖 ${aiMessage}\n\n_Astuce : essaie « monte tout seul », « coupe le clip 1 à 5s », « format reels », « ajoute le texte \"Bonjour\" sur le clip 1 »._`,
+              }]);
+            } else {
+              await applyActions(aiActions);
+              setChat((p) => [...p, {
+                role: "assistant",
+                content: `🤖 **IA légère (~300 tokens)** — ${aiMessage}\n\n${aiActions.length} action(s) appliquée(s).`,
+              }]);
+            }
+          } catch (err: any) {
+            setChat((p) => [...p, {
+              role: "assistant",
+              content: "❌ " + (err?.message || "Impossible de traduire la demande."),
+            }]);
+          }
           setAiThinking(false);
           return;
         }
@@ -530,7 +560,7 @@ export default function VideoEditor() {
               </div>
               {!advancedAI && (
                 <div className="px-3 py-1.5 text-[10px] text-muted-foreground border-b border-border/40 bg-secondary/20">
-                  💡 Le montage est fait localement (gratuit). L'IA n'est utilisée que pour t'expliquer le résultat (~150 tokens).
+                  💡 Commandes connues = 0 token. Demandes libres = IA légère (~300 tokens) qui traduit en actions.
                 </div>
               )}
               <div className="flex-1 overflow-y-auto p-3 space-y-2 text-sm">
