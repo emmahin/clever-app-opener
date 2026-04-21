@@ -1,10 +1,15 @@
 export type ChatRole = "user" | "assistant" | "system";
 
+export type ChatWidget =
+  | { type: "news"; items: NewsItem[] }
+  | { type: "stocks"; items: Stock[] };
+
 export interface ChatMessage {
   id: string;
   role: ChatRole;
   content: string;
   createdAt: number;
+  widgets?: ChatWidget[];
 }
 
 export interface NewsItem {

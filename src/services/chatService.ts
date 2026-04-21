@@ -1,8 +1,9 @@
-import { ChatMessage } from "./types";
+import { ChatMessage, ChatWidget } from "./types";
 
 export interface StreamChatParams {
   messages: { role: "user" | "assistant" | "system"; content: string }[];
   onDelta: (chunk: string) => void;
+  onWidgets?: (widgets: ChatWidget[]) => void;
   onDone: () => void;
   onError: (err: Error) => void;
   signal?: AbortSignal;
@@ -12,10 +13,10 @@ export interface IChatService {
   streamChat(params: StreamChatParams): Promise<void>;
 }
 
-const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`;
+const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-orchestrator`;
 
 export const webChatService: IChatService = {
-  async streamChat({ messages, onDelta, onDone, onError, signal }) {
+  async streamChat({ messages, onDelta, onWidgets, onDone, onError, signal }) {
     try {
       const resp = await fetch(CHAT_URL, {
         method: "POST",
@@ -34,9 +35,8 @@ export const webChatService: IChatService = {
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
-      let done = false;
 
-      while (!done) {
+      while (true) {
         const { done: d, value } = await reader.read();
         if (d) break;
         buffer += decoder.decode(value, { stream: true });
@@ -48,11 +48,12 @@ export const webChatService: IChatService = {
           if (line.startsWith(":") || line.trim() === "") continue;
           if (!line.startsWith("data: ")) continue;
           const json = line.slice(6).trim();
-          if (json === "[DONE]") { done = true; break; }
           try {
             const parsed = JSON.parse(json);
-            const delta = parsed.choices?.[0]?.delta?.content as string | undefined;
-            if (delta) onDelta(delta);
+            if (parsed.error) { onError(new Error(parsed.error)); return; }
+            if (parsed.widgets && onWidgets) onWidgets(parsed.widgets);
+            if (parsed.delta) onDelta(parsed.delta);
+            // parsed.done: end signal
           } catch {
             buffer = line + "\n" + buffer;
             break;
