@@ -66,6 +66,24 @@ RÈGLES :
 6. Demande d'EXEMPLES VISUELS / MODÈLES / RÉFÉRENCES (ex: "models de jordans", "photos de chats", "exemples de logos minimalistes") → search_images.
 7. Sinon, réponds directement sans outils.
 
+DÉSAMBIGUÏSATION DU CONTEXTE (TRÈS IMPORTANT pour search_images et generate_image) :
+- Avant d'appeler un outil visuel, analyse l'INTENTION RÉELLE de l'utilisateur en t'appuyant sur tout l'historique de conversation et le sens commun.
+- Beaucoup de termes sont AMBIGUS — choisis le sens le plus probable selon le contexte (mode, sport, tech, animaux, lieux, cuisine…) et précise-le dans la requête.
+  Exemples concrets de pièges à éviter :
+    • "Air Force One" / "Air Force 1" / "AF1" → sneakers Nike, PAS l'avion présidentiel américain. Requête : "Nike Air Force 1 sneakers shoes white".
+    • "Jordan" (sans contexte politique/pays) → baskets Air Jordan. Requête : "Air Jordan basketball sneakers".
+    • "Yeezy" → sneakers Adidas Yeezy.
+    • "Apple" sans contexte tech → fruit ; avec contexte tech → produits Apple. Précise "fruit" ou "iPhone/MacBook".
+    • "Mustang" → cheval OU voiture Ford selon contexte. Précise "horse" ou "Ford Mustang car".
+    • "Jaguar" → animal OU voiture. Précise.
+    • "Puma" / "Cougar" → animal OU marque sportswear.
+    • "Galaxy" → cosmos OU smartphone Samsung.
+    • "Surface" → tablette Microsoft OU surface géométrique.
+    • Marques de mode (Off-White, Supreme, Balenciaga…) → vêtements/accessoires, jamais le sens littéral.
+- Si l'utilisateur a déjà mentionné le contexte plus tôt (ex: il parlait de chaussures puis dit "montre-moi des Air Force One"), GARDE ce contexte.
+- Si vraiment ambigu et que tu ne peux pas trancher, demande UNE question courte de précision AVANT d'appeler l'outil (ex: "Tu veux dire les sneakers Nike Air Force 1 ou l'avion présidentiel ?").
+- Pour search_images, formule TOUJOURS la requête en anglais avec des mots-clés précis (marque + type de produit + détail visuel).
+
 STYLE DE SYNTHÈSE :
 - ${detail}
 - Pas de titres lourds, pas de répétition des données déjà visibles dans les widgets.
@@ -142,11 +160,15 @@ const TOOLS = [
     function: {
       name: "search_images",
       description:
-        "Cherche des PHOTOS RÉELLES (Pixabay) à montrer en galerie. À utiliser pour des EXEMPLES, MODÈLES, RÉFÉRENCES VISUELLES (ex: 'models de jordans', 'photos de tigres', 'exemples de cuisines modernes'). Renvoie 6-8 images.",
+        "Cherche des PHOTOS RÉELLES (Pixabay) à montrer en galerie. À utiliser pour des EXEMPLES, MODÈLES, RÉFÉRENCES VISUELLES. " +
+        "AVANT d'appeler cet outil, désambiguïse le terme de l'utilisateur selon le contexte de conversation et le bon sens : " +
+        "'Air Force One' = sneakers Nike (pas l'avion), 'Jordan' = baskets Air Jordan, 'Mustang' = cheval ou voiture selon contexte, 'Apple' = fruit ou produit tech, etc. " +
+        "Formule la requête en ANGLAIS avec marque + type de produit + détail visuel (ex: 'Nike Air Force 1 white sneakers', 'modern minimalist kitchen interior'). " +
+        "Renvoie 6-8 images.",
       parameters: {
         type: "object",
         properties: {
-          query: { type: "string", description: "Mots-clés en anglais de préférence (ex: 'air jordan sneakers', 'modern kitchen')" },
+          query: { type: "string", description: "Mots-clés EN ANGLAIS, précis et désambiguïsés (ex: 'Nike Air Force 1 sneakers', 'modern minimalist kitchen', 'bengal tiger wildlife')" },
           count: { type: "integer", description: "Nombre d'images souhaitées (4-12, défaut 8)" },
         },
         required: ["query"],
