@@ -116,9 +116,18 @@ export default function Index() {
               </div>
             ) : (
               <div className="space-y-4 max-w-3xl mx-auto">
-                {messages.map((msg) => (
-                  <ChatMessageItem key={msg.id} message={msg} />
-                ))}
+                {messages.map((msg, idx) => {
+                  const isLast = idx === messages.length - 1;
+                  const isThinking =
+                    isLoading && isLast && msg.role === "assistant";
+                  return (
+                    <ChatMessageItem
+                      key={msg.id}
+                      message={msg}
+                      isThinking={isThinking}
+                    />
+                  );
+                })}
                 <div ref={messagesEndRef} />
               </div>
             )}
