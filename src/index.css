@@ -64,8 +64,9 @@
   body {
     @apply bg-background text-foreground antialiased;
     background-image:
-      radial-gradient(ellipse 80% 60% at 50% 50%, hsl(285 80% 25% / 0.35), transparent 70%),
-      radial-gradient(ellipse 50% 40% at 20% 80%, hsl(270 80% 30% / 0.25), transparent 70%);
+      radial-gradient(ellipse 100% 80% at 50% 40%, hsl(285 85% 30% / 0.55), transparent 65%),
+      radial-gradient(ellipse 60% 50% at 15% 75%, hsl(270 85% 35% / 0.45), transparent 60%),
+      radial-gradient(ellipse 70% 60% at 85% 20%, hsl(295 80% 32% / 0.4), transparent 55%);
     background-attachment: fixed;
   }
 }
