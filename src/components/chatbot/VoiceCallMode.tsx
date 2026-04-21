@@ -187,12 +187,9 @@ export function VoiceCallMode({ open, onClose }: Props) {
             {/* Subtle inner shine overlay */}
             <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white/10 via-transparent to-black/30 pointer-events-none" />
           </div>
-          {/* Phase icon */}
+          {/* Phase icon (mic hidden — galaxy speaks for itself) */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            {phase === "listening" && <Mic className="w-12 h-12 text-white drop-shadow-[0_0_12px_rgba(255,255,255,0.8)]" />}
             {phase === "thinking" && <Loader2 className="w-12 h-12 text-white animate-spin drop-shadow-[0_0_12px_rgba(255,255,255,0.8)]" />}
-            {phase === "speaking" && <Volume2 className="w-12 h-12 text-white drop-shadow-[0_0_12px_rgba(255,255,255,0.8)]" />}
-            {phase === "idle" && <Mic className="w-12 h-12 text-white/70 drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]" />}
           </div>
         </div>
 
