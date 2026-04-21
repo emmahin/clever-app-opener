@@ -14,7 +14,7 @@ export function ChatMessageItem({ message, isThinking }: ChatMessageProps) {
   const hasWidgets = !!message.widgets?.length;
 
   return (
-    <div className={cn("flex w-full", isUser ? "justify-end" : "justify-start")}>
+    <div id={`msg-${message.id}`} className={cn("flex w-full scroll-mt-24 rounded-2xl transition-shadow", isUser ? "justify-end" : "justify-start")}>
       <div
         className={cn(
           "max-w-[85%] rounded-2xl px-4 py-3",
