@@ -3,6 +3,7 @@
  * Pour basculer vers une impl desktop, modifier UNIQUEMENT ce fichier.
  */
 export { webChatService as chatService } from "./chatService";
+export type { ChatAttachment } from "./chatService";
 export { webVoiceService as voiceService } from "./voiceService";
 export { rssNewsService as newsService } from "./newsService";
 export { yahooStockService as stockService } from "./stockService";
