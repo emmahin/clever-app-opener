@@ -236,6 +236,7 @@ export default function Documents() {
   };
 
   const handleDownload = async () => {
+    void 0;
     if (!mapping || !files.length) return;
     try {
       const zip = new JSZip();
