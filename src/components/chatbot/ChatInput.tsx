@@ -1,13 +1,20 @@
 import { useState, useRef } from "react";
-import { Plus, Globe, Sparkles, Code, Mic, X, FileText, Image as ImageIcon, Music, Loader2, AudioLines } from "lucide-react";
+import { Plus, Globe, Sparkles, Code, Mic, X, FileText, Image as ImageIcon, Music, Loader2, AudioLines, Brain, Wand2 } from "lucide-react";
 import { voiceService, ChatAttachment } from "@/services";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { processFile } from "@/lib/attachments";
 import { toast } from "sonner";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+
+export interface SendOptions {
+  webSearch?: boolean;
+  deepThink?: boolean;
+  forceTool?: "image" | "code" | null;
+}
 
 interface ChatInputProps {
-  onSend: (message: string, attachments?: ChatAttachment[]) => void;
+  onSend: (message: string, attachments?: ChatAttachment[], options?: SendOptions) => void;
   disabled?: boolean;
   onOpenVoiceCall?: () => void;
 }
@@ -18,14 +25,23 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
   const [isRecording, setIsRecording] = useState(false);
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const [processing, setProcessing] = useState(false);
+  const [webSearch, setWebSearch] = useState(false);
+  const [deepThink, setDeepThink] = useState(false);
+  const [nextTool, setNextTool] = useState<"image" | "code" | null>(null);
+  const [toolsOpen, setToolsOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSend = () => {
     if ((!value.trim() && attachments.length === 0) || disabled || processing) return;
-    onSend(value.trim() || (attachments.length ? "Analyse les fichiers joints." : ""), attachments.length ? attachments : undefined);
+    onSend(
+      value.trim() || (attachments.length ? "Analyse les fichiers joints." : ""),
+      attachments.length ? attachments : undefined,
+      { webSearch, deepThink, forceTool: nextTool },
+    );
     setValue("");
     setAttachments([]);
+    setNextTool(null); // one-shot
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -179,45 +195,91 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
 
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <button className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors">
+                  <button
+                    onClick={() => setWebSearch((v) => !v)}
+                    className={cn(
+                      "h-8 px-2.5 rounded-lg flex items-center gap-1.5 text-xs transition-colors",
+                      webSearch
+                        ? "bg-primary/20 text-primary border border-primary/40"
+                        : "text-muted-foreground hover:text-foreground hover:bg-white/5",
+                    )}
+                  >
                     <Globe className="w-4 h-4" />
+                    {webSearch && <span className="font-medium">{t("webSearch")}</span>}
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="top">
                   <div className="flex items-center gap-2">
                     <Globe className="w-3.5 h-3.5" />
-                    <span>{t("webSearch")}</span>
+                    <span>{webSearch ? t("webSearchOn") : t("webSearchOff")}</span>
                   </div>
                 </TooltipContent>
               </Tooltip>
 
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors">
+              <Popover open={toolsOpen} onOpenChange={setToolsOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    className={cn(
+                      "h-8 px-2.5 rounded-lg flex items-center gap-1.5 text-xs transition-colors",
+                      (deepThink || nextTool)
+                        ? "bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-500/40"
+                        : "text-muted-foreground hover:text-foreground hover:bg-white/5",
+                    )}
+                  >
                     <Sparkles className="w-4 h-4" />
+                    {(deepThink || nextTool) && (
+                      <span className="font-medium">
+                        {nextTool === "image" ? t("toolImage") : nextTool === "code" ? t("toolCode") : t("toolDeepThink")}
+                      </span>
+                    )}
                   </button>
-                </TooltipTrigger>
-                <TooltipContent side="top">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>{t("aiTools")}</span>
-                  </div>
-                </TooltipContent>
-              </Tooltip>
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors">
-                    <Code className="w-4 h-4" />
+                </PopoverTrigger>
+                <PopoverContent side="top" align="start" className="w-64 p-1">
+                  <button
+                    onClick={() => { setDeepThink((v) => !v); }}
+                    className={cn(
+                      "w-full text-left px-3 py-2 rounded-md flex items-center gap-3 hover:bg-accent transition-colors",
+                      deepThink && "bg-fuchsia-500/10",
+                    )}
+                  >
+                    <Brain className="w-4 h-4 text-fuchsia-400" />
+                    <div className="flex-1">
+                      <div className="text-sm font-medium">{t("toolDeepThink")}</div>
+                      <div className="text-[11px] text-muted-foreground">{t("toolDeepThinkHint")}</div>
+                    </div>
+                    <div className={cn(
+                      "w-3 h-3 rounded-full border",
+                      deepThink ? "bg-fuchsia-500 border-fuchsia-500" : "border-muted-foreground",
+                    )} />
                   </button>
-                </TooltipTrigger>
-                <TooltipContent side="top">
-                  <div className="flex items-center gap-2">
-                    <Code className="w-3.5 h-3.5" />
-                    <span>{t("codeMode")}</span>
-                  </div>
-                </TooltipContent>
-              </Tooltip>
+                  <button
+                    onClick={() => { setNextTool(nextTool === "image" ? null : "image"); setToolsOpen(false); }}
+                    className={cn(
+                      "w-full text-left px-3 py-2 rounded-md flex items-center gap-3 hover:bg-accent transition-colors",
+                      nextTool === "image" && "bg-fuchsia-500/10",
+                    )}
+                  >
+                    <Wand2 className="w-4 h-4 text-fuchsia-400" />
+                    <div className="flex-1">
+                      <div className="text-sm font-medium">{t("toolImage")}</div>
+                      <div className="text-[11px] text-muted-foreground">{t("toolImageHint")}</div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => { setNextTool(nextTool === "code" ? null : "code"); setToolsOpen(false); }}
+                    className={cn(
+                      "w-full text-left px-3 py-2 rounded-md flex items-center gap-3 hover:bg-accent transition-colors",
+                      nextTool === "code" && "bg-fuchsia-500/10",
+                    )}
+                  >
+                    <Code className="w-4 h-4 text-fuchsia-400" />
+                    <div className="flex-1">
+                      <div className="text-sm font-medium">{t("toolCode")}</div>
+                      <div className="text-[11px] text-muted-foreground">{t("toolCodeHint")}</div>
+                    </div>
+                  </button>
+                </PopoverContent>
+              </Popover>
             </div>
           </TooltipProvider>
 
