@@ -1,66 +1,65 @@
 
 
-## Objectif
-Réduire drastiquement la consommation de tokens lors du **montage vidéo automatique** (« monte tout seul » et autres commandes), en appliquant la même stratégie que pour les Documents : **moteur local gratuit** pour le montage, **IA uniquement pour l'explication** (~150 tokens).
+## Ajouter un outil "Envoyer un message WhatsApp" à l'IA
 
-## Diagnostic de la consommation actuelle
-Aujourd'hui chaque message envoyé à `video-editor-agent` :
-- Envoie tout l'état de la timeline (clips, durées, overlays, audios) à Gemini-2.5-flash
-- Boucle jusqu'à 3 tours avec tool-calls (apply_actions + search_pixabay_audio)
-- Renvoie un message + un tableau d'actions
-→ Coût : **2 000 à 5 000 tokens par requête**, et beaucoup plus pour « monte tout seul » qui peut déclencher plusieurs aller-retours.
+### Objectif
+Permettre à l'IA du chat principal d'envoyer un message à un contact WhatsApp depuis la conversation. Exemple : *"Envoie 'Salut, on se voit demain ?' à Léa"* → l'IA crée le message dans `/whatsapp`.
 
-## Solution : moteur de montage 100 % local + IA pédagogique
+### Comportement
+1. L'utilisateur écrit une demande naturelle dans le chat IA.
+2. L'IA détecte l'intention et appelle un nouvel outil `send_whatsapp_message({ contact_name, body })`.
+3. Comme la liste des contacts vit dans `localStorage` (pas accessible côté serveur), la résolution du contact + l'écriture du message se font **côté client** :
+   - Le serveur (edge function `ai-orchestrator`) renvoie un widget spécial `whatsapp_send` avec `{ contact_name, body }`.
+   - Un nouveau composant client `WhatsAppSendWidget` s'occupe de :
+     - chercher le contact par nom (match insensible à la casse, partiel),
+     - si trouvé : afficher une carte de prévisualisation avec bouton **Envoyer** (et **Modifier**),
+     - si plusieurs candidats : afficher la liste à choisir,
+     - si aucun : proposer **Créer le contact** (mini-formulaire nom + téléphone),
+     - au clic Envoyer : pousser le message dans `wa_messages` (localStorage) + toast de confirmation + lien "Ouvrir la conversation" qui navigue vers `/whatsapp` avec le contact pré-sélectionné.
 
-### 1. Nouveau moteur local `src/lib/localVideoEditor.ts` (0 token)
-Un module TypeScript pur qui prend l'état de la timeline et applique des règles de montage déterministes :
+### Changements techniques
 
-- **Auto-montage (« monte tout seul »)** :
-  - Tri des clips par ordre d'import (ou alphabétique)
-  - Trim automatique des silences en début/fin (10 % par défaut)
-  - Limitation de durée par clip selon le preset (ex. Reels = 3-5 s/clip, YouTube = 8-15 s)
-  - Ajout d'un texte d'intro sur le premier clip (nom du projet)
-  - Ajout d'un fondu sortie sur le dernier clip
-- **Commandes simples reconnues par regex/mots-clés** :
-  - « coupe le clip X à Ys » → action `trim`
-  - « supprime le clip X » → `remove_clip`
-  - « réordonne X en position Y » → `reorder`
-  - « ajoute le texte "..." sur clip X » → `add_text`
-  - « format reels / youtube » → `set_format`
-- **Recherche musique** : appel direct à `pixabay-search` (déjà gratuit, pas de token IA) avec mots-clés extraits localement.
+**1. `supabase/functions/ai-orchestrator/index.ts`**
+- Ajouter la définition d'outil `send_whatsapp_message` dans la liste des `tools` envoyée à l'IA :
+  ```
+  { name: "send_whatsapp_message",
+    parameters: { contact_name: string, body: string } }
+  ```
+- Dans `callTool`, gérer ce nom : ne fait aucun appel externe, retourne juste `{ widget: { kind: "whatsapp_send", contact_name, body }, summary: "Message prêt à envoyer à <name>." }`.
+- Mise à jour mineure du `SYSTEM_PROMPT` : mentionner que l'outil existe pour envoyer des messages WhatsApp.
 
-Renvoie `{ actions: Action[], rulesApplied: string[], stats: {...} }`.
+**2. `src/components/chatbot/MessageWidgets.tsx`**
+- Ajouter un nouveau case `whatsapp_send` qui rend `<WhatsAppSendWidget contactName={...} body={...} />`.
 
-### 2. Nouvelle Edge Function `supabase/functions/explain-video-edit/index.ts` (~150 tokens)
-Reçoit uniquement les **statistiques agrégées** (nb clips coupés, durée totale, format, musique ajoutée, règles appliquées) et demande à Gemini-2.5-flash-**lite** une explication pédagogique courte en français (4-6 phrases). Aucune donnée de timeline complète envoyée.
+**3. Nouveau fichier `src/components/chatbot/WhatsAppSendWidget.tsx`**
+- Lit `wa_contacts` / `wa_messages` depuis `localStorage`.
+- Logique de matching de contact + UI carte (style violet/noir cohérent).
+- Bouton **Envoyer** : ajoute le message dans `wa_messages` avec `fromMe: true, status: "sent"`, puis `setTimeout` → `delivered` (mêmes règles que la page WhatsApp).
+- Bouton **Ouvrir conversation** : `navigate(`/whatsapp?contact=${id}`)`.
 
-### 3. IA en fallback uniquement (optionnel, désactivable)
-Si la commande utilisateur n'est reconnue par aucune règle locale, un toggle « Mode IA avancé » (off par défaut) permet d'envoyer la requête à l'agent Gemini actuel. Sinon, message clair : *« Commande non reconnue. Essaie : "monte tout seul", "coupe clip 1 à 5s"… »*.
+**4. `src/pages/WhatsApp.tsx`**
+- Lire le param URL `?contact=<id>` au chargement et faire `setActiveId` automatiquement.
 
-### 4. Modifications de `src/pages/VideoEditor.tsx`
-- Remplacer l'appel `fetch(AGENT_URL, ...)` par :
-  1. Tentative de match local via `localVideoEditor.parseCommand(input, state)`
-  2. Application immédiate des actions sur la timeline (0 token)
-  3. Appel à `explain-video-edit` pour générer le résumé pédagogique (~150 tokens)
-- Ajouter un badge **« Montage local »** + petit texte expliquant l'économie de tokens
-- Afficher un loader « L'IA rédige son explication… » pendant l'étape 3
-- Garder le `TokenCounter` à côté du bouton Envoyer pour visualiser le gain
+**5. `src/components/chatbot/SuggestionPills.tsx`** (option mineure)
+- Ajouter une suggestion type *"Envoie un message à Léa sur WhatsApp"* pour rendre la fonctionnalité découvrable.
 
-### 5. UX cohérente avec la page Documents
-- Même pattern visuel (badge vert « Tri/Montage local », texte d'info)
-- Toggle optionnel « Mode IA avancé » pour les cas complexes
-- Possibilité future d'ajouter un champ « règles personnalisées » comme pour Documents (ex. *« coupe clips > 10s »*)
+### Diagramme de flux
+```text
+User → ChatIA → ai-orchestrator
+                 │
+                 ├─ tool_call: send_whatsapp_message
+                 │   { contact_name: "Léa", body: "Salut !" }
+                 │
+                 └─ widget: whatsapp_send  ─────► WhatsAppSendWidget (client)
+                                                   │
+                                                   ├─ trouve contact dans localStorage
+                                                   ├─ aperçu + bouton Envoyer
+                                                   └─ écrit dans wa_messages
+                                                       puis lien → /whatsapp?contact=id
+```
 
-## Gain attendu
-| Action | Avant | Après |
-|---|---|---|
-| « monte tout seul » | 3 000-5 000 tokens | ~150 tokens (×20-30 moins) |
-| « coupe clip 1 à 5s » | ~1 500 tokens | ~150 tokens |
-| Recherche musique | ~2 000 tokens | 0 token (Pixabay direct) |
-
-## Fichiers impactés
-- **Créé** : `src/lib/localVideoEditor.ts` (parseur + moteur de règles)
-- **Créé** : `supabase/functions/explain-video-edit/index.ts`
-- **Édité** : `src/pages/VideoEditor.tsx` (handler chat, UI badge/toggle)
-- **Conservé** : `supabase/functions/video-editor-agent/index.ts` (utilisé seulement en mode IA avancé)
+### Notes
+- Aucune intégration WhatsApp réelle ici : on alimente l'interface locale (Selenium/automation viendra en local plus tard, comme prévu).
+- Aucun ajout de table backend nécessaire (les données restent dans `localStorage`).
+- Confirmation utilisateur obligatoire avant envoi (pas d'envoi silencieux par l'IA).
 
