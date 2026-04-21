@@ -135,6 +135,8 @@ export default function Documents() {
   const [explaining, setExplaining] = useState(false);
   const [customRulesText, setCustomRulesText] = useState("");
   const [showRules, setShowRules] = useState(false);
+  const [chatInput, setChatInput] = useState("");
+  const [interpreting, setInterpreting] = useState(false);
   // Chat de récap : messages échangés entre l'utilisateur et le "trieur"
   type ChatMsg = { role: "user" | "assistant"; content: string; ts: number };
   const [chat, setChat] = useState<ChatMsg[]>([
