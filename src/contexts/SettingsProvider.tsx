@@ -1,19 +1,21 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 
+export const AI_NAME = "Nex";
+
 export type DetailLevel = "short" | "normal" | "detailed";
 
 export interface Settings {
   detailLevel: DetailLevel;
   typewriter: boolean;
   customInstructions: string;
-  aiName: string;
+  readonly aiName: string;
 }
 
 const DEFAULTS: Settings = {
   detailLevel: "normal",
   typewriter: true,
   customInstructions: "",
-  aiName: "Jarvis",
+  aiName: AI_NAME,
 };
 
 const STORAGE_KEY = "app.settings.v1";
@@ -31,7 +33,8 @@ function load(): Settings {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULTS;
-    return { ...DEFAULTS, ...JSON.parse(raw) };
+    // aiName is fixed and cannot be overridden by stored settings
+    return { ...DEFAULTS, ...JSON.parse(raw), aiName: AI_NAME };
   } catch {
     return DEFAULTS;
   }
