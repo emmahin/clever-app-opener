@@ -5,6 +5,7 @@ export type ChatWidget =
   | { type: "stocks"; items: Stock[] }
   | { type: "image"; url: string; prompt: string }
   | { type: "image_gallery"; query: string; items: GalleryImage[] }
+  | { type: "videos"; query?: string; items: VideoItem[] }
   | { type: "web_sources"; items: WebSource[] };
 
 export interface ChatMessage {
@@ -41,6 +42,18 @@ export interface GalleryImage {
   user?: string;
   width?: number;
   height?: number;
+}
+
+export interface VideoItem {
+  id: string;
+  provider: "youtube" | "vimeo" | "tiktok" | "instagram" | "twitter" | "direct";
+  videoId?: string;
+  title: string;
+  author?: string;
+  thumbnail?: string;
+  embedUrl: string;
+  pageUrl: string;
+  duration?: string;
 }
 
 export interface StockPoint {

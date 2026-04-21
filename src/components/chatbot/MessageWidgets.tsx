@@ -1,5 +1,6 @@
-import { ChatWidget, NewsItem, Stock, WebSource, GalleryImage } from "@/services";
-import { ExternalLink, Newspaper, TrendingUp, TrendingDown, BarChart3, Globe, ImageIcon, Images } from "lucide-react";
+import { ChatWidget, NewsItem, Stock, WebSource, GalleryImage, VideoItem } from "@/services";
+import { useState } from "react";
+import { ExternalLink, Newspaper, TrendingUp, TrendingDown, BarChart3, Globe, ImageIcon, Images, Video, PlayCircle } from "lucide-react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 export function MessageWidgets({ widgets }: { widgets: ChatWidget[] }) {
@@ -11,6 +12,7 @@ export function MessageWidgets({ widgets }: { widgets: ChatWidget[] }) {
         if (w.type === "stocks") return <StocksWidget key={i} items={w.items} />;
         if (w.type === "image") return <ImageWidget key={i} url={w.url} prompt={w.prompt} />;
         if (w.type === "image_gallery") return <ImageGalleryWidget key={i} query={w.query} items={w.items} />;
+        if (w.type === "videos") return <VideosWidget key={i} query={w.query} items={w.items} />;
         if (w.type === "web_sources") return <WebSourcesWidget key={i} items={w.items} />;
         return null;
       })}
@@ -72,6 +74,122 @@ function ImageWidget({ url, prompt }: { url: string; prompt: string }) {
         <img src={url} alt={prompt} className="w-full max-h-[480px] object-contain rounded-lg bg-black/20" />
       </a>
       {prompt && <p className="text-[11px] text-muted-foreground mt-2 italic line-clamp-2">"{prompt}"</p>}
+    </div>
+  );
+}
+
+function providerLabel(p: VideoItem["provider"]): string {
+  return {
+    youtube: "YouTube",
+    vimeo: "Vimeo",
+    tiktok: "TikTok",
+    instagram: "Instagram",
+    twitter: "X (Twitter)",
+    direct: "Vidéo",
+  }[p];
+}
+
+function VideoCard({ v }: { v: VideoItem }) {
+  const [playing, setPlaying] = useState(false);
+
+  return (
+    <div className="rounded-lg overflow-hidden border border-border/30 bg-background/40 hover:border-primary/50 transition-colors flex flex-col">
+      <div className="relative aspect-video bg-black">
+        {playing ? (
+          v.provider === "direct" ? (
+            <video
+              src={v.embedUrl}
+              controls
+              autoPlay
+              className="w-full h-full"
+            />
+          ) : (
+            <iframe
+              src={`${v.embedUrl}${v.embedUrl.includes("?") ? "&" : "?"}autoplay=1`}
+              title={v.title}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+              referrerPolicy="strict-origin-when-cross-origin"
+              className="w-full h-full"
+            />
+          )
+        ) : (
+          <button
+            type="button"
+            onClick={() => setPlaying(true)}
+            className="group relative w-full h-full"
+            aria-label={`Lire ${v.title}`}
+          >
+            {v.thumbnail ? (
+              <img
+                src={v.thumbnail}
+                alt={v.title}
+                loading="lazy"
+                referrerPolicy="no-referrer"
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/30 to-fuchsia-500/30" />
+            )}
+            <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition-colors">
+              <PlayCircle className="w-12 h-12 text-white drop-shadow-lg group-hover:scale-110 transition-transform" />
+            </div>
+            {v.duration && (
+              <span className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded bg-black/80 text-white text-[10px] font-mono">
+                {v.duration}
+              </span>
+            )}
+            <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/70 text-white text-[10px] uppercase tracking-wide">
+              {providerLabel(v.provider)}
+            </span>
+          </button>
+        )}
+      </div>
+      <div className="p-2.5 flex flex-col gap-1">
+        <h4 className="text-xs font-medium text-foreground line-clamp-2">{v.title}</h4>
+        <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+          <span className="truncate">{v.author || providerLabel(v.provider)}</span>
+          <a
+            href={v.pageUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-0.5 text-primary/80 hover:text-primary"
+          >
+            Source <ExternalLink className="w-2.5 h-2.5" />
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function VideosWidget({ query, items }: { query?: string; items: VideoItem[] }) {
+  if (!items?.length) {
+    return (
+      <div className="rounded-xl border border-border/40 bg-white/5 p-3 text-xs text-muted-foreground">
+        Aucune vidéo trouvée{query ? ` pour « ${query} »` : ""}.
+      </div>
+    );
+  }
+  const single = items.length === 1;
+  return (
+    <div className="rounded-xl border border-border/40 bg-white/5 p-3">
+      <div className="text-xs font-semibold text-muted-foreground mb-3 flex items-center gap-2">
+        <Video className="w-3.5 h-3.5 text-primary" />
+        VIDÉO{items.length > 1 ? "S" : ""} · {items.length}
+        {query ? ` — « ${query} »` : ""}
+      </div>
+      <div
+        className={
+          single
+            ? "max-w-2xl mx-auto"
+            : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"
+        }
+      >
+        {items.map((v) => (
+          <VideoCard key={v.id} v={v} />
+        ))}
+      </div>
     </div>
   );
 }
