@@ -12,7 +12,7 @@ import { useLanguage } from "@/i18n/LanguageProvider";
 import { useSettings } from "@/contexts/SettingsProvider";
 
 export default function Index() {
-  const { lang } = useLanguage();
+  const { lang, t } = useLanguage();
   const { settings } = useSettings();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -122,17 +122,17 @@ export default function Index() {
                 {settings.aiName || "Jarvis"}
               </h1>
               <p className="text-muted-foreground text-sm mt-1">
-                {useLanguageT("appSubtitle")}
+                {t("appSubtitle")}
               </p>
             </div>
             <div className="flex gap-2">
               <button className="px-3 py-1.5 rounded-lg bg-secondary text-sm font-medium flex items-center gap-2 hover:bg-secondary/80 transition-colors">
                 <Expand className="w-4 h-4" />
-                Fullscreen
+                {t("fullscreen")}
               </button>
               <button className="px-3 py-1.5 rounded-lg bg-secondary text-sm font-medium flex items-center gap-2 hover:bg-secondary/80 transition-colors">
                 <Settings2 className="w-4 h-4" />
-                Options
+                {t("options")}
               </button>
             </div>
           </div>
@@ -144,7 +144,7 @@ export default function Index() {
               <div className="h-full flex flex-col items-center justify-center">
                 <ChatOrb isLoading={isLoading} />
                 <p className="text-muted-foreground text-sm mt-4">
-                  Your AI assistant is ready
+                  {t("assistantReady")}
                 </p>
               </div>
             ) : (
@@ -175,14 +175,14 @@ export default function Index() {
               <div className="mt-4">
                 <p className="text-center text-xs text-muted-foreground mb-3 flex items-center justify-center gap-1">
                   <Sparkles className="w-3 h-3" />
-                  Try asking:
+                  {t("tryAsking")}
                 </p>
                 <SuggestionPills onSelect={handleSuggestion} />
               </div>
 
               {/* Footer hint */}
               <p className="text-center text-xs text-muted-foreground/60 mt-4">
-                Click + to attach · Use mic for voice · Hover messages to edit/copy
+                {t("inputHint")}
               </p>
             </div>
           </div>
