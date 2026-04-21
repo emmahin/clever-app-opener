@@ -31,6 +31,7 @@ function buildSystemPrompt(opts: {
   forceTool?: string | null;
   schedule?: Array<{ title: string; start_iso: string; end_iso?: string; location?: string; notes?: string }>;
   timezone?: string;
+  scheduleRelevant?: boolean;
 }): string {
   const name = LANG_NAMES[opts.lang] || "français";
   const detail = DETAIL_STYLES[opts.detailLevel || "normal"] || DETAIL_STYLES.normal;
@@ -680,20 +681,70 @@ async function completeModelResponse(body: any): Promise<string> {
   return String(data.choices?.[0]?.message?.content || data.choices?.[0]?.text || "").trim();
 }
 
+// --- Helpers d'économie de tokens ---
+
+/** Détecte si le message courant nécessite le contexte planning. */
+function needsScheduleContext(text: string): boolean {
+  const t = text.toLowerCase();
+  return /\b(planning|emploi du temps|agenda|rdv|rendez[- ]?vous|réunion|reunion|cours|dispo|dispo(nibilité|nible)|libre|occup|aujourd'?hui|demain|hier|semaine|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche|matin|midi|apr[èe]s[- ]midi|soir|nuit|\bh\d|\d{1,2}h\b|annul|supprim|note(r)?|planifi|ajoute|enregistre|\bmets?\b)/.test(t);
+}
+
+/**
+ * Filtre les outils déclarés à l'IA selon la pertinence pour la requête courante.
+ * Économise ~600-800 tokens / appel en supprimant les schémas inutiles.
+ */
+function filterToolsForMessage(
+  text: string,
+  history: any[],
+  webSearch: boolean,
+  forceTool: string | null,
+): any[] {
+  const t = text.toLowerCase();
+  const histText = history.slice(-3).map((m) => {
+    if (typeof m.content === "string") return m.content;
+    if (Array.isArray(m.content)) return m.content.map((p: any) => p?.text || "").join(" ");
+    return "";
+  }).join(" ").toLowerCase();
+  const ctx = t + " " + histText;
+
+  const matchers: Record<string, RegExp> = {
+    fetch_news: /\b(actu|news|nouvelle|info|politique|monde|événement|evenement|à la une|breaking)\b/,
+    fetch_stocks: /\b(bourse|action|stock|cours|nasdaq|cac|s&p|nvda|tesla|apple|crypto|march[ée])\b/,
+    web_search: /\b(cherche|recherche|trouve|qui est|c'?est quoi|d[ée]finition|comparaison|combien|quand|où|web)\b/,
+    generate_image: /\b(g[ée]n[èe]re|cr[ée]e|dessine|illustr|fais[- ]moi une image|image de|peinture)\b/,
+    search_images: /\b(photo|photos|image|images|mod[èe]le|exemple|montre|visuel|r[ée]f[ée]rence)\b/,
+    search_videos: /\b(vid[ée]o|youtube|tuto|tutoriel|regarde|film|clip)\b/,
+    send_whatsapp_message: /\b(whatsapp|envoie|écris|ecris|dis [àa]|message [àa])\b/,
+    create_reminder: /\b(rappelle|rappel|pr[ée]viens|n'?oublie|alerte|dans \d|demain [àa]|ce soir [àa])\b/,
+    create_insight: /\b(conseil|suggestion|recommand|insight|observation)\b/,
+    add_schedule_event: /\b(ajoute|note|planifie|enregistre|mets dans (mon )?(agenda|planning|emploi))\b/,
+    list_schedule: /\b(planning|emploi du temps|agenda|qu'?est[- ]ce que j'?ai|mon planning|mes rdv)\b/,
+    remove_schedule_event: /\b(annul|supprim|enl[èe]ve|retire)\b.*(rdv|rendez|r[ée]union|cours|planning|agenda)/,
+  };
+
+  // Outils toujours actifs (forcés ou contextuels)
+  const alwaysOn = new Set<string>();
+  if (webSearch) alwaysOn.add("web_search");
+  if (forceTool === "image") alwaysOn.add("generate_image");
+
+  const filtered = TOOLS.filter((tool) => {
+    const name = tool.function?.name;
+    if (!name) return false;
+    if (alwaysOn.has(name)) return true;
+    const re = matchers[name];
+    if (!re) return true; // outil sans matcher : conservé par sécurité
+    return re.test(ctx);
+  });
+
+  // Garde-fou : si tout a été filtré, garder un set minimal pour ne pas bloquer.
+  return filtered.length ? filtered : TOOLS.filter((t) => ["web_search", "search_images"].includes(t.function?.name));
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
     const { messages, lang, detailLevel, customInstructions, aiName, attachments, webSearch, deepThink, forceTool, schedule } = await req.json();
-    const SYSTEM_PROMPT = buildSystemPrompt({
-      lang: typeof lang === "string" ? lang : "fr",
-      detailLevel: typeof detailLevel === "string" ? detailLevel : "normal",
-      customInstructions: typeof customInstructions === "string" ? customInstructions : "",
-      aiName: typeof aiName === "string" ? aiName : "",
-      webSearch: !!webSearch,
-      forceTool: typeof forceTool === "string" ? forceTool : null,
-      schedule: Array.isArray(schedule) ? schedule : [],
-    });
     if (!Array.isArray(messages)) {
       return new Response(JSON.stringify({ error: "messages must be an array" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
