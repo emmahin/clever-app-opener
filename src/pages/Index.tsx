@@ -158,7 +158,7 @@ export default function Index() {
                 <ChatOrb isLoading={isLoading} />
               </div>
             ) : (
-              <div className="space-y-4 max-w-3xl mx-auto">
+              <div className="space-y-4 max-w-3xl mx-auto pt-24">
                 {messages.map((msg, idx) => {
                   const isLast = idx === messages.length - 1;
                   const isThinking =
