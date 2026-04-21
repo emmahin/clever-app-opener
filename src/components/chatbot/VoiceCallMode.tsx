@@ -159,34 +159,36 @@ export function VoiceCallMode({ open, onClose }: Props) {
 
       {/* Orb */}
       <div className="flex-1 flex flex-col items-center justify-center gap-8 w-full max-w-xl">
-        <div className="relative w-64 h-64">
-          {/* Outer halo */}
+        <div className="relative w-80 h-80">
+          {/* Outer halo blending into background */}
           <div
-            className={`absolute -inset-6 rounded-full transition-all duration-700
+            className={`absolute -inset-16 transition-all duration-700
               ${phase === "listening" ? "bg-fuchsia-500/40 animate-pulse" : ""}
               ${phase === "thinking" ? "bg-amber-400/30 animate-pulse" : ""}
               ${phase === "speaking" ? "bg-violet-400/50 animate-pulse" : ""}
               ${phase === "idle" ? "bg-violet-600/20" : ""}`}
-            style={{ filter: "blur(40px)" }}
+            style={{ filter: "blur(60px)", borderRadius: "9999px" }}
           />
-          {/* Galaxy circle */}
-          <div
-            className={`relative w-full h-full rounded-full overflow-hidden ring-1 ring-white/10 shadow-[0_0_80px_rgba(168,85,247,0.45)] transition-transform duration-500
+          {/* Galaxy with soft feathered edges (no hard circle) */}
+          <img
+            src={galaxyOrb}
+            alt=""
+            className={`relative w-full h-full object-cover transition-all duration-700
               ${phase === "listening" ? "scale-110 animate-pulse" : ""}
               ${phase === "speaking" ? "scale-105" : ""}
               ${phase === "idle" ? "scale-100" : ""}`}
-          >
-            <img
-              src={galaxyOrb}
-              alt=""
-              className={`w-full h-full object-cover transition-all duration-700
-                ${phase === "thinking" ? "animate-spin-slow" : ""}
-                ${phase === "speaking" ? "scale-110" : "scale-100"}`}
-              style={phase === "thinking" ? { animation: "spin 8s linear infinite" } : undefined}
-            />
-            {/* Subtle inner shine overlay */}
-            <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white/10 via-transparent to-black/30 pointer-events-none" />
-          </div>
+            style={{
+              WebkitMaskImage:
+                "radial-gradient(circle at center, black 40%, transparent 75%)",
+              maskImage:
+                "radial-gradient(circle at center, black 40%, transparent 75%)",
+              animation:
+                phase === "thinking"
+                  ? "spin 8s linear infinite"
+                  : "spin 40s linear infinite",
+              filter: "drop-shadow(0 0 60px rgba(168,85,247,0.45))",
+            }}
+          />
           {/* Phase icon (mic hidden — galaxy speaks for itself) */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             {phase === "thinking" && <Loader2 className="w-12 h-12 text-white animate-spin drop-shadow-[0_0_12px_rgba(255,255,255,0.8)]" />}
