@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { stockService, Stock } from "@/services";
 import { TrendingUp, TrendingDown, BarChart3 } from "lucide-react";
-import { Area, AreaChart, ResponsiveContainer, Tooltip } from "recharts";
+import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useLanguage } from "@/i18n/LanguageProvider";
 
 export function StockPanel() {
@@ -62,15 +62,32 @@ export function StockPanel() {
                     </div>
                   </div>
                 </div>
-                <div className="h-12 -mx-1">
+                <div className="h-32 -mx-1 mt-2">
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={s.series}>
+                    <LineChart data={s.series} margin={{ top: 8, right: 16, left: 4, bottom: 4 }}>
                       <defs>
-                        <linearGradient id={`g-${s.symbol}`} x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor={stroke} stopOpacity={0.5} />
-                          <stop offset="100%" stopColor={stroke} stopOpacity={0} />
-                        </linearGradient>
+                        <marker id={`arrowX-${s.symbol}`} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                          <path d="M0,0 L10,5 L0,10 z" fill="hsl(250, 15%, 55%)" />
+                        </marker>
+                        <marker id={`arrowY-${s.symbol}`} viewBox="0 0 10 10" refX="5" refY="2" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                          <path d="M0,10 L5,0 L10,10 z" fill="hsl(250, 15%, 55%)" />
+                        </marker>
                       </defs>
+                      <CartesianGrid stroke="hsl(250, 15%, 45% / 0.25)" strokeWidth={0.5} />
+                      <XAxis
+                        dataKey="t"
+                        tick={{ fill: "hsl(250, 15%, 70%)", fontSize: 9 }}
+                        tickLine={false}
+                        axisLine={{ stroke: "hsl(250, 15%, 55%)", strokeWidth: 1.2, markerEnd: `url(#arrowX-${s.symbol})` }}
+                        interval="preserveStartEnd"
+                      />
+                      <YAxis
+                        tick={{ fill: "hsl(250, 15%, 70%)", fontSize: 9 }}
+                        tickLine={false}
+                        axisLine={{ stroke: "hsl(250, 15%, 55%)", strokeWidth: 1.2, markerEnd: `url(#arrowY-${s.symbol})` }}
+                        width={28}
+                        domain={["auto", "auto"]}
+                      />
                       <Tooltip
                         contentStyle={{
                           background: "hsl(250, 35%, 9%)",
@@ -81,15 +98,16 @@ export function StockPanel() {
                         labelStyle={{ color: "hsl(250, 15%, 65%)" }}
                         formatter={(v: number) => [v.toFixed(2), "Cours"]}
                       />
-                      <Area
+                      <Line
                         type="monotone"
                         dataKey="close"
                         stroke={stroke}
-                        strokeWidth={1.5}
-                        fill={`url(#g-${s.symbol})`}
+                        strokeWidth={2.5}
+                        dot={{ fill: stroke, stroke: stroke, r: 3 }}
+                        activeDot={{ r: 4 }}
                         isAnimationActive={false}
                       />
-                    </AreaChart>
+                    </LineChart>
                   </ResponsiveContainer>
                 </div>
               </a>
