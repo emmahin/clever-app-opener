@@ -166,7 +166,15 @@ export default function Settings() {
 
               <div>
                 <label className="text-sm font-medium block mb-2">Heures silencieuses</label>
-                <div className="flex items-center gap-3 text-sm">
+                <div className="mb-3">
+                  <ToggleRow
+                    label="Activer les heures silencieuses"
+                    description="Quand actif, aucun toast dans la plage choisie. La cloche reste mise à jour."
+                    checked={notifPrefs.quietHoursEnabled}
+                    onChange={(v) => updateNotif({ quietHoursEnabled: v })}
+                  />
+                </div>
+                <div className={`flex items-center gap-3 text-sm ${notifPrefs.quietHoursEnabled ? "" : "opacity-50 pointer-events-none"}`}>
                   <span className="text-muted-foreground">De</span>
                   <select
                     value={notifPrefs.quietStartHour}
@@ -188,7 +196,7 @@ export default function Settings() {
                     ))}
                   </select>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1.5">Les notifs sont silencieuses dans cette plage. L'historique reste disponible.</p>
+                <p className="text-xs text-muted-foreground mt-1.5">Désactivé par défaut. Active si tu veux du calme la nuit.</p>
               </div>
 
               <div>
