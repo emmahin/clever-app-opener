@@ -154,7 +154,7 @@ export default function Index() {
           <div className="flex-1 px-6 overflow-y-auto pb-80 relative z-0">
             {messages.length === 0 ? (
               // Empty state with orb
-              <div className="h-full flex flex-col items-center justify-center mt-24">
+              <div className="h-full flex flex-col items-center justify-center mt-8">
                 <ChatOrb isLoading={isLoading} />
               </div>
             ) : (
