@@ -6,6 +6,7 @@ import { processFile } from "@/lib/attachments";
 import { toast } from "sonner";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { TokenCounter, estimateTokens } from "./TokenCounter";
 
 export interface SendOptions {
   webSearch?: boolean;
@@ -455,6 +456,15 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
 
           <TooltipProvider delayDuration={150}>
             <div className="flex items-center gap-2">
+            {/* Compteur de tokens estimé pour le message en cours */}
+            <TokenCounter
+              text={value}
+              extra={attachments.reduce((acc, a) => {
+                if (a.kind === "image") return acc + 256; // coût visuel approx.
+                if (a.kind === "document" || a.kind === "audio") return acc + estimateTokens((a as any).text || "");
+                return acc;
+              }, 0)}
+            />
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
