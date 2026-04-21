@@ -285,7 +285,7 @@ export default function Documents() {
       <Header />
       <FloatingProjectsBar
         category="documents"
-        getSnapshot={() => ({ folderName, mapping, explanation, newRootName, chat, engine, groupByYear })}
+        getSnapshot={() => ({ folderName, mapping, explanation, newRootName, chat, groupByYear })}
         onLoad={(p) => {
           const d = p.data as any;
           if (!d) return;
@@ -294,7 +294,6 @@ export default function Documents() {
           if (typeof d.explanation === "string") setExplanation(d.explanation);
           if (typeof d.newRootName === "string") setNewRootName(d.newRootName);
           if (Array.isArray(d.chat)) setChat(d.chat);
-          if (d.engine === "local" || d.engine === "ai") setEngine(d.engine);
           if (typeof d.groupByYear === "boolean") setGroupByYear(d.groupByYear);
         }}
       />
