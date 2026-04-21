@@ -9,7 +9,15 @@ export type ChatWidget =
   | { type: "web_sources"; items: WebSource[] }
   | { type: "whatsapp_send"; contact_name: string; body: string }
   | { type: "reminder_created"; title: string; body?: string; when_iso: string }
-  | { type: "insight_created"; title: string; body: string };
+  | { type: "insight_created"; title: string; body: string }
+  | {
+      type: "schedule";
+      range_label?: string;
+      range_start_iso?: string;
+      range_end_iso?: string;
+      added?: { title: string; start_iso: string; end_iso?: string; location?: string; notes?: string };
+      removed_count?: number;
+    };
 
 export interface ChatMessage {
   id: string;
