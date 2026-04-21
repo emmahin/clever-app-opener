@@ -2,8 +2,10 @@ import { useEffect, useState } from "react";
 import { stockService, Stock } from "@/services";
 import { TrendingUp, TrendingDown, BarChart3 } from "lucide-react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip } from "recharts";
+import { useLanguage } from "@/i18n/LanguageProvider";
 
 export function StockPanel() {
+  const { t } = useLanguage();
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -20,7 +22,7 @@ export function StockPanel() {
     <div className="glass rounded-2xl p-4">
       <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
         <BarChart3 className="w-4 h-4 text-primary" />
-        Capital qui explose
+        {t("capitalRising")}
       </h3>
 
       {loading ? (

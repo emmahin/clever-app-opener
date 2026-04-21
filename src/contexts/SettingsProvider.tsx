@@ -13,7 +13,7 @@ const DEFAULTS: Settings = {
   detailLevel: "normal",
   typewriter: true,
   customInstructions: "",
-  aiName: "",
+  aiName: "Jarvis",
 };
 
 const STORAGE_KEY = "app.settings.v1";

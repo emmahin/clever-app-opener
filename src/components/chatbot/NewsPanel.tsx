@@ -25,20 +25,29 @@ export function NewsPanel({ layout = "vertical", perRowLimit = 12 }: NewsPanelPr
 
   const grouped = useMemo(() => {
     const ORDER = ["À la une", "Tech & IA", "Économie", "International"];
+    const CAT_KEY: Record<string, "cat_top" | "cat_tech" | "cat_econ" | "cat_intl"> = {
+      "À la une": "cat_top",
+      "Tech & IA": "cat_tech",
+      "Économie": "cat_econ",
+      "International": "cat_intl",
+    };
     const map = new Map<string, NewsItem[]>();
     for (const n of news) {
-      const cat = n.category || "Actualités";
+      const rawCat = n.category || "Actualités";
+      const key = CAT_KEY[rawCat];
+      const cat = key ? t(key) : t("cat_default");
       if (!map.has(cat)) map.set(cat, []);
       map.get(cat)!.push(n);
     }
+    const ORDER_TRANSLATED = [t("cat_top"), t("cat_tech"), t("cat_econ"), t("cat_intl")];
     return Array.from(map.entries())
       .sort(([a], [b]) => {
-        const ia = ORDER.indexOf(a);
-        const ib = ORDER.indexOf(b);
+        const ia = ORDER_TRANSLATED.indexOf(a);
+        const ib = ORDER_TRANSLATED.indexOf(b);
         return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
       })
       .map(([cat, items]) => [cat, items.slice(0, perRowLimit)] as const);
-  }, [news, perRowLimit]);
+  }, [news, perRowLimit, t]);
 
   if (layout === "vertical") {
     return (
@@ -90,7 +99,7 @@ export function NewsPanel({ layout = "vertical", perRowLimit = 12 }: NewsPanelPr
               <h2 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2 px-1">
                 <Newspaper className="w-4 h-4 text-primary" />
                 {category}
-                <span className="text-xs text-muted-foreground font-normal">· {items.length} articles</span>
+                <span className="text-xs text-muted-foreground font-normal">· {items.length} {t("articles")}</span>
               </h2>
               <div className="flex gap-4 overflow-x-auto pb-3 -mx-1 px-1 snap-x snap-mandatory scrollbar-thin">
                 {items.map((item) => (

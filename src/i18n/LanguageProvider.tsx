@@ -183,6 +183,41 @@ const STRINGS: Record<string, Record<Lang, string>> = {
     es: "Caché vaciada",
     de: "Cache geleert",
   },
+  // App / Index
+  appTitle: { fr: "Chatbot IA", en: "AI Chatbot", es: "Chatbot IA", de: "KI-Chatbot" },
+  appSubtitle: {
+    fr: "Pose toutes tes questions sur tes données et analyses",
+    en: "Ask anything about your data and analytics",
+    es: "Pregunta lo que quieras sobre tus datos y análisis",
+    de: "Frag alles über deine Daten und Analysen",
+  },
+  fullscreen: { fr: "Plein écran", en: "Fullscreen", es: "Pantalla completa", de: "Vollbild" },
+  options: { fr: "Options", en: "Options", es: "Opciones", de: "Optionen" },
+  assistantReady: {
+    fr: "Ton assistant IA est prêt",
+    en: "Your AI assistant is ready",
+    es: "Tu asistente IA está listo",
+    de: "Dein KI-Assistent ist bereit",
+  },
+  tryAsking: { fr: "Essaie de demander :", en: "Try asking:", es: "Prueba a preguntar:", de: "Frag doch:" },
+  inputHint: {
+    fr: "Clique sur + pour joindre · micro pour la voix · survole les messages pour éditer/copier",
+    en: "Click + to attach · use mic for voice · hover messages to edit/copy",
+    es: "Pulsa + para adjuntar · micro para voz · pasa el ratón para editar/copiar",
+    de: "+ zum Anhängen · Mikro für Sprache · über Nachrichten schweben zum Bearbeiten/Kopieren",
+  },
+  askAnything: { fr: "Pose ta question…", en: "Ask anything…", es: "Pregunta lo que quieras…", de: "Frag etwas…" },
+  stopRecording: { fr: "Arrêter l'enregistrement", en: "Stop recording", es: "Detener grabación", de: "Aufnahme stoppen" },
+  startVoice: { fr: "Saisie vocale", en: "Start voice input", es: "Entrada de voz", de: "Spracheingabe starten" },
+  thinking: { fr: "Réflexion en cours", en: "Thinking", es: "Pensando", de: "Denke nach" },
+  capitalRising: { fr: "Capital qui explose", en: "Trending stocks", es: "Capital al alza", de: "Trend-Aktien" },
+  clear: { fr: "Effacer", en: "Clear", es: "Borrar", de: "Löschen" },
+  // News categories
+  cat_top: { fr: "À la une", en: "Top stories", es: "Destacados", de: "Schlagzeilen" },
+  cat_tech: { fr: "Tech & IA", en: "Tech & AI", es: "Tech e IA", de: "Tech & KI" },
+  cat_econ: { fr: "Économie", en: "Economy", es: "Economía", de: "Wirtschaft" },
+  cat_intl: { fr: "International", en: "International", es: "Internacional", de: "International" },
+  cat_default: { fr: "Actualités", en: "News", es: "Noticias", de: "Nachrichten" },
 };
 
 type Ctx = {

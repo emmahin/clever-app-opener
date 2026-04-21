@@ -1,15 +1,12 @@
+import { useLanguage } from "@/i18n/LanguageProvider";
+
 interface SuggestionPillsProps {
   onSelect: (text: string) => void;
 }
 
-const suggestions = [
-  "Analyze the data trends from last month",
-  "Generate a SQL query for user analytics",
-  "Summarize key insights from the dashboard",
-  "Create a report on model performance",
-];
-
 export function SuggestionPills({ onSelect }: SuggestionPillsProps) {
+  const { t } = useLanguage();
+  const suggestions = [t("suggestion1"), t("suggestion2"), t("suggestion3"), t("suggestion4")];
   return (
     <div className="flex flex-wrap justify-center gap-3 max-w-2xl mx-auto">
       {suggestions.map((s) => (

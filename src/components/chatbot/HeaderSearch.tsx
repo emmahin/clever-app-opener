@@ -115,7 +115,7 @@ export function HeaderSearch({ messages, onJumpToMessage, onSuggestion }: Header
         <button
           onClick={reset}
           className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded flex items-center justify-center text-white/70 hover:bg-white/15"
-          aria-label="Effacer"
+          aria-label={t("clear")}
         >
           <X className="w-3.5 h-3.5" />
         </button>
