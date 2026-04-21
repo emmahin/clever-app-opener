@@ -534,40 +534,14 @@ Deno.serve(async (req) => {
           } else {
             // No tools: stream the direct response token by token
             // Re-call with stream=true (since phase1 was not streamed)
-            const phaseDirect = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-              method: "POST",
-              headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-              body: JSON.stringify({
-                model: "google/gemini-3-flash-preview",
-                messages: [{ role: "system", content: SYSTEM_PROMPT }, ...messages],
-                stream: true,
-              }),
-            });
-
-            if (!phaseDirect.ok || !phaseDirect.body) {
-              send({ error: "Erreur IA." });
-              controller.close(); return;
-            }
-            const reader = phaseDirect.body.getReader();
-            const dec = new TextDecoder();
-            let buf = "";
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              buf += dec.decode(value, { stream: true });
-              let nl;
-              while ((nl = buf.indexOf("\n")) !== -1) {
-                const line = buf.slice(0, nl).replace(/\r$/, "");
-                buf = buf.slice(nl + 1);
-                if (!line.startsWith("data: ")) continue;
-                const json = line.slice(6).trim();
-                if (json === "[DONE]") continue;
-                try {
-                  const p = JSON.parse(json);
-                  const delta = p.choices?.[0]?.delta?.content;
-                  if (delta) send({ delta });
-                } catch { /* ignore */ }
-              }
+            const directBody = {
+              model: "google/gemini-3-flash-preview",
+              messages: [{ role: "system", content: SYSTEM_PROMPT }, ...messages],
+            };
+            const streamed = await streamModelResponse(directBody, send);
+            if (!streamed.trim()) {
+              const fallback = await completeModelResponse({ ...directBody, model: "google/gemini-2.5-flash" });
+              send({ delta: fallback || "Je suis là monsieur, mais je n’ai pas reçu de contenu exploitable. Reformulez votre demande en une phrase et je m’en occupe." });
             }
           }
 
