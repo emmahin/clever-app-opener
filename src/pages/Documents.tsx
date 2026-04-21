@@ -2,16 +2,17 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Sidebar } from "@/components/chatbot/Sidebar";
 import { Header } from "@/components/chatbot/Header";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronRight, File, Folder, FolderTree, Loader2, Sparkles, Upload, Download, Bot, User, Zap, Cloud } from "lucide-react";
+import { ChevronDown, ChevronRight, File, Folder, FolderTree, Loader2, Sparkles, Upload, Download, Bot, User, Zap, Cloud, Wand2, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
 import { FloatingProjectsBar } from "@/components/chatbot/FloatingProjectsBar";
-import { organizeLocally } from "@/lib/localOrganizer";
+import { organizeLocally, parseCustomRules } from "@/lib/localOrganizer";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 type TreeNode = {
   name: string;
