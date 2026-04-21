@@ -11,7 +11,7 @@ export function Header({ onNewChat, searchSlot }: HeaderProps = {}) {
   const { t } = useLanguage();
   return (
     <header className="fixed top-0 left-[72px] right-0 h-14 flex items-center justify-between px-6 z-40"
-      style={{ background: "linear-gradient(90deg, hsl(255, 75%, 50%, 0.9), hsl(290, 75%, 55%, 0.9))" }}>
+      style={{ background: "linear-gradient(90deg, hsl(0, 0%, 4%, 0.95), hsl(275, 85%, 45%, 0.95))" }}>
       {/* Search slot (champ contrôlé par Index) */}
       {searchSlot}
 
