@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { Plus, Globe, Sparkles, Code, Mic } from "lucide-react";
 import { voiceService } from "@/services";
+import { useLanguage } from "@/i18n/LanguageProvider";
 
 interface ChatInputProps {
   onSend: (message: string) => void;
@@ -8,6 +9,7 @@ interface ChatInputProps {
 }
 
 export function ChatInput({ onSend, disabled }: ChatInputProps) {
+  const { t } = useLanguage();
   const [value, setValue] = useState("");
   const [isRecording, setIsRecording] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -48,7 +50,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask anything..."
+          placeholder={t("askAnything")}
           rows={2}
           disabled={disabled}
           className="w-full bg-transparent text-foreground placeholder:text-muted-foreground resize-none focus:outline-none text-base"
@@ -79,7 +81,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
                 ? "bg-destructive text-destructive-foreground animate-pulse"
                 : "bg-primary text-primary-foreground hover:scale-105"
             )}
-            title={isRecording ? "Stop recording" : "Start voice input"}
+            title={isRecording ? t("stopRecording") : t("startVoice")}
           >
             <Mic className="w-5 h-5" />
           </button>

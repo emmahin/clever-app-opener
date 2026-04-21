@@ -119,10 +119,10 @@ export default function Index() {
             <div>
               <h1 className="text-2xl font-semibold flex items-center gap-2">
                 <Sparkles className="w-6 h-6 text-primary" />
-                AI Chatbot
+                {settings.aiName || "Jarvis"}
               </h1>
               <p className="text-muted-foreground text-sm mt-1">
-                Ask anything about your data and analytics
+                {useLanguageT("appSubtitle")}
               </p>
             </div>
             <div className="flex gap-2">
