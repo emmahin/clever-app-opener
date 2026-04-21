@@ -160,13 +160,9 @@ export function VoiceCallMode({ open, onClose }: Props) {
       {/* Orb */}
       <div className="flex-1 flex flex-col items-center justify-center gap-8 w-full max-w-xl">
         <div className="relative w-80 h-80">
-          {/* Outer animated gradient halo (smooth, fluid) */}
+          {/* Fixed gradient halo */}
           <div
-            className={`absolute -inset-20 rounded-full pointer-events-none
-              ${phase === "listening" ? "animate-halo-listening" : ""}
-              ${phase === "thinking"  ? "animate-halo-thinking"  : ""}
-              ${phase === "speaking"  ? "animate-halo-speaking"  : ""}
-              ${phase === "idle"      ? "animate-halo"           : ""}`}
+            className="absolute -inset-20 rounded-full pointer-events-none blur-[72px] opacity-90"
             style={{
               background:
                 phase === "listening"
@@ -182,19 +178,23 @@ export function VoiceCallMode({ open, onClose }: Props) {
           <img
             src={galaxyOrb}
             alt=""
-            className={`relative w-full h-full object-cover transition-all duration-700
-              ${phase === "listening" ? "scale-110 animate-pulse" : ""}
-              ${phase === "speaking" ? "scale-105" : ""}
-              ${phase === "idle" ? "scale-100" : ""}`}
+            className="relative w-full h-full object-cover transition-all duration-700"
             style={{
               WebkitMaskImage:
                 "radial-gradient(circle at center, black 40%, transparent 75%)",
               maskImage:
                 "radial-gradient(circle at center, black 40%, transparent 75%)",
               animation:
+                phase === "listening"
+                  ? "galaxy-listening 7s ease-in-out infinite"
+                  : phase === "speaking"
+                  ? "galaxy-speaking 5s ease-in-out infinite"
+                  : phase === "idle"
+                  ? "galaxy-idle 40s ease-in-out infinite"
+                  :
                 phase === "thinking"
-                  ? "spin 8s linear infinite"
-                  : "spin 40s linear infinite",
+                  ? "galaxy-thinking 8s ease-in-out infinite"
+                  : "galaxy-idle 40s ease-in-out infinite",
               filter: "drop-shadow(0 0 60px rgba(168,85,247,0.45))",
             }}
           />
