@@ -6,7 +6,8 @@ export type ChatWidget =
   | { type: "image"; url: string; prompt: string }
   | { type: "image_gallery"; query: string; items: GalleryImage[] }
   | { type: "videos"; query?: string; items: VideoItem[] }
-  | { type: "web_sources"; items: WebSource[] };
+  | { type: "web_sources"; items: WebSource[] }
+  | { type: "whatsapp_send"; contact_name: string; body: string };
 
 export interface ChatMessage {
   id: string;
