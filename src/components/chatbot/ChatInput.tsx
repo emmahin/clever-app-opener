@@ -6,6 +6,7 @@ import { processFile } from "@/lib/attachments";
 import { toast } from "sonner";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { TokenCounter, estimateTokens } from "./TokenCounter";
 
 export interface SendOptions {
   webSearch?: boolean;
