@@ -541,6 +541,57 @@ async function callTool(name: string, args: any): Promise<{ widget: any; summary
     };
   }
 
+  if (name === "add_schedule_event") {
+    const title = String(args.title || "").trim();
+    const start_iso = String(args.start_iso || "").trim();
+    if (!title || !start_iso) return { widget: null, summary: "Titre ou date de début manquant." };
+    if (isNaN(Date.parse(start_iso))) return { widget: null, summary: `Date invalide : "${start_iso}".` };
+    const end_iso = args.end_iso ? String(args.end_iso).trim() : undefined;
+    const location = args.location ? String(args.location).trim() : undefined;
+    const notes = args.notes ? String(args.notes).trim() : undefined;
+    return {
+      widget: { type: "schedule", added: { title, start_iso, end_iso, location, notes } },
+      summary: `Événement ajouté à l'emploi du temps : "${title}" le ${start_iso}.`,
+    };
+  }
+
+  if (name === "list_schedule") {
+    const range = String(args.range || "all").trim();
+    const now = new Date();
+    const startOfDay = new Date(now); startOfDay.setHours(0, 0, 0, 0);
+    let from: Date | null = null;
+    let to: Date | null = null;
+    let label = "tout";
+    if (range === "today") {
+      from = startOfDay; to = new Date(startOfDay); to.setDate(to.getDate() + 1); label = "Aujourd'hui";
+    } else if (range === "tomorrow") {
+      from = new Date(startOfDay); from.setDate(from.getDate() + 1);
+      to = new Date(from); to.setDate(to.getDate() + 1); label = "Demain";
+    } else if (range === "week") {
+      from = startOfDay; to = new Date(startOfDay); to.setDate(to.getDate() + 7); label = "Cette semaine";
+    } else if (range === "month") {
+      from = startOfDay; to = new Date(startOfDay); to.setMonth(to.getMonth() + 1); label = "Ce mois";
+    }
+    return {
+      widget: {
+        type: "schedule",
+        range_label: label,
+        range_start_iso: from ? from.toISOString() : undefined,
+        range_end_iso: to ? to.toISOString() : undefined,
+      },
+      summary: `Affichage de l'emploi du temps : ${label}.`,
+    };
+  }
+
+  if (name === "remove_schedule_event") {
+    const q = String(args.title_query || "").trim();
+    if (!q) return { widget: null, summary: "Mot-clé manquant pour la suppression." };
+    return {
+      widget: { type: "schedule", removed_count: -1, range_label: `Recherche : "${q}"`, added: undefined } as any,
+      summary: `Suppression demandée pour les événements contenant "${q}". Le widget effectue la suppression côté client.`,
+    };
+  }
+
   return { widget: null, summary: "Outil inconnu" };
 }
 
