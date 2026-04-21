@@ -179,13 +179,16 @@ export default function Documents() {
     setOrganizing(true);
     setMapping(null);
     const paths = files.map((f) => (f as any).webkitRelativePath || f.name);
+    const customRules = parseCustomRules(customRulesText);
     pushChat({
       role: "user",
-      content: `Organise mes ${paths.length} fichiers${groupByYear ? " (regroupés par année)" : ""}.`,
+      content:
+        `Organise mes ${paths.length} fichiers${groupByYear ? " (regroupés par année)" : ""}` +
+        (customRules.length ? ` avec ${customRules.length} règle(s) perso.` : "."),
     });
     try {
       // ⚡ Tri 100% local — aucun token consommé pour le tri lui-même
-      const result = organizeLocally(paths, { groupByYear, useSubcategories: true });
+      const result = organizeLocally(paths, { groupByYear, useSubcategories: true, customRules });
       setMapping(result.mapping);
       setExplanation(result.explanation);
       setNewRootName(result.rootName);
@@ -205,7 +208,10 @@ export default function Documents() {
       setExplaining(true);
       try {
         const { data, error } = await supabase.functions.invoke("explain-organization", {
-          body: { stats: result.stats, options: { groupByYear } },
+          body: {
+            stats: result.stats,
+            options: { groupByYear, customRulesCount: customRules.length },
+          },
         });
         if (error) throw error;
         if (data?.explanation) {
