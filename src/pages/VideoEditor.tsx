@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Sidebar } from "@/components/chatbot/Sidebar";
 import { Header } from "@/components/chatbot/Header";
 import { FloatingProjectsBar } from "@/components/chatbot/FloatingProjectsBar";
+import { TokenCounter } from "@/components/chatbot/TokenCounter";
 import {
   Clapperboard, Upload, Play, Pause, Scissors, Trash2, Type, Download,
   ChevronLeft, ChevronRight, Loader2, Music, Sparkles, Send,
