@@ -11,6 +11,7 @@ import { LanguageProvider } from "@/i18n/LanguageProvider";
 import { SettingsProvider } from "@/contexts/SettingsProvider";
 import Settings from "./pages/Settings.tsx";
 import VideoEditor from "./pages/VideoEditor.tsx";
+import Documents from "./pages/Documents.tsx";
 
 const queryClient = new QueryClient();
 
@@ -28,6 +29,7 @@ const App = () => (
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/video" element={<VideoEditor />} />
+            <Route path="/documents" element={<Documents />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

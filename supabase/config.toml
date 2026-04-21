@@ -1,1 +1,4 @@
 project_id = "kxatgsgucvvnzohstkxu"
+
+[functions.organize-documents]
+verify_jwt = false
