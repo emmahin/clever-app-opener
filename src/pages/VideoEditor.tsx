@@ -52,7 +52,7 @@ export default function VideoEditor() {
   const [currentTime, setCurrentTime] = useState(0);
   const [exporting, setExporting] = useState(false);
   const [chat, setChat] = useState<ChatMsg[]>([
-    { role: "assistant", content: "Salut ! Importe tes vidéos/sons puis dis-moi ce que tu veux : « monte tout seul », « ajoute une intro », « coupe le 1er clip à 5s », etc." },
+    { role: "assistant", content: "Salut ! Mode **Montage local** activé (gratuit). Importe tes vidéos puis dis-moi : « monte tout seul », « coupe le clip 1 à 5s », « supprime le dernier clip », « format reels »… L'IA n'intervient que pour t'expliquer le résultat." },
   ]);
   const [chatInput, setChatInput] = useState("");
   const [aiThinking, setAiThinking] = useState(false);
