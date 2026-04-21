@@ -271,6 +271,38 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
           </div>
         )}
 
+        {/* Overlay enregistrement / transcription */}
+        {(isRecording || transcribing) && (
+          <div className="mb-3 flex items-center gap-3 px-3 py-2.5 rounded-xl bg-primary/10 border border-primary/30">
+            {isRecording ? (
+              <>
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-destructive" />
+                </span>
+                <div className="flex items-end gap-[3px] h-8 flex-1">
+                  {waveform.map((v, i) => (
+                    <div
+                      key={i}
+                      className="w-1 rounded-full bg-gradient-to-t from-primary to-fuchsia-400 transition-all duration-75"
+                      style={{ height: `${Math.max(6, v * 100)}%` }}
+                    />
+                  ))}
+                </div>
+                <span className="text-sm font-mono tabular-nums text-foreground/90 min-w-[42px] text-right">
+                  {String(Math.floor(recordSeconds / 60)).padStart(2, "0")}:
+                  {String(recordSeconds % 60).padStart(2, "0")}
+                </span>
+              </>
+            ) : (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                <span className="text-sm text-foreground/90">Transcription…</span>
+              </>
+            )}
+          </div>
+        )}
+
         <textarea
           ref={textareaRef}
           value={value}
