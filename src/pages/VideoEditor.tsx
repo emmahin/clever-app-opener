@@ -334,6 +334,51 @@ export default function VideoEditor() {
     const next: ChatMsg[] = [...chat, { role: "user", content: text }];
     setChat(next);
     try {
+      // ⚡ Mode local par défaut (0 token IA pour le montage)
+      if (!advancedAI) {
+        const result = parseLocalCommand(text, {
+          preset,
+          clips: clips.map((c) => ({
+            id: c.id, name: c.name, duration: c.duration,
+            inPoint: c.inPoint, outPoint: c.outPoint,
+            overlays: c.overlays.map((o) => ({ id: o.id, text: o.text })),
+          })),
+          audios: audios.map((a) => ({ id: a.id, title: a.title, kind: a.kind })),
+        });
+
+        if (result.unrecognized) {
+          setChat((p) => [...p, {
+            role: "assistant",
+            content: "🤖 Commande non reconnue par le moteur local. Essaie : « monte tout seul », « coupe le clip 1 à 5s », « supprime le dernier clip », « format reels », « ajoute le texte \"Bonjour\" sur le clip 1 ». Ou active le **Mode IA avancé** pour les demandes complexes.",
+          }]);
+          setAiThinking(false);
+          return;
+        }
+
+        // Applique immédiatement les actions (0 token)
+        await applyActions(result.actions as any);
+
+        // Affiche un récap immédiat
+        setChat((p) => [...p, {
+          role: "assistant",
+          content: `✅ **Montage local appliqué (0 token)** :\n${result.rulesApplied.map((r) => `• ${r}`).join("\n")}`,
+        }]);
+
+        // Demande une explication pédagogique courte (~150 tokens)
+        try {
+          const { data, error } = await supabase.functions.invoke("explain-video-edit", {
+            body: { stats: result.stats, rulesApplied: result.rulesApplied, command: text },
+          });
+          if (!error && data?.explanation) {
+            setChat((p) => [...p, { role: "assistant", content: `🤖 ${data.explanation}` }]);
+          }
+        } catch { /* explication optionnelle, on ignore l'erreur */ }
+
+        setAiThinking(false);
+        return;
+      }
+
+      // 🧠 Mode IA avancé (ancien comportement, plus coûteux)
       const r = await fetch(AGENT_URL, {
         method: "POST",
         headers: {
