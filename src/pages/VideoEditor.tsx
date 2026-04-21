@@ -560,7 +560,7 @@ export default function VideoEditor() {
               </div>
               {!advancedAI && (
                 <div className="px-3 py-1.5 text-[10px] text-muted-foreground border-b border-border/40 bg-secondary/20">
-                  💡 Le montage est fait localement (gratuit). L'IA n'est utilisée que pour t'expliquer le résultat (~150 tokens).
+                  💡 Commandes connues = 0 token. Demandes libres = IA légère (~300 tokens) qui traduit en actions.
                 </div>
               )}
               <div className="flex-1 overflow-y-auto p-3 space-y-2 text-sm">
