@@ -15,7 +15,7 @@ interface Props {
   range_start_iso?: string;
   range_end_iso?: string;
   added?: AddedSpec;          // si présent, ce widget vient d'un add_schedule_event
-  removed_count?: number;
+  remove_query?: string;      // si présent, ce widget exécute une suppression côté client
 }
 
 function fmtTime(iso: string): string {
@@ -44,10 +44,11 @@ export function ScheduleWidget({
   range_start_iso,
   range_end_iso,
   added,
-  removed_count,
+  remove_query,
 }: Props) {
   const did = useRef(false);
   const [events, setEvents] = useState<ScheduleEvent[]>(() => scheduleService.getAll());
+  const [removedCount, setRemovedCount] = useState<number | null>(null);
 
   // If the AI passed an "added" spec, persist it on first render.
   useEffect(() => {
@@ -67,7 +68,11 @@ export function ScheduleWidget({
         });
       }
     }
-  }, [added]);
+    if (remove_query && remove_query.trim()) {
+      const n = scheduleService.removeByTitle(remove_query.trim());
+      setRemovedCount(n);
+    }
+  }, [added, remove_query]);
 
   useEffect(() => scheduleService.subscribe(setEvents), []);
 
@@ -85,7 +90,7 @@ export function ScheduleWidget({
 
   const headerLabel =
     added ? "ÉVÉNEMENT AJOUTÉ" :
-    typeof removed_count === "number" ? "ÉVÉNEMENT(S) SUPPRIMÉ(S)" :
+    remove_query ? "ÉVÉNEMENT(S) SUPPRIMÉ(S)" :
     `EMPLOI DU TEMPS${range_label ? ` · ${range_label.toUpperCase()}` : ""}`;
 
   return (
