@@ -27,6 +27,10 @@ export function VoiceCallMode({ open, onClose }: Props) {
   const historyRef = useRef(history);
   const closedRef = useRef(false);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const vadRafRef = useRef<number | null>(null);
+  const silenceStartRef = useRef<number | null>(null);
+  const speechDetectedRef = useRef<boolean>(false);
 
   useEffect(() => { phaseRef.current = phase; }, [phase]);
   useEffect(() => { historyRef.current = history; }, [history]);
@@ -34,6 +38,10 @@ export function VoiceCallMode({ open, onClose }: Props) {
   const stopAll = useCallback(() => {
     closedRef.current = true;
     try { window.speechSynthesis.cancel(); } catch {}
+    if (vadRafRef.current) cancelAnimationFrame(vadRafRef.current);
+    vadRafRef.current = null;
+    try { audioCtxRef.current?.close(); } catch {}
+    audioCtxRef.current = null;
     if (voiceService.isRecording()) {
       voiceService.stopAndTranscribe().catch(() => {});
     }
@@ -73,22 +81,87 @@ export function VoiceCallMode({ open, onClose }: Props) {
     });
   }, [lang, settings.customInstructions, settings.aiName]);
 
+  const stopVAD = useCallback(() => {
+    if (vadRafRef.current) cancelAnimationFrame(vadRafRef.current);
+    vadRafRef.current = null;
+    try { audioCtxRef.current?.close(); } catch {}
+    audioCtxRef.current = null;
+  }, []);
+
+  // Forward declare stopTurn for VAD callback
+  const stopTurnRef = useRef<() => void>(() => {});
+
+  const startVAD = useCallback(() => {
+    const stream = voiceService.getStream?.();
+    if (!stream) return;
+    try {
+      const AC = window.AudioContext || (window as any).webkitAudioContext;
+      const ctx = new AC();
+      audioCtxRef.current = ctx;
+      const source = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 1024;
+      source.connect(analyser);
+      const data = new Uint8Array(analyser.fftSize);
+
+      const SILENCE_THRESHOLD = 0.018;
+      const SILENCE_DURATION_MS = 1400;
+      const MIN_SPEECH_MS = 350;
+      let speechStart: number | null = null;
+      speechDetectedRef.current = false;
+      silenceStartRef.current = null;
+
+      const tick = () => {
+        if (closedRef.current || phaseRef.current !== "listening") return;
+        analyser.getByteTimeDomainData(data);
+        let sum = 0;
+        for (let i = 0; i < data.length; i++) {
+          const v = (data[i] - 128) / 128;
+          sum += v * v;
+        }
+        const rms = Math.sqrt(sum / data.length);
+        const now = performance.now();
+        if (rms > SILENCE_THRESHOLD) {
+          if (speechStart == null) speechStart = now;
+          if (!speechDetectedRef.current && now - speechStart > MIN_SPEECH_MS) {
+            speechDetectedRef.current = true;
+          }
+          silenceStartRef.current = null;
+        } else {
+          if (speechDetectedRef.current) {
+            if (silenceStartRef.current == null) silenceStartRef.current = now;
+            else if (now - silenceStartRef.current > SILENCE_DURATION_MS) {
+              stopVAD();
+              stopTurnRef.current();
+              return;
+            }
+          }
+        }
+        vadRafRef.current = requestAnimationFrame(tick);
+      };
+      vadRafRef.current = requestAnimationFrame(tick);
+    } catch (e) {
+      console.warn("VAD init failed", e);
+    }
+  }, [stopVAD]);
+
   const runTurn = useCallback(async () => {
     if (closedRef.current) return;
     try {
-      // 1. Listen
       setPhase("listening");
       setPartial("");
       await voiceService.startRecording();
-      // wait until user clicks "stop turn" — handled below via stopTurn
+      // Petit délai pour laisser le stream s'établir
+      setTimeout(() => startVAD(), 150);
     } catch (e: any) {
       toast.error(e?.message || "Mic error");
       setPhase("idle");
     }
-  }, []);
+  }, [startVAD]);
 
   const stopTurn = useCallback(async () => {
     if (phaseRef.current !== "listening") return;
+    stopVAD();
     setPhase("thinking");
     try {
       const text = (await voiceService.stopAndTranscribe()).trim();
@@ -112,7 +185,10 @@ export function VoiceCallMode({ open, onClose }: Props) {
       toast.error(e?.message || "Erreur");
       setPhase("idle");
     }
-  }, [askAI, speak, runTurn]);
+  }, [askAI, speak, runTurn, stopVAD]);
+
+  // Keep ref synced so VAD tick can call latest stopTurn
+  useEffect(() => { stopTurnRef.current = stopTurn; }, [stopTurn]);
 
   // Auto-start listening when modal opens
   useEffect(() => {
