@@ -9,6 +9,9 @@ import {
   Youtube, Smartphone, Volume2, FileVideo, FileAudio,
 } from "lucide-react";
 import { toast } from "sonner";
+import { Switch } from "@/components/ui/switch";
+import { parseLocalCommand } from "@/lib/localVideoEditor";
+import { supabase } from "@/integrations/supabase/client";
 
 /* ============================== Types ============================== */
 
@@ -49,11 +52,12 @@ export default function VideoEditor() {
   const [currentTime, setCurrentTime] = useState(0);
   const [exporting, setExporting] = useState(false);
   const [chat, setChat] = useState<ChatMsg[]>([
-    { role: "assistant", content: "Salut ! Importe tes vidéos/sons puis dis-moi ce que tu veux : « monte tout seul », « ajoute une intro », « coupe le 1er clip à 5s », etc." },
+    { role: "assistant", content: "Salut ! Mode **Montage local** activé (gratuit). Importe tes vidéos puis dis-moi : « monte tout seul », « coupe le clip 1 à 5s », « supprime le dernier clip », « format reels »… L'IA n'intervient que pour t'expliquer le résultat." },
   ]);
   const [chatInput, setChatInput] = useState("");
   const [aiThinking, setAiThinking] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [advancedAI, setAdvancedAI] = useState(false); // false = moteur local + IA explication seulement
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number | null>(null);
@@ -330,6 +334,51 @@ export default function VideoEditor() {
     const next: ChatMsg[] = [...chat, { role: "user", content: text }];
     setChat(next);
     try {
+      // ⚡ Mode local par défaut (0 token IA pour le montage)
+      if (!advancedAI) {
+        const result = parseLocalCommand(text, {
+          preset,
+          clips: clips.map((c) => ({
+            id: c.id, name: c.name, duration: c.duration,
+            inPoint: c.inPoint, outPoint: c.outPoint,
+            overlays: c.overlays.map((o) => ({ id: o.id, text: o.text })),
+          })),
+          audios: audios.map((a) => ({ id: a.id, title: a.title, kind: a.kind })),
+        });
+
+        if (result.unrecognized) {
+          setChat((p) => [...p, {
+            role: "assistant",
+            content: "🤖 Commande non reconnue par le moteur local. Essaie : « monte tout seul », « coupe le clip 1 à 5s », « supprime le dernier clip », « format reels », « ajoute le texte \"Bonjour\" sur le clip 1 ». Ou active le **Mode IA avancé** pour les demandes complexes.",
+          }]);
+          setAiThinking(false);
+          return;
+        }
+
+        // Applique immédiatement les actions (0 token)
+        await applyActions(result.actions as any);
+
+        // Affiche un récap immédiat
+        setChat((p) => [...p, {
+          role: "assistant",
+          content: `✅ **Montage local appliqué (0 token)** :\n${result.rulesApplied.map((r) => `• ${r}`).join("\n")}`,
+        }]);
+
+        // Demande une explication pédagogique courte (~150 tokens)
+        try {
+          const { data, error } = await supabase.functions.invoke("explain-video-edit", {
+            body: { stats: result.stats, rulesApplied: result.rulesApplied, command: text },
+          });
+          if (!error && data?.explanation) {
+            setChat((p) => [...p, { role: "assistant", content: `🤖 ${data.explanation}` }]);
+          }
+        } catch { /* explication optionnelle, on ignore l'erreur */ }
+
+        setAiThinking(false);
+        return;
+      }
+
+      // 🧠 Mode IA avancé (ancien comportement, plus coûteux)
       const r = await fetch(AGENT_URL, {
         method: "POST",
         headers: {
@@ -464,10 +513,26 @@ export default function VideoEditor() {
 
             {/* AI Chat */}
             <div className="flex-1 flex flex-col rounded-xl border border-border/40 bg-card/50 min-h-0">
-              <div className="px-3 py-2 border-b border-border/40 flex items-center gap-2">
+              <div className="px-3 py-2 border-b border-border/40 flex items-center gap-2 flex-wrap">
                 <Sparkles className="w-4 h-4 text-primary" />
-                <span className="text-sm font-medium">Monteur IA</span>
+                <span className="text-sm font-medium">Monteur</span>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${
+                  advancedAI
+                    ? "bg-amber-500/15 border-amber-400/40 text-amber-300"
+                    : "bg-emerald-500/15 border-emerald-400/40 text-emerald-300"
+                }`}>
+                  {advancedAI ? "IA avancée" : "Local · 0 token"}
+                </span>
+                <div className="ml-auto flex items-center gap-1.5">
+                  <span className="text-[10px] text-muted-foreground">IA avancée</span>
+                  <Switch checked={advancedAI} onCheckedChange={setAdvancedAI} />
+                </div>
               </div>
+              {!advancedAI && (
+                <div className="px-3 py-1.5 text-[10px] text-muted-foreground border-b border-border/40 bg-secondary/20">
+                  💡 Le montage est fait localement (gratuit). L'IA n'est utilisée que pour t'expliquer le résultat (~150 tokens).
+                </div>
+              )}
               <div className="flex-1 overflow-y-auto p-3 space-y-2 text-sm">
                 {chat.map((m, i) => (
                   <div key={i} className={`rounded-lg px-3 py-2 ${
