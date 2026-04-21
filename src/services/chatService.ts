@@ -7,6 +7,7 @@ export interface StreamChatParams {
   onDone: () => void;
   onError: (err: Error) => void;
   signal?: AbortSignal;
+  lang?: string;
 }
 
 export interface IChatService {
@@ -16,7 +17,7 @@ export interface IChatService {
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-orchestrator`;
 
 export const webChatService: IChatService = {
-  async streamChat({ messages, onDelta, onWidgets, onDone, onError, signal }) {
+  async streamChat({ messages, onDelta, onWidgets, onDone, onError, signal, lang }) {
     try {
       const resp = await fetch(CHAT_URL, {
         method: "POST",
@@ -24,7 +25,7 @@ export const webChatService: IChatService = {
           "Content-Type": "application/json",
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({ messages }),
+        body: JSON.stringify({ messages, lang }),
         signal,
       });
 

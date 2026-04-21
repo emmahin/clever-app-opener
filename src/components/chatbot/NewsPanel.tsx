@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { newsService, NewsItem } from "@/services";
-import { ExternalLink, Newspaper } from "lucide-react";
+import { ExternalLink, Newspaper, Loader2 } from "lucide-react";
+import { useTranslatedNews } from "@/hooks/useTranslatedNews";
+import { useLanguage } from "@/i18n/LanguageProvider";
 
 interface NewsPanelProps {
   layout?: "vertical" | "horizontal";
@@ -9,12 +11,14 @@ interface NewsPanelProps {
 }
 
 export function NewsPanel({ layout = "vertical", perRowLimit = 12 }: NewsPanelProps = {}) {
-  const [news, setNews] = useState<NewsItem[]>([]);
+  const [rawNews, setRawNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const { news, translating } = useTranslatedNews(rawNews);
+  const { t } = useLanguage();
 
   useEffect(() => {
     newsService.getLatest().then((items) => {
-      setNews(items);
+      setRawNews(items);
       setLoading(false);
     });
   }, []);
@@ -41,7 +45,8 @@ export function NewsPanel({ layout = "vertical", perRowLimit = 12 }: NewsPanelPr
       <div className="glass rounded-2xl p-4 flex-1 min-h-0 overflow-y-auto">
         <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-          Dernières actus
+          {t("latestNews")}
+          {translating && <Loader2 className="w-3 h-3 ml-1 animate-spin opacity-60" />}
         </h3>
         {loading ? (
           <div className="space-y-3">
@@ -63,6 +68,12 @@ export function NewsPanel({ layout = "vertical", perRowLimit = 12 }: NewsPanelPr
   // Horizontal layout: one row per category
   return (
     <div className="space-y-6">
+      {translating && (
+        <div className="text-xs text-muted-foreground flex items-center gap-2 px-1">
+          <Loader2 className="w-3 h-3 animate-spin" />
+          {t("translating")}
+        </div>
+      )}
       {loading
         ? [...Array(3)].map((_, i) => (
             <div key={i}>
