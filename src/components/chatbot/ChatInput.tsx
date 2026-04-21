@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Plus, Globe, Sparkles, Code, Mic, X, FileText, Image as ImageIcon, Music, Loader2, AudioLines, Brain, Wand2 } from "lucide-react";
 import { voiceService, ChatAttachment } from "@/services";
 import { useLanguage } from "@/i18n/LanguageProvider";
@@ -31,6 +31,9 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
   const [toolsOpen, setToolsOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const ctrlHoldingRef = useRef(false);
+  const isRecordingRef = useRef(false);
+  useEffect(() => { isRecordingRef.current = isRecording; }, [isRecording]);
 
   const handleSend = () => {
     if ((!value.trim() && attachments.length === 0) || disabled || processing) return;
@@ -86,6 +89,60 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
       await voiceService.startRecording();
     }
   };
+
+  // Raccourci clavier : maintenir Ctrl pour enregistrer la voix (push-to-talk)
+  useEffect(() => {
+    const onKeyDown = async (e: KeyboardEvent) => {
+      // Uniquement si Ctrl est appuy\u00e9 seul (pas Ctrl+C, Ctrl+V, etc.)
+      if (
+        e.key === "Control" &&
+        !e.repeat &&
+        !ctrlHoldingRef.current &&
+        !isRecordingRef.current &&
+        !disabled
+      ) {
+        ctrlHoldingRef.current = true;
+        try {
+          setIsRecording(true);
+          await voiceService.startRecording();
+          toast.message("\ud83c\udf99\ufe0f Enregistrement\u2026 rel\u00e2chez Ctrl pour transcrire");
+        } catch (err: any) {
+          setIsRecording(false);
+          ctrlHoldingRef.current = false;
+          toast.error(err?.message || "Erreur micro");
+        }
+      }
+    };
+    const onKeyUp = async (e: KeyboardEvent) => {
+      if (e.key === "Control" && ctrlHoldingRef.current) {
+        ctrlHoldingRef.current = false;
+        if (isRecordingRef.current) {
+          setIsRecording(false);
+          try {
+            const text = await voiceService.stopAndTranscribe();
+            if (text) setValue((v) => (v ? v + " " : "") + text);
+          } catch (err) {
+            console.error("Voice error:", err);
+          }
+        }
+      }
+    };
+    const onBlur = () => {
+      if (ctrlHoldingRef.current && isRecordingRef.current) {
+        ctrlHoldingRef.current = false;
+        setIsRecording(false);
+        voiceService.stopAndTranscribe().catch(() => {});
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("blur", onBlur);
+    };
+  }, [disabled]);
 
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault();
