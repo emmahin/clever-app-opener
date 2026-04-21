@@ -160,14 +160,23 @@ export function VoiceCallMode({ open, onClose }: Props) {
       {/* Orb */}
       <div className="flex-1 flex flex-col items-center justify-center gap-8 w-full max-w-xl">
         <div className="relative w-80 h-80">
-          {/* Outer halo blending into background */}
+          {/* Outer animated gradient halo (smooth, fluid) */}
           <div
-            className={`absolute -inset-16 transition-all duration-700
-              ${phase === "listening" ? "bg-fuchsia-500/40 animate-pulse" : ""}
-              ${phase === "thinking" ? "bg-amber-400/30 animate-pulse" : ""}
-              ${phase === "speaking" ? "bg-violet-400/50 animate-pulse" : ""}
-              ${phase === "idle" ? "bg-violet-600/20" : ""}`}
-            style={{ filter: "blur(60px)", borderRadius: "9999px" }}
+            className={`absolute -inset-20 rounded-full pointer-events-none
+              ${phase === "listening" ? "animate-halo-listening" : ""}
+              ${phase === "thinking"  ? "animate-halo-thinking"  : ""}
+              ${phase === "speaking"  ? "animate-halo-speaking"  : ""}
+              ${phase === "idle"      ? "animate-halo"           : ""}`}
+            style={{
+              background:
+                phase === "listening"
+                  ? "conic-gradient(from 0deg, hsl(320 95% 60% / 0.55), hsl(280 90% 60% / 0.45), hsl(260 95% 65% / 0.55), hsl(320 95% 60% / 0.55))"
+                  : phase === "thinking"
+                  ? "conic-gradient(from 0deg, hsl(45 95% 60% / 0.45), hsl(285 90% 60% / 0.45), hsl(200 90% 60% / 0.45), hsl(45 95% 60% / 0.45))"
+                  : phase === "speaking"
+                  ? "conic-gradient(from 0deg, hsl(270 95% 65% / 0.55), hsl(310 90% 65% / 0.5), hsl(250 95% 65% / 0.55), hsl(270 95% 65% / 0.55))"
+                  : "radial-gradient(circle at center, hsl(270 80% 50% / 0.35), transparent 70%)",
+            }}
           />
           {/* Galaxy with soft feathered edges (no hard circle) */}
           <img
