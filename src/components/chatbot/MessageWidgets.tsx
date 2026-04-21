@@ -2,6 +2,7 @@ import { ChatWidget, NewsItem, Stock, WebSource, GalleryImage, VideoItem } from 
 import { useState } from "react";
 import { ExternalLink, Newspaper, TrendingUp, TrendingDown, BarChart3, Globe, ImageIcon, Images, Video, PlayCircle } from "lucide-react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { WhatsAppSendWidget } from "./WhatsAppSendWidget";
 
 export function MessageWidgets({ widgets }: { widgets: ChatWidget[] }) {
   if (!widgets?.length) return null;
@@ -14,6 +15,7 @@ export function MessageWidgets({ widgets }: { widgets: ChatWidget[] }) {
         if (w.type === "image_gallery") return <ImageGalleryWidget key={i} query={w.query} items={w.items} />;
         if (w.type === "videos") return <VideosWidget key={i} query={w.query} items={w.items} />;
         if (w.type === "web_sources") return <WebSourcesWidget key={i} items={w.items} />;
+        if (w.type === "whatsapp_send") return <WhatsAppSendWidget key={i} contact_name={w.contact_name} body={w.body} />;
         return null;
       })}
     </div>
