@@ -57,6 +57,7 @@ export default function VideoEditor() {
   const [chatInput, setChatInput] = useState("");
   const [aiThinking, setAiThinking] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [advancedAI, setAdvancedAI] = useState(false); // false = moteur local + IA explication seulement
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number | null>(null);
