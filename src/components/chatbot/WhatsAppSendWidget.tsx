@@ -111,8 +111,19 @@ export function WhatsAppSendWidget({
   const [showCreate, setShowCreate] = useState(false);
   const [newPhone, setNewPhone] = useState("");
 
-  const matches = useMemo(() => findMatches(contacts, contact_name), [contacts, contact_name]);
-  const [selectedId, setSelectedId] = useState<string | null>(matches[0]?.id ?? null);
+  const ranked = useMemo(() => rankMatches(contacts, contact_name), [contacts, contact_name]);
+  const exact = ranked.find((r) => r.kind === "exact");
+  const hasMultipleStrong = ranked.filter((r) => r.score >= 0.7).length > 1;
+
+  // Step machine: "select" (pick contact) → "confirm" (final check) → sent
+  // Auto-skip selection only if there is a single exact match.
+  const initialStep: "select" | "confirm" =
+    exact && ranked.length === 1 ? "confirm" : (ranked.length > 0 ? "select" : "select");
+  const [step, setStep] = useState<"select" | "confirm">(initialStep);
+  const [selectedId, setSelectedId] = useState<string | null>(
+    exact?.contact.id ?? ranked[0]?.contact.id ?? null,
+  );
+  const [confirmChecked, setConfirmChecked] = useState(false);
 
   const sendTo = (contact: Contact) => {
     const msg: WAMessage = {
