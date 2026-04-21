@@ -176,19 +176,52 @@ export default function Documents() {
     }
     setOrganizing(true);
     setMapping(null);
+    const paths = files.map((f) => (f as any).webkitRelativePath || f.name);
+    pushChat({
+      role: "user",
+      content: `Organise mes ${paths.length} fichiers (mode : ${engine === "local" ? "local gratuit" : "IA"}${groupByYear ? ", regroupé par année" : ""}).`,
+    });
     try {
-      const paths = files.map((f) => (f as any).webkitRelativePath || f.name);
-      const { data, error } = await supabase.functions.invoke("organize-documents", {
-        body: { files: paths, instructions },
-      });
-      if (error) throw error;
-      const map = Array.isArray(data?.mapping) ? data.mapping : [];
-      if (!map.length) throw new Error("Réponse IA invalide");
-      setMapping(map);
-      setExplanation(data?.explanation || "");
-      setNewRootName(data?.rootName || "Dossier-Reorganise");
-      toast.success("Arborescence proposée par l'IA");
+      if (engine === "local") {
+        // ⚡ 100% local — aucun token consommé
+        const result = organizeLocally(paths, { groupByYear, useSubcategories: true });
+        setMapping(result.mapping);
+        setExplanation(result.explanation);
+        setNewRootName(result.rootName);
+        const cats = Object.entries(result.stats.categories)
+          .sort((a, b) => b[1] - a[1])
+          .map(([k, v]) => `• **${k}** : ${v} fichier${v > 1 ? "s" : ""}`)
+          .join("\n");
+        pushChat({
+          role: "assistant",
+          content:
+            `✅ **Tri local terminé** (0 token consommé) — ${result.stats.total} fichiers traités.\n\n` +
+            `📂 **Catégories créées :**\n${cats}\n\n` +
+            `🧠 **Règles appliquées :**\n${result.stats.rulesApplied.map((r) => `• ${r}`).join("\n")}\n\n` +
+            `Vous pouvez télécharger le ZIP réorganisé via le bouton ci-dessus.`,
+        });
+        toast.success("Tri local terminé");
+      } else {
+        const { data, error } = await supabase.functions.invoke("organize-documents", {
+          body: { files: paths, instructions: groupByYear ? "Regroupe par année si possible." : "" },
+        });
+        if (error) throw error;
+        const map = Array.isArray(data?.mapping) ? data.mapping : [];
+        if (!map.length) throw new Error("Réponse IA invalide");
+        setMapping(map);
+        setExplanation(data?.explanation || "");
+        setNewRootName(data?.rootName || "Dossier-Reorganise");
+        const folders = new Set(map.map((m: any) => m.to.split("/").slice(0, -1).join("/") || "racine"));
+        pushChat({
+          role: "assistant",
+          content:
+            `🤖 **Tri IA terminé** — ${map.length} fichiers réorganisés en ${folders.size} dossier(s).\n\n` +
+            (data?.explanation ? `💡 ${data.explanation}` : ""),
+        });
+        toast.success("Arborescence proposée par l'IA");
+      }
     } catch (e: any) {
+      pushChat({ role: "assistant", content: `❌ Erreur : ${e.message || "organisation impossible"}` });
       toast.error(e.message || "Erreur d'organisation");
     } finally {
       setOrganizing(false);
