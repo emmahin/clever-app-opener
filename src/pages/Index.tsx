@@ -5,31 +5,18 @@ import { ChatOrb } from "@/components/chatbot/ChatOrb";
 import { ChatInput } from "@/components/chatbot/ChatInput";
 import { SuggestionPills } from "@/components/chatbot/SuggestionPills";
 import { ChatMessageItem } from "@/components/chatbot/ChatMessage";
-import { SearchPalette } from "@/components/chatbot/SearchPalette";
+import { HeaderSearch } from "@/components/chatbot/HeaderSearch";
 import { chatService, ChatMessage } from "@/services";
 import { Expand, Settings2, Sparkles } from "lucide-react";
 
 export default function Index() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   useEffect(() => scrollToBottom(), [messages]);
-
-  // Raccourci clavier global Ctrl/Cmd+K
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        setSearchOpen((v) => !v);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
 
   const jumpToMessage = (id: string) => {
     const el = document.getElementById(`msg-${id}`);
@@ -105,13 +92,15 @@ export default function Index() {
   return (
     <div className="min-h-screen bg-background text-foreground overflow-hidden">
       <Sidebar />
-      <Header onNewChat={handleNewChat} onOpenSearch={() => setSearchOpen(true)} />
-      <SearchPalette
-        open={searchOpen}
-        onOpenChange={setSearchOpen}
-        messages={messages}
-        onJumpToMessage={jumpToMessage}
-        onSuggestion={(text) => sendMessage(text)}
+      <Header
+        onNewChat={handleNewChat}
+        searchSlot={
+          <HeaderSearch
+            messages={messages}
+            onJumpToMessage={jumpToMessage}
+            onSuggestion={(text) => sendMessage(text)}
+          />
+        }
       />
 
       <main className="ml-[72px] pt-14 min-h-screen flex">

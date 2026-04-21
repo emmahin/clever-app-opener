@@ -1,26 +1,17 @@
-import { Search, Bell, User, Plus } from "lucide-react";
+import { Bell, User, Plus } from "lucide-react";
+import { ReactNode } from "react";
 
 interface HeaderProps {
   onNewChat?: () => void;
-  onOpenSearch?: () => void;
+  searchSlot?: ReactNode;
 }
 
-export function Header({ onNewChat, onOpenSearch }: HeaderProps = {}) {
+export function Header({ onNewChat, searchSlot }: HeaderProps = {}) {
   return (
     <header className="fixed top-0 left-[72px] right-0 h-14 flex items-center justify-between px-6 z-40"
       style={{ background: "linear-gradient(90deg, hsl(255, 75%, 50%, 0.9), hsl(290, 75%, 55%, 0.9))" }}>
-      {/* Search */}
-      <button
-        onClick={onOpenSearch}
-        className="relative w-80 h-9 pl-10 pr-3 rounded-lg bg-white/10 border border-white/20 text-left text-white/60 hover:bg-white/15 transition-all flex items-center"
-        title="Rechercher (Ctrl/Cmd + K)"
-      >
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/60" />
-        <span className="text-sm">Rechercher conversations, actus, apps…</span>
-        <kbd className="ml-auto hidden sm:inline-flex items-center gap-1 text-[10px] font-mono bg-white/10 border border-white/20 rounded px-1.5 py-0.5">
-          ⌘K
-        </kbd>
-      </button>
+      {/* Search slot (champ contrôlé par Index) */}
+      {searchSlot}
 
       {/* Right actions */}
       <div className="flex items-center gap-3">
