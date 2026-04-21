@@ -20,6 +20,8 @@ export default function Index() {
   const [voiceCallOpen, setVoiceCallOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const messagesRef = useRef<ChatMessage[]>([]);
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
 
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   useEffect(() => scrollToBottom(), [messages]);
@@ -50,6 +52,11 @@ export default function Index() {
       content: content.trim() + attachmentSummary,
       createdAt: Date.now(),
     };
+    // Construit l'historique \u00e0 envoyer \u00e0 l'IA \u00e0 partir de l'\u00e9tat le plus r\u00e9cent
+    const historyForAI = [...messagesRef.current, userMsg]
+      .filter((m) => m.content && m.content.trim())
+      .map((m) => ({ role: m.role, content: m.content }));
+
     setMessages((prev) => [...prev, userMsg]);
     setIsLoading(true);
 
@@ -64,10 +71,7 @@ export default function Index() {
 
     let accumulated = "";
     await chatService.streamChat({
-      messages: messages
-        .filter((m) => m.content)
-        .map((m) => ({ role: m.role, content: m.content }))
-        .concat([{ role: "user", content: content.trim() }]),
+      messages: historyForAI,
       onDelta: (chunk) => {
         accumulated += chunk;
         setMessages((prev) =>
