@@ -111,6 +111,7 @@ export default function Index() {
         onOpenChange={setSearchOpen}
         messages={messages}
         onJumpToMessage={jumpToMessage}
+        onSuggestion={(text) => sendMessage(text)}
       />
 
       <main className="ml-[72px] pt-14 min-h-screen flex">
