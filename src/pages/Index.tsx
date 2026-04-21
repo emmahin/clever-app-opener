@@ -83,10 +83,22 @@ export default function Index() {
       content: content.trim() + attachmentSummary,
       createdAt: Date.now(),
     };
-    // Construit l'historique \u00e0 envoyer \u00e0 l'IA \u00e0 partir de l'\u00e9tat le plus r\u00e9cent
-    const historyForAI = [...messagesRef.current, userMsg]
-      .filter((m) => m.content && m.content.trim())
-      .map((m) => ({ role: m.role, content: m.content }));
+    // Construit l'historique à envoyer à l'IA à partir de l'état le plus récent.
+    // On retire les messages assistant vides (résultat d'erreurs précédentes) ET
+    // on s'assure de ne jamais envoyer 2 messages "user" consécutifs (Gemini bug).
+    const rawHistory = [...messagesRef.current, userMsg].filter(
+      (m) => m.content && m.content.trim(),
+    );
+    const historyForAI: { role: "user" | "assistant" | "system"; content: string }[] = [];
+    for (const m of rawHistory) {
+      const last = historyForAI[historyForAI.length - 1];
+      if (last && last.role === m.role) {
+        // Fusionne deux messages consécutifs du même rôle pour éviter un refus de l'IA
+        last.content = `${last.content}\n\n${m.content}`;
+      } else {
+        historyForAI.push({ role: m.role, content: m.content });
+      }
+    }
 
     setMessages((prev) => [...prev, userMsg]);
     setIsLoading(true);
