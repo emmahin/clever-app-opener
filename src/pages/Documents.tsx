@@ -126,11 +126,30 @@ export default function Documents() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [folderName, setFolderName] = useState<string>("");
-  const [instructions, setInstructions] = useState("");
   const [organizing, setOrganizing] = useState(false);
   const [mapping, setMapping] = useState<{ from: string; to: string }[] | null>(null);
   const [explanation, setExplanation] = useState<string>("");
   const [newRootName, setNewRootName] = useState("Dossier-Reorganise");
+  // Mode de tri : "local" (gratuit, 0 token) ou "ai" (Lovable AI)
+  const [engine, setEngine] = useState<"local" | "ai">("local");
+  const [groupByYear, setGroupByYear] = useState(false);
+  // Chat de récap : messages échangés entre l'utilisateur et le "trieur"
+  type ChatMsg = { role: "user" | "assistant"; content: string; ts: number };
+  const [chat, setChat] = useState<ChatMsg[]>([
+    {
+      role: "assistant",
+      content:
+        "👋 Bonjour ! Importez un dossier puis cliquez sur **Organiser**. Je vous expliquerai ici, étape par étape, ce que j'ai fait sur vos fichiers.",
+      ts: Date.now(),
+    },
+  ]);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chat]);
+
+  const pushChat = (msg: Omit<ChatMsg, "ts">) =>
+    setChat((c) => [...c, { ...msg, ts: Date.now() }]);
 
   const sourceTree = useMemo(() => (files.length ? buildTree(files) : null), [files]);
   const targetTree = useMemo(
