@@ -2,14 +2,17 @@ import { Sidebar } from "@/components/chatbot/Sidebar";
 import { Header } from "@/components/chatbot/Header";
 import { useSettings, DetailLevel } from "@/contexts/SettingsProvider";
 import { useLanguage, LANGS, Lang } from "@/i18n/LanguageProvider";
-import { Settings as SettingsIcon, Globe, Sparkles, MessageSquare, Trash2, RotateCcw, Check } from "lucide-react";
+import { Settings as SettingsIcon, Globe, Sparkles, MessageSquare, Trash2, RotateCcw, Check, Bell } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { useNotificationPrefs } from "@/hooks/useNotifications";
+import { NotificationType } from "@/services/notificationService";
 
 export default function Settings() {
   const { settings, update, reset } = useSettings();
   const { lang, setLang, t } = useLanguage();
   const [draftInstructions, setDraftInstructions] = useState(settings.customInstructions);
+  const { prefs: notifPrefs, update: updateNotif } = useNotificationPrefs();
 
   const saveCustom = () => {
     update("customInstructions", draftInstructions);
