@@ -30,9 +30,8 @@ function buildSystemPrompt(opts: {
 }): string {
   const name = LANG_NAMES[opts.lang] || "français";
   const detail = DETAIL_STYLES[opts.detailLevel || "normal"] || DETAIL_STYLES.normal;
-  const aiIdentity = opts.aiName?.trim()
-    ? `Tu t'appelles "${opts.aiName.trim()}". Présente-toi sous ce nom si on te le demande.`
-    : "";
+  const aiNameFinal = opts.aiName?.trim() || "Jarvis";
+  const aiIdentity = `Tu t'appelles "${aiNameFinal}". Présente-toi sous ce nom si on te le demande.`;
   const userCustom = opts.customInstructions?.trim()
     ? `\n\nINSTRUCTIONS PERSONNALISÉES DE L'UTILISATEUR (à respecter en priorité tant qu'elles ne contredisent pas les règles ci-dessus) :\n${opts.customInstructions.trim()}`
     : "";
