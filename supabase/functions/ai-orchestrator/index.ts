@@ -509,7 +509,18 @@ Deno.serve(async (req) => {
         const send = (obj: any) => controller.enqueue(enc.encode(`data: ${JSON.stringify(obj)}\n\n`));
 
         try {
-          const inferredImageQuery = inferImageSearchQuery(latestUserText(messages));
+          const userText = latestUserText(messages);
+          const pastedVideoUrl = extractVideoUrl(userText);
+          if (pastedVideoUrl) {
+            const { widget, summary } = await callTool("search_videos", { url: pastedVideoUrl });
+            if (widget) send({ widgets: [widget] });
+            send({ delta: `Voilà la vidéo intégrée monsieur. ${summary}` });
+            send({ done: true });
+            controller.close();
+            return;
+          }
+
+          const inferredImageQuery = inferImageSearchQuery(userText);
           if (inferredImageQuery) {
             const { widget, summary } = await callTool("search_images", { query: inferredImageQuery, count: 8 });
             if (widget) send({ widgets: [widget] });
