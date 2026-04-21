@@ -331,6 +331,30 @@ async function callTool(name: string, args: any): Promise<{ widget: any; summary
     }
   }
 
+  if (name === "search_videos") {
+    try {
+      const url = String(args.url || "").trim();
+      const q = String(args.query || "").trim();
+      const count = Math.min(8, Math.max(1, parseInt(args.count, 10) || 4));
+      const qs = url
+        ? `?url=${encodeURIComponent(url)}`
+        : q
+        ? `?q=${encodeURIComponent(q)}&count=${count}`
+        : "";
+      if (!qs) return { widget: null, summary: "Aucune requête ou URL vidéo fournie." };
+      const r = await fetch(`${SUPABASE_URL}/functions/v1/video-search${qs}`, { headers });
+      const data = await r.json();
+      const items = data.items || [];
+      const summary = items.length
+        ? `${items.length} vidéo(s) ${url ? "intégrée(s)" : `trouvée(s) pour "${q}"`}. Titres : ${items.slice(0, 3).map((v: any) => v.title).join(" / ")}.`
+        : `Aucune vidéo trouvée${q ? ` pour "${q}"` : ""}.`;
+      return { widget: { type: "videos", query: q || undefined, items }, summary };
+    } catch (e) {
+      console.error("search_videos error", e);
+      return { widget: null, summary: "Recherche vidéo échouée." };
+    }
+  }
+
   return { widget: null, summary: "Outil inconnu" };
 }
 
@@ -358,6 +382,29 @@ function inferImageSearchQuery(text: string): string | null {
   if (/\b(jordan|jordans|air\s*jordan)\b/i.test(raw)) return "Air Jordan basketball sneakers shoes";
   if (/\b(yeezy|yeezys)\b/i.test(raw)) return "Adidas Yeezy sneakers shoes";
 
+  return null;
+}
+
+function extractVideoUrl(text: string): string | null {
+  const re = /\bhttps?:\/\/[^\s<>"']+/gi;
+  const matches = text.match(re) || [];
+  for (const raw of matches) {
+    const url = raw.replace(/[).,;!?]+$/, "");
+    try {
+      const u = new URL(url);
+      const host = u.hostname.replace(/^www\./, "");
+      if (
+        host === "youtube.com" || host === "m.youtube.com" || host === "youtu.be" ||
+        host === "vimeo.com" ||
+        host.endsWith("tiktok.com") ||
+        host.endsWith("instagram.com") ||
+        host === "twitter.com" || host === "x.com" ||
+        /\.(mp4|webm|mov)(\?|$)/i.test(u.pathname)
+      ) {
+        return url;
+      }
+    } catch { /* ignore */ }
+  }
   return null;
 }
 
