@@ -14,6 +14,8 @@ export interface NewsItem {
   url: string;
   publishedAt: string;
   summary?: string;
+  image?: string;
+  category?: string;
 }
 
 export interface StockPoint {
