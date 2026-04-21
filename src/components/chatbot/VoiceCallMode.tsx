@@ -105,7 +105,7 @@ export function VoiceCallMode({ open, onClose }: Props) {
       const data = new Uint8Array(analyser.fftSize);
 
       const SILENCE_THRESHOLD = 0.018;
-      const SILENCE_DURATION_MS = 1400;
+      const SILENCE_DURATION_MS = 900;
       const MIN_SPEECH_MS = 350;
       let speechStart: number | null = null;
       speechDetectedRef.current = false;
