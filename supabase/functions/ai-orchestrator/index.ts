@@ -30,6 +30,7 @@ function buildSystemPrompt(opts: {
   webSearch?: boolean;
   forceTool?: string | null;
   schedule?: Array<{ title: string; start_iso: string; end_iso?: string; location?: string; notes?: string }>;
+  timezone?: string;
 }): string {
   const name = LANG_NAMES[opts.lang] || "français";
   const detail = DETAIL_STYLES[opts.detailLevel || "normal"] || DETAIL_STYLES.normal;
@@ -38,7 +39,31 @@ function buildSystemPrompt(opts: {
   const userCustom = opts.customInstructions?.trim()
     ? `\n\nINSTRUCTIONS PERSONNALISÉES DE L'UTILISATEUR (à respecter en priorité tant qu'elles ne contredisent pas les règles ci-dessus) :\n${opts.customInstructions.trim()}`
     : "";
-  const nowIso = new Date().toISOString();
+  const tz = opts.timezone && typeof opts.timezone === "string" ? opts.timezone : "UTC";
+  const now = new Date();
+  const nowIsoUtc = now.toISOString();
+  let nowLocalReadable = nowIsoUtc;
+  let tzOffsetStr = "+00:00";
+  try {
+    // Human-readable local time in user's timezone, e.g. "lundi 21 avril 2026 23:42"
+    nowLocalReadable = new Intl.DateTimeFormat("fr-FR", {
+      timeZone: tz,
+      weekday: "long", year: "numeric", month: "long", day: "numeric",
+      hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+    }).format(now);
+    // Compute offset in minutes for that timezone
+    const dtf = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz, hour12: false,
+      year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", second: "2-digit",
+    });
+    const parts = Object.fromEntries(dtf.formatToParts(now).filter(p => p.type !== "literal").map(p => [p.type, p.value]));
+    const asUtc = Date.UTC(+parts.year, +parts.month - 1, +parts.day, +parts.hour, +parts.minute, +parts.second);
+    const offsetMin = Math.round((asUtc - now.getTime()) / 60000);
+    const sign = offsetMin >= 0 ? "+" : "-";
+    const abs = Math.abs(offsetMin);
+    tzOffsetStr = `${sign}${String(Math.floor(abs / 60)).padStart(2, "0")}:${String(abs % 60).padStart(2, "0")}`;
+  } catch { /* fallback to UTC */ }
   const sched = (opts.schedule || []).slice().sort((a, b) => Date.parse(a.start_iso) - Date.parse(b.start_iso));
   const schedBlock = sched.length
     ? `\n\nEMPLOI DU TEMPS ACTUEL DE L'UTILISATEUR (${sched.length} événement(s)) :\n` +
@@ -58,7 +83,14 @@ function buildSystemPrompt(opts: {
 ${aiIdentity}
 IMPORTANT : tu réponds TOUJOURS en ${name}, en markdown. Even if the user writes in another language, answer in ${name}.
 
-CONTEXTE TEMPOREL : la date/heure courante est ${nowIso}. Utilise-la pour calculer les dates ISO des rappels (ex: "dans 1h" → +3600s, "demain à 15h" → date du lendemain à 15:00 dans le fuseau local).${schedBlock}
+CONTEXTE TEMPOREL :
+- Heure LOCALE de l'utilisateur (à utiliser comme référence) : ${nowLocalReadable}
+- Fuseau horaire IANA : ${tz} (offset UTC ${tzOffsetStr})
+- Heure UTC équivalente : ${nowIsoUtc}
+RÈGLES TEMPORELLES STRICTES :
+- Quand l'utilisateur dit "à 15h", "demain à 9h", "dans 1h", il parle TOUJOURS en heure LOCALE.
+- Quand tu produis un start_iso / end_iso / when_iso, écris-le au format ISO 8601 AVEC l'offset du fuseau de l'utilisateur (ex: "2026-04-22T15:00:00${tzOffsetStr}"). N'écris JAMAIS un "Z" (UTC) sauf si l'utilisateur a explicitement parlé en UTC.
+- "demain" = jour LOCAL suivant la date locale ci-dessus, "ce soir" = même jour local, "lundi prochain" = prochain lundi en heure locale.${schedBlock}
 
 Tu disposes d'OUTILS pour récupérer des données réelles :
 - fetch_news : dernières actualités (catégories: à_la_une, tech, économie, international, all)
@@ -85,10 +117,10 @@ RÈGLES :
 8. Demande d'envoyer un message à quelqu'un (WhatsApp, "envoie à…", "écris à…", "dis à…") → send_whatsapp_message avec le prénom/nom du contact et le corps du message exact à envoyer.
 9. Demande de rappel ("rappelle-moi", "préviens-moi", "dans 1h…", "demain à 15h…") → create_reminder. Calcule la date ISO en te basant sur la date courante. Si l'horaire est ambigu, demande une précision.
 10. Si tu as fini une analyse et que tu veux proposer un suivi/conseil utile à l'utilisateur, tu peux appeler create_insight (optionnel, pas systématique).
-11. Demande relative à l'emploi du temps :
-    - "ajoute / note / planifie / j'ai un RDV…" → add_schedule_event (calcule start_iso depuis la date courante).
-    - "montre / affiche / qu'est-ce que j'ai… (aujourd'hui/demain/cette semaine…)" → list_schedule.
-    - "annule / supprime / enlève…" → remove_schedule_event avec un title_query qui matche.
+11. Demande relative à l'emploi du temps — N'APPELLE JAMAIS add_schedule_event de ta propre initiative.
+    - add_schedule_event : UNIQUEMENT si l'utilisateur formule une demande EXPLICITE d'enregistrement avec un verbe d'action sur le planning : "ajoute", "note", "planifie", "enregistre", "mets dans mon agenda/planning/emploi du temps", "rappelle-moi que j'ai…". Une simple mention ("je vais voir Léa demain", "j'ai mangé une pizza", "j'ai cours lundi") N'EST PAS une demande d'ajout : ne fais RIEN sur le planning, réponds normalement. En cas de doute, NE PAS appeler l'outil et demander confirmation : « Tu veux que je l'ajoute à ton emploi du temps ? ».
+    - list_schedule : "montre / affiche / qu'est-ce que j'ai… (aujourd'hui/demain/cette semaine…)".
+    - remove_schedule_event : "annule / supprime / enlève…" avec un title_query qui matche.
     Pour répondre à des questions analytiques sur le planning ("suis-je libre vendredi ?", "combien de RDV ai-je cette semaine ?"), utilise directement le bloc EMPLOI DU TEMPS ACTUEL fourni dans le contexte SANS appeler d'outil.
 12. Sinon, réponds directement sans outils.
 
