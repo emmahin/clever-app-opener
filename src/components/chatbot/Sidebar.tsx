@@ -1,11 +1,11 @@
-import { Grid, Sparkles, Video, Activity, FileText, Settings } from "lucide-react";
+import { Grid, Sparkles, Clapperboard, Activity, FileText, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link, useLocation } from "react-router-dom";
 
 const navItems = [
   { icon: Sparkles, label: "AI Tools", to: "/" },
   { icon: Grid, label: "Dashboard", to: "/dashboard" },
-  { icon: Video, label: "Media", to: "/media" },
+  { icon: Clapperboard, label: "Montage vidéo", to: "/video" },
   { icon: Activity, label: "Analytics", to: "/analytics" },
   { icon: FileText, label: "Documents", to: "/documents" },
   { icon: Settings, label: "Settings", to: "/settings" },
