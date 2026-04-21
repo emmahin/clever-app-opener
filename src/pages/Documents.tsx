@@ -130,9 +130,8 @@ export default function Documents() {
   const [mapping, setMapping] = useState<{ from: string; to: string }[] | null>(null);
   const [explanation, setExplanation] = useState<string>("");
   const [newRootName, setNewRootName] = useState("Dossier-Reorganise");
-  // Mode de tri : "local" (gratuit, 0 token) ou "ai" (Lovable AI)
-  const [engine, setEngine] = useState<"local" | "ai">("local");
   const [groupByYear, setGroupByYear] = useState(false);
+  const [explaining, setExplaining] = useState(false);
   // Chat de récap : messages échangés entre l'utilisateur et le "trieur"
   type ChatMsg = { role: "user" | "assistant"; content: string; ts: number };
   const [chat, setChat] = useState<ChatMsg[]>([
@@ -179,46 +178,43 @@ export default function Documents() {
     const paths = files.map((f) => (f as any).webkitRelativePath || f.name);
     pushChat({
       role: "user",
-      content: `Organise mes ${paths.length} fichiers (mode : ${engine === "local" ? "local gratuit" : "IA"}${groupByYear ? ", regroupé par année" : ""}).`,
+      content: `Organise mes ${paths.length} fichiers${groupByYear ? " (regroupés par année)" : ""}.`,
     });
     try {
-      if (engine === "local") {
-        // ⚡ 100% local — aucun token consommé
-        const result = organizeLocally(paths, { groupByYear, useSubcategories: true });
-        setMapping(result.mapping);
-        setExplanation(result.explanation);
-        setNewRootName(result.rootName);
-        const cats = Object.entries(result.stats.categories)
-          .sort((a, b) => b[1] - a[1])
-          .map(([k, v]) => `• **${k}** : ${v} fichier${v > 1 ? "s" : ""}`)
-          .join("\n");
-        pushChat({
-          role: "assistant",
-          content:
-            `✅ **Tri local terminé** (0 token consommé) — ${result.stats.total} fichiers traités.\n\n` +
-            `📂 **Catégories créées :**\n${cats}\n\n` +
-            `🧠 **Règles appliquées :**\n${result.stats.rulesApplied.map((r) => `• ${r}`).join("\n")}\n\n` +
-            `Vous pouvez télécharger le ZIP réorganisé via le bouton ci-dessus.`,
-        });
-        toast.success("Tri local terminé");
-      } else {
-        const { data, error } = await supabase.functions.invoke("organize-documents", {
-          body: { files: paths, instructions: groupByYear ? "Regroupe par année si possible." : "" },
+      // ⚡ Tri 100% local — aucun token consommé pour le tri lui-même
+      const result = organizeLocally(paths, { groupByYear, useSubcategories: true });
+      setMapping(result.mapping);
+      setExplanation(result.explanation);
+      setNewRootName(result.rootName);
+      const cats = Object.entries(result.stats.categories)
+        .sort((a, b) => b[1] - a[1])
+        .map(([k, v]) => `• **${k}** : ${v} fichier${v > 1 ? "s" : ""}`)
+        .join("\n");
+      pushChat({
+        role: "assistant",
+        content:
+          `✅ **Tri local terminé** — ${result.stats.total} fichiers traités, 0 token utilisé pour le tri.\n\n` +
+          `📂 **Catégories créées :**\n${cats}`,
+      });
+      toast.success("Tri local terminé");
+
+      // 🤖 Demande à l'IA d'expliquer ce que le logiciel a fait (stats uniquement, ~150 tokens)
+      setExplaining(true);
+      try {
+        const { data, error } = await supabase.functions.invoke("explain-organization", {
+          body: { stats: result.stats, options: { groupByYear } },
         });
         if (error) throw error;
-        const map = Array.isArray(data?.mapping) ? data.mapping : [];
-        if (!map.length) throw new Error("Réponse IA invalide");
-        setMapping(map);
-        setExplanation(data?.explanation || "");
-        setNewRootName(data?.rootName || "Dossier-Reorganise");
-        const folders = new Set(map.map((m: any) => m.to.split("/").slice(0, -1).join("/") || "racine"));
+        if (data?.explanation) {
+          pushChat({ role: "assistant", content: `🤖 **L'IA explique :**\n\n${data.explanation}` });
+        }
+      } catch (err: any) {
         pushChat({
           role: "assistant",
-          content:
-            `🤖 **Tri IA terminé** — ${map.length} fichiers réorganisés en ${folders.size} dossier(s).\n\n` +
-            (data?.explanation ? `💡 ${data.explanation}` : ""),
+          content: `⚠️ Impossible d'obtenir l'explication IA (${err.message || "erreur"}). Le tri local est néanmoins complet.`,
         });
-        toast.success("Arborescence proposée par l'IA");
+      } finally {
+        setExplaining(false);
       }
     } catch (e: any) {
       pushChat({ role: "assistant", content: `❌ Erreur : ${e.message || "organisation impossible"}` });
@@ -289,7 +285,7 @@ export default function Documents() {
       <Header />
       <FloatingProjectsBar
         category="documents"
-        getSnapshot={() => ({ folderName, mapping, explanation, newRootName, chat, engine, groupByYear })}
+        getSnapshot={() => ({ folderName, mapping, explanation, newRootName, chat, groupByYear })}
         onLoad={(p) => {
           const d = p.data as any;
           if (!d) return;
@@ -298,7 +294,6 @@ export default function Documents() {
           if (typeof d.explanation === "string") setExplanation(d.explanation);
           if (typeof d.newRootName === "string") setNewRootName(d.newRootName);
           if (Array.isArray(d.chat)) setChat(d.chat);
-          if (d.engine === "local" || d.engine === "ai") setEngine(d.engine);
           if (typeof d.groupByYear === "boolean") setGroupByYear(d.groupByYear);
         }}
       />
@@ -386,28 +381,9 @@ export default function Documents() {
               <Bot className="w-4 h-4 text-primary" /> Journal du trieur
             </h2>
             <div className="flex items-center gap-4 flex-wrap">
-              {/* Moteur */}
-              <div className="flex items-center gap-1 rounded-lg border border-border/60 p-1 bg-background/40">
-                <button
-                  onClick={() => setEngine("local")}
-                  className={cn(
-                    "px-2.5 py-1 rounded text-xs flex items-center gap-1 transition",
-                    engine === "local" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
-                  )}
-                  title="Tri local — gratuit, 0 token"
-                >
-                  <Zap className="w-3 h-3" /> Local (gratuit)
-                </button>
-                <button
-                  onClick={() => setEngine("ai")}
-                  className={cn(
-                    "px-2.5 py-1 rounded text-xs flex items-center gap-1 transition",
-                    engine === "ai" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
-                  )}
-                  title="Tri par IA — consomme des tokens"
-                >
-                  <Cloud className="w-3 h-3" /> IA
-                </button>
+              {/* Badge moteur */}
+              <div className="flex items-center gap-1 px-2 py-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 text-xs">
+                <Zap className="w-3 h-3" /> Tri local
               </div>
               {/* Option année */}
               <div className="flex items-center gap-2">
@@ -459,12 +435,12 @@ export default function Documents() {
             <div ref={chatEndRef} />
           </div>
 
-          <p className="text-[11px] text-muted-foreground mt-2 flex items-center gap-1">
-            {engine === "local" ? (
-              <><Zap className="w-3 h-3 text-emerald-400" /> Mode local actif — aucun token consommé, tout se passe dans votre navigateur.</>
-            ) : (
-              <><Cloud className="w-3 h-3 text-amber-400" /> Mode IA actif — consomme des tokens à chaque organisation.</>
-            )}
+          <p className="text-[11px] text-muted-foreground mt-2 flex items-center gap-1 flex-wrap">
+            <Zap className="w-3 h-3 text-emerald-400" />
+            Le tri est 100% local (0 token).
+            <Cloud className="w-3 h-3 text-primary ml-1" />
+            Seule l'explication est rédigée par l'IA (~150 tokens).
+            {explaining && <span className="ml-2 italic text-primary">L'IA rédige son explication…</span>}
           </p>
         </div>
       </main>
