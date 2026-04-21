@@ -11,6 +11,7 @@ import { Expand, Settings2, Sparkles } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useSettings } from "@/contexts/SettingsProvider";
 import { VoiceCallMode } from "@/components/chatbot/VoiceCallMode";
+import { ProjectsBar } from "@/components/chatbot/ProjectsBar";
 
 export default function Index() {
   const { lang, t } = useLanguage();
@@ -143,6 +144,14 @@ export default function Index() {
               </p>
             </div>
             <div className="flex gap-2 pointer-events-auto">
+              <ProjectsBar
+                category="ai-tools"
+                getSnapshot={() => ({ messages })}
+                onLoad={(p) => {
+                  const data = p.data as { messages?: ChatMessage[] };
+                  if (data?.messages) setMessages(data.messages);
+                }}
+              />
               <button className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 backdrop-blur-md text-sm font-medium flex items-center gap-2 transition-colors">
                 <Expand className="w-4 h-4" />
                 {t("fullscreen")}
