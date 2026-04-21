@@ -781,6 +781,17 @@ Deno.serve(async (req) => {
 
         try {
           const userText = latestUserText(messages);
+          // Construit le prompt système en fonction du message courant (gain de tokens si planning non pertinent)
+          const SYSTEM_PROMPT = buildSystemPrompt({
+            lang: typeof lang === "string" ? lang : "fr",
+            detailLevel: typeof detailLevel === "string" ? detailLevel : "normal",
+            customInstructions: typeof customInstructions === "string" ? customInstructions : "",
+            aiName: typeof aiName === "string" ? aiName : "",
+            webSearch: !!webSearch,
+            forceTool: typeof forceTool === "string" ? forceTool : null,
+            schedule: Array.isArray(schedule) ? schedule : [],
+            scheduleRelevant: needsScheduleContext(userText),
+          });
           const pastedVideoUrl = extractVideoUrl(userText);
           if (pastedVideoUrl) {
             const { widget, summary } = await callTool("search_videos", { url: pastedVideoUrl });
