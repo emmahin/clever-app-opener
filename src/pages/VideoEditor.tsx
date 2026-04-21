@@ -481,6 +481,7 @@ export default function VideoEditor() {
                   onKeyDown={(e) => { if (e.key === "Enter") sendToAgent(); }}
                   placeholder="Demande à l'IA…"
                   className="flex-1 h-9 px-3 rounded-lg bg-background border border-border/60 text-sm focus:outline-none focus:border-primary" />
+                <TokenCounter text={chatInput} className="!h-9" />
                 <button onClick={sendToAgent} disabled={aiThinking}
                   className="w-9 h-9 rounded-lg bg-primary text-primary-foreground flex items-center justify-center disabled:opacity-50">
                   <Send className="w-4 h-4" />
