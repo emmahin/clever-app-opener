@@ -233,6 +233,19 @@ export default function Documents() {
     <div className="min-h-screen bg-background text-foreground">
       <Sidebar />
       <Header />
+      <FloatingProjectsBar
+        category="documents"
+        getSnapshot={() => ({ folderName, instructions, mapping, explanation, newRootName })}
+        onLoad={(p) => {
+          const d = p.data as any;
+          if (!d) return;
+          if (typeof d.folderName === "string") setFolderName(d.folderName);
+          if (typeof d.instructions === "string") setInstructions(d.instructions);
+          if (Array.isArray(d.mapping)) setMapping(d.mapping);
+          if (typeof d.explanation === "string") setExplanation(d.explanation);
+          if (typeof d.newRootName === "string") setNewRootName(d.newRootName);
+        }}
+      />
       <main className="pl-[88px] pr-6 pt-20 pb-10 max-w-[1400px] mx-auto">
         <div className="mb-6">
           <h1 className="text-2xl font-bold flex items-center gap-2">
