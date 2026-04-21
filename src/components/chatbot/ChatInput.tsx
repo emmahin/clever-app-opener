@@ -226,22 +226,6 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
-                  onClick={onOpenVoiceCall}
-                  className="w-10 h-10 rounded-full bg-foreground text-background flex items-center justify-center hover:scale-105 transition-transform shadow-lg"
-                >
-                  <AudioLines className="w-5 h-5" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                <div className="flex items-center gap-2">
-                  <AudioLines className="w-3.5 h-3.5" />
-                  <span>{t("voiceCall")}</span>
-                </div>
-              </TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
                   onClick={toggleRecording}
                   className={cn(
                     "w-10 h-10 rounded-full flex items-center justify-center transition-all",
@@ -257,6 +241,22 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
                 <div className="flex items-center gap-2">
                   <Mic className="w-3.5 h-3.5" />
                   <span>{isRecording ? t("stopRecording") : t("startVoice")}</span>
+                </div>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={onOpenVoiceCall}
+                  className="w-10 h-10 rounded-full bg-foreground text-background flex items-center justify-center hover:scale-105 transition-transform shadow-lg"
+                >
+                  <AudioLines className="w-5 h-5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <div className="flex items-center gap-2">
+                  <AudioLines className="w-3.5 h-3.5" />
+                  <span>{t("voiceCall")}</span>
                 </div>
               </TooltipContent>
             </Tooltip>
