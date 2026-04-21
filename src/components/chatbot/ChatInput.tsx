@@ -4,6 +4,7 @@ import { voiceService, ChatAttachment } from "@/services";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { processFile } from "@/lib/attachments";
 import { toast } from "sonner";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface ChatInputProps {
   onSend: (message: string, attachments?: ChatAttachment[]) => void;
@@ -137,45 +138,111 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
 
         {/* Bottom toolbar */}
         <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/50">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={processing}
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors disabled:opacity-50"
-              title={t("attachFile")}
-            >
-              <Plus className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors"
-              title={t("attachFile")}
-            >
-              <ImageIcon className="w-4 h-4" />
-            </button>
-            <button className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors">
-              <Globe className="w-4 h-4" />
-            </button>
-            <button className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors">
-              <Sparkles className="w-4 h-4" />
-            </button>
-            <button className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors">
-              <Code className="w-4 h-4" />
-            </button>
-          </div>
+          <TooltipProvider delayDuration={150}>
+            <div className="flex items-center gap-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={processing}
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors disabled:opacity-50"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>{t("attachFile")}</span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{t("attachmentsHint")}</p>
+                </TooltipContent>
+              </Tooltip>
 
-          <button
-            onClick={toggleRecording}
-            className={cn(
-              "w-10 h-10 rounded-full flex items-center justify-center transition-all",
-              isRecording
-                ? "bg-destructive text-destructive-foreground animate-pulse"
-                : "bg-primary text-primary-foreground hover:scale-105"
-            )}
-            title={isRecording ? t("stopRecording") : t("startVoice")}
-          >
-            <Mic className="w-5 h-5" />
-          </button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors"
+                  >
+                    <ImageIcon className="w-4 h-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <div className="flex items-center gap-2">
+                    <ImageIcon className="w-3.5 h-3.5" />
+                    <span>{t("attachImage")}</span>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors">
+                    <Globe className="w-4 h-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <div className="flex items-center gap-2">
+                    <Globe className="w-3.5 h-3.5" />
+                    <span>{t("webSearch")}</span>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors">
+                    <Sparkles className="w-4 h-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>{t("aiTools")}</span>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors">
+                    <Code className="w-4 h-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <div className="flex items-center gap-2">
+                    <Code className="w-3.5 h-3.5" />
+                    <span>{t("codeMode")}</span>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          </TooltipProvider>
+
+          <TooltipProvider delayDuration={150}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={toggleRecording}
+                  className={cn(
+                    "w-10 h-10 rounded-full flex items-center justify-center transition-all",
+                    isRecording
+                      ? "bg-destructive text-destructive-foreground animate-pulse"
+                      : "bg-primary text-primary-foreground hover:scale-105"
+                  )}
+                >
+                  <Mic className="w-5 h-5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <div className="flex items-center gap-2">
+                  <Mic className="w-3.5 h-3.5" />
+                  <span>{isRecording ? t("stopRecording") : t("startVoice")}</span>
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </div>
     </div>
