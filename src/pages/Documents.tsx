@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
+import { FloatingProjectsBar } from "@/components/chatbot/FloatingProjectsBar";
 
 type TreeNode = {
   name: string;
