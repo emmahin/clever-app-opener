@@ -16,13 +16,30 @@ export function ChatMessageItem({ message, isThinking }: ChatMessageProps) {
   const hasContent = !!message.content;
   const hasWidgets = !!message.widgets?.length;
 
+  // Bulles riches (galerie, actus, marchés, image, sources web) → centrées et larges
+  const isRichAssistant =
+    !isUser &&
+    hasWidgets &&
+    message.widgets!.some((w) =>
+      ["image_gallery", "news", "stocks", "image", "web_sources"].includes(w.type as string),
+    );
+
   return (
-    <div id={`msg-${message.id}`} className={cn("flex w-full scroll-mt-24 rounded-2xl transition-shadow", isUser ? "justify-end" : "justify-start")}>
+    <div
+      id={`msg-${message.id}`}
+      className={cn(
+        "flex w-full scroll-mt-24 rounded-2xl transition-shadow",
+        isUser ? "justify-end" : isRichAssistant ? "justify-center" : "justify-start",
+      )}
+    >
       <div
         className={cn(
-          "max-w-[85%] rounded-2xl px-4 py-3",
+          "rounded-2xl px-4 py-3",
+          isRichAssistant ? "w-full max-w-[95%]" : "max-w-[85%]",
           isUser
             ? "bg-primary text-primary-foreground rounded-br-md"
+            : isRichAssistant
+            ? "glass text-foreground"
             : "glass text-foreground rounded-bl-md"
         )}
       >

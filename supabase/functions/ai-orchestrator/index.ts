@@ -55,6 +55,7 @@ Tu disposes d'OUTILS pour récupérer des données réelles :
 - fetch_stocks : cours boursiers et performance 6 mois
 - web_search : recherche web instantanée (DuckDuckGo) pour faits récents, définitions, comparaisons
 - generate_image : génère une image à partir d'un prompt descriptif
+- search_images : cherche des PHOTOS RÉELLES sur Pixabay (modèles, exemples, produits, lieux). À utiliser dès que l'utilisateur demande "montre-moi", "exemples de", "photos de", "modèles de", "à quoi ressemble"…
 
 RÈGLES :
 1. Si l'utilisateur demande une vue d'ensemble / "que se passe-t-il" / "situation actuelle" → appelle fetch_news ET fetch_stocks.
@@ -62,7 +63,8 @@ RÈGLES :
 3. Question actu/politique/évènements → fetch_news.
 4. Question nécessitant des faits récents/inconnus → web_search.
 5. Demande explicite d'image / illustration / dessin / photo → generate_image.
-6. Sinon, réponds directement sans outils.
+6. Demande d'EXEMPLES VISUELS / MODÈLES / RÉFÉRENCES (ex: "models de jordans", "photos de chats", "exemples de logos minimalistes") → search_images.
+7. Sinon, réponds directement sans outils.
 
 STYLE DE SYNTHÈSE :
 - ${detail}
@@ -132,6 +134,22 @@ const TOOLS = [
           prompt: { type: "string", description: "Description détaillée de l'image (de préférence en anglais)" },
         },
         required: ["prompt"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_images",
+      description:
+        "Cherche des PHOTOS RÉELLES (Pixabay) à montrer en galerie. À utiliser pour des EXEMPLES, MODÈLES, RÉFÉRENCES VISUELLES (ex: 'models de jordans', 'photos de tigres', 'exemples de cuisines modernes'). Renvoie 6-8 images.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Mots-clés en anglais de préférence (ex: 'air jordan sneakers', 'modern kitchen')" },
+          count: { type: "integer", description: "Nombre d'images souhaitées (4-12, défaut 8)" },
+        },
+        required: ["query"],
       },
     },
   },
@@ -246,6 +264,27 @@ async function callTool(name: string, args: any): Promise<{ widget: any; summary
     } catch (e) {
       console.error("generate_image error", e);
       return { widget: null, summary: "Erreur génération image." };
+    }
+  }
+
+  if (name === "search_images") {
+    try {
+      const q = String(args.query || "").trim();
+      if (!q) return { widget: null, summary: "Requête vide" };
+      const count = Math.min(12, Math.max(4, parseInt(args.count, 10) || 8));
+      const r = await fetch(
+        `${SUPABASE_URL}/functions/v1/image-search?q=${encodeURIComponent(q)}&per_page=${count}`,
+        { headers },
+      );
+      const data = await r.json();
+      const items = data.items || [];
+      const summary = items.length
+        ? `${items.length} image(s) trouvée(s) pour "${q}". Tags : ${items.slice(0, 3).map((i: any) => i.tags).join(" / ")}.`
+        : `Aucune image trouvée pour "${q}".`;
+      return { widget: { type: "image_gallery", query: q, items }, summary };
+    } catch (e) {
+      console.error("search_images error", e);
+      return { widget: null, summary: "Recherche d'images échouée." };
     }
   }
 
