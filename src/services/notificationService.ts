@@ -103,15 +103,14 @@ function savePrefs(p: NotificationPrefs) {
 }
 
 function isInQuietHours(prefs: NotificationPrefs): boolean {
-  if (!prefs.doNotDisturb) {
-    const h = new Date().getHours();
-    const { quietStartHour: s, quietEndHour: e } = prefs;
-    if (s === e) return false;
-    if (s < e) return h >= s && h < e;
-    // crosses midnight (e.g. 22 → 8)
-    return h >= s || h < e;
-  }
-  return true;
+  if (prefs.doNotDisturb) return true;
+  if (!prefs.quietHoursEnabled) return false;
+  const h = new Date().getHours();
+  const { quietStartHour: s, quietEndHour: e } = prefs;
+  if (s === e) return false;
+  if (s < e) return h >= s && h < e;
+  // crosses midnight (e.g. 22 → 8)
+  return h >= s || h < e;
 }
 
 function iconForType(type: NotificationType): string {
@@ -248,7 +247,7 @@ class NotificationService {
       for (const n of due) this.deliver(n.id);
     };
     tick();
-    this.schedulerId = window.setInterval(tick, 30_000); // every 30s
+    this.schedulerId = window.setInterval(tick, 5_000); // every 5s
   }
 }
 
