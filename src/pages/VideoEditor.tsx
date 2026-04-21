@@ -513,10 +513,26 @@ export default function VideoEditor() {
 
             {/* AI Chat */}
             <div className="flex-1 flex flex-col rounded-xl border border-border/40 bg-card/50 min-h-0">
-              <div className="px-3 py-2 border-b border-border/40 flex items-center gap-2">
+              <div className="px-3 py-2 border-b border-border/40 flex items-center gap-2 flex-wrap">
                 <Sparkles className="w-4 h-4 text-primary" />
-                <span className="text-sm font-medium">Monteur IA</span>
+                <span className="text-sm font-medium">Monteur</span>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${
+                  advancedAI
+                    ? "bg-amber-500/15 border-amber-400/40 text-amber-300"
+                    : "bg-emerald-500/15 border-emerald-400/40 text-emerald-300"
+                }`}>
+                  {advancedAI ? "IA avancée" : "Local · 0 token"}
+                </span>
+                <div className="ml-auto flex items-center gap-1.5">
+                  <span className="text-[10px] text-muted-foreground">IA avancée</span>
+                  <Switch checked={advancedAI} onCheckedChange={setAdvancedAI} />
+                </div>
               </div>
+              {!advancedAI && (
+                <div className="px-3 py-1.5 text-[10px] text-muted-foreground border-b border-border/40 bg-secondary/20">
+                  💡 Le montage est fait localement (gratuit). L'IA n'est utilisée que pour t'expliquer le résultat (~150 tokens).
+                </div>
+              )}
               <div className="flex-1 overflow-y-auto p-3 space-y-2 text-sm">
                 {chat.map((m, i) => (
                   <div key={i} className={`rounded-lg px-3 py-2 ${
