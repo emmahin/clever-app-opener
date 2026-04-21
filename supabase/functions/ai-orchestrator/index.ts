@@ -349,9 +349,10 @@ async function callTool(name: string, args: any): Promise<{ widget: any; summary
     if (cat && cat !== "all" && map[cat]) {
       items = items.filter((n: any) => n.category === map[cat]);
     }
-    items = items.slice(0, 12);
+    items = items.slice(0, 8);
+    // Résumé compact pour l'IA (le widget contient déjà le détail visible par l'utilisateur)
     const summary = items.map((n: any, i: number) =>
-      `${i + 1}. [${n.source}] ${n.title}${n.summary ? " — " + n.summary : ""}`
+      `${i + 1}. [${n.source}] ${String(n.title).slice(0, 120)}`
     ).join("\n");
     return { widget: { type: "news", items }, summary };
   }
@@ -407,8 +408,11 @@ async function callTool(name: string, args: any): Promise<{ widget: any; summary
           }
         } catch (e) { console.error("ddg html error", e); }
       }
-      const top = items.slice(0, 8);
-      const summary = top.map((it, i) => `${i + 1}. ${it.title} — ${it.snippet || ""} (${it.url})`).join("\n") || "Aucun résultat.";
+      const top = items.slice(0, 5);
+      const summary = top.map((it, i) => {
+        const snip = String(it.snippet || "").slice(0, 180);
+        return `${i + 1}. ${String(it.title).slice(0, 100)} — ${snip} (${it.url})`;
+      }).join("\n") || "Aucun résultat.";
       return { widget: { type: "web_sources", items: top }, summary };
     } catch (e) {
       console.error("web_search error", e);
