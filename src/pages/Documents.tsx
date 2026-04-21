@@ -173,24 +173,15 @@ export default function Documents() {
     toast.success(`${arr.length} fichiers importés`);
   };
 
-  const handleOrganize = async () => {
-    if (!files.length) {
-      toast.error("Importez d'abord un dossier");
-      return;
-    }
+  /** Cœur du tri : applique des règles + l'option année et lance l'explication IA. */
+  const runOrganize = async (customRules: any[], year: boolean) => {
+    if (!files.length) return;
     setOrganizing(true);
     setMapping(null);
     const paths = files.map((f) => (f as any).webkitRelativePath || f.name);
-    const customRules = parseCustomRules(customRulesText);
-    pushChat({
-      role: "user",
-      content:
-        `Organise mes ${paths.length} fichiers${groupByYear ? " (regroupés par année)" : ""}` +
-        (customRules.length ? ` avec ${customRules.length} règle(s) perso.` : "."),
-    });
     try {
       // ⚡ Tri 100% local — aucun token consommé pour le tri lui-même
-      const result = organizeLocally(paths, { groupByYear, useSubcategories: true, customRules });
+      const result = organizeLocally(paths, { groupByYear: year, useSubcategories: true, customRules });
       setMapping(result.mapping);
       setExplanation(result.explanation);
       setNewRootName(result.rootName);
@@ -212,7 +203,7 @@ export default function Documents() {
         const { data, error } = await supabase.functions.invoke("explain-organization", {
           body: {
             stats: result.stats,
-            options: { groupByYear, customRulesCount: customRules.length },
+            options: { groupByYear: year, customRulesCount: customRules.length },
           },
         });
         if (error) throw error;
@@ -233,6 +224,21 @@ export default function Documents() {
     } finally {
       setOrganizing(false);
     }
+  };
+
+  const handleOrganize = async () => {
+    if (!files.length) {
+      toast.error("Importez d'abord un dossier");
+      return;
+    }
+    const customRules = parseCustomRules(customRulesText);
+    pushChat({
+      role: "user",
+      content:
+        `Organise mes ${files.length} fichiers${groupByYear ? " (regroupés par année)" : ""}` +
+        (customRules.length ? ` avec ${customRules.length} règle(s) perso.` : "."),
+    });
+    await runOrganize(customRules, groupByYear);
   };
 
   /** Convertit une consigne en français en règles + lance l'organisation. */
