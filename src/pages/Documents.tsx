@@ -235,8 +235,77 @@ export default function Documents() {
     }
   };
 
+  /** Convertit une consigne en français en règles + lance l'organisation. */
+  const handleNaturalLanguage = async () => {
+    const prompt = chatInput.trim();
+    if (!prompt) return;
+    if (!files.length) {
+      toast.error("Importez d'abord un dossier");
+      return;
+    }
+    setChatInput("");
+    pushChat({ role: "user", content: prompt });
+    setInterpreting(true);
+    try {
+      // Extensions uniques (max 50) — contexte minimal pour l'IA
+      const extSet = new Set<string>();
+      for (const f of files) {
+        const n = (f as any).webkitRelativePath || f.name;
+        const i = n.lastIndexOf(".");
+        if (i > 0) extSet.add(n.slice(i + 1).toLowerCase());
+      }
+      const { data, error } = await supabase.functions.invoke("rules-from-prompt", {
+        body: { prompt, extensions: Array.from(extSet).slice(0, 50) },
+      });
+      if (error) throw error;
+
+      const rules = Array.isArray(data?.rules) ? data.rules : [];
+      const wantYear = !!data?.groupByYear;
+      const summary = data?.summary || "Compris.";
+
+      pushChat({
+        role: "assistant",
+        content:
+          `🧠 **J'ai compris :** ${summary}\n\n` +
+          (rules.length
+            ? `📋 **${rules.length} règle(s) générée(s)** :\n` +
+              rules
+                .map((r: any) => {
+                  const crit: string[] = [];
+                  if (r.keywords?.length) crit.push(r.keywords.join(", "));
+                  if (r.extensions?.length) crit.push(r.extensions.map((e: string) => "." + e).join(", "));
+                  return `• ${crit.join(" + ") || "(aucun critère)"} → **${r.target}**`;
+                })
+                .join("\n")
+            : "_Aucune règle spécifique — j'utilise le tri par défaut._") +
+          (wantYear ? "\n\n📅 Regroupement par année activé." : ""),
+      });
+
+      // Synchronise l'éditeur de règles + option année
+      const asText = rules
+        .map((r: any) => {
+          const left: string[] = [];
+          if (r.keywords?.length) left.push(r.keywords.join(", "));
+          if (r.extensions?.length) left.push(r.extensions.map((e: string) => "." + e).join(", "));
+          return `${left.join(" + ")} -> ${r.target}`;
+        })
+        .join("\n");
+      setCustomRulesText(asText);
+      if (wantYear) setGroupByYear(true);
+
+      // Lance le tri local immédiatement avec ces règles
+      await runOrganize(rules, wantYear || groupByYear);
+    } catch (e: any) {
+      pushChat({
+        role: "assistant",
+        content: `❌ Désolé, je n'ai pas pu interpréter (${e.message || "erreur"}). Essaye d'écrire la consigne autrement.`,
+      });
+    } finally {
+      setInterpreting(false);
+    }
+  };
+
   const handleDownload = async () => {
-    void 0;
     if (!mapping || !files.length) return;
     try {
       const zip = new JSZip();
