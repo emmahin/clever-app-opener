@@ -94,18 +94,20 @@ function NewsCard({ item }: { item: NewsItem }) {
       className="group flex-shrink-0 w-72 snap-start glass rounded-2xl overflow-hidden border border-border/40 hover:border-primary/50 transition-all hover:-translate-y-0.5"
     >
       <div className="aspect-video bg-gradient-to-br from-primary/20 to-fuchsia-500/20 overflow-hidden relative">
-        {item.image ? (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Newspaper className="w-10 h-10 text-white/30" />
+        </div>
+        {item.image && (
           <img
             src={item.image}
             alt={item.title}
             loading="lazy"
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-            onError={(e) => ((e.currentTarget.style.display = "none"))}
+            referrerPolicy="no-referrer"
+            className="relative w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            onError={(e) => {
+              e.currentTarget.style.visibility = "hidden";
+            }}
           />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <Newspaper className="w-10 h-10 text-white/30" />
-          </div>
         )}
       </div>
       <div className="p-3">
@@ -136,8 +138,11 @@ function NewsCardCompact({ item }: { item: NewsItem }) {
             src={item.image}
             alt=""
             loading="lazy"
-            className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
-            onError={(e) => ((e.currentTarget.style.display = "none"))}
+            referrerPolicy="no-referrer"
+            className="w-16 h-16 rounded-lg object-cover flex-shrink-0 bg-white/5"
+            onError={(e) => {
+              e.currentTarget.style.visibility = "hidden";
+            }}
           />
         )}
         <div className="flex-1 min-w-0">
