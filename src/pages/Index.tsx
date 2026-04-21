@@ -182,14 +182,46 @@ export default function Index() {
                   if (data?.messages) setMessages(data.messages);
                 }}
               />
-              <button className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 backdrop-blur-md text-sm font-medium flex items-center gap-2 transition-colors">
-                <Expand className="w-4 h-4" />
+              <button
+                onClick={toggleFullscreen}
+                className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 backdrop-blur-md text-sm font-medium flex items-center gap-2 transition-colors"
+                title={isFullscreen ? "Quitter le plein écran" : "Passer en plein écran"}
+              >
+                {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Expand className="w-4 h-4" />}
                 {t("fullscreen")}
               </button>
-              <button className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 backdrop-blur-md text-sm font-medium flex items-center gap-2 transition-colors">
-                <Settings2 className="w-4 h-4" />
-                {t("options")}
-              </button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 backdrop-blur-md text-sm font-medium flex items-center gap-2 transition-colors">
+                    <Settings2 className="w-4 h-4" />
+                    {t("options")}
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>Actions rapides</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleNewChat}>
+                    <MessageSquarePlus className="w-4 h-4 mr-2" />
+                    Nouvelle conversation
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => setMessages([])}
+                    disabled={messages.length === 0}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Effacer les messages
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setVoiceCallOpen(true)}>
+                    <PhoneCall className="w-4 h-4 mr-2" />
+                    Mode appel vocal
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate("/settings")}>
+                    <SlidersHorizontal className="w-4 h-4 mr-2" />
+                    Paramètres
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
 
