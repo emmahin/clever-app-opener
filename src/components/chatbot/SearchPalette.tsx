@@ -9,17 +9,25 @@ import {
   CommandSeparator,
 } from "@/components/ui/command";
 import { newsService, appLauncherService, NewsItem, AppDescriptor } from "@/services";
-import { MessageSquare, Newspaper, AppWindow, ExternalLink } from "lucide-react";
+import { MessageSquare, Newspaper, AppWindow, ExternalLink, Sparkles } from "lucide-react";
 import { ChatMessage } from "@/services";
+
+const SUGGESTIONS = [
+  "Analyse les tendances du marché aujourd'hui",
+  "Résume les dernières actus tech & IA",
+  "Quelle est la situation actuelle du monde ?",
+  "Montre-moi les performances boursières",
+];
 
 interface SearchPaletteProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   messages: ChatMessage[];
   onJumpToMessage?: (id: string) => void;
+  onSuggestion?: (text: string) => void;
 }
 
-export function SearchPalette({ open, onOpenChange, messages, onJumpToMessage }: SearchPaletteProps) {
+export function SearchPalette({ open, onOpenChange, messages, onJumpToMessage, onSuggestion }: SearchPaletteProps) {
   const [news, setNews] = useState<NewsItem[]>([]);
   const [apps, setApps] = useState<AppDescriptor[]>([]);
   const [query, setQuery] = useState("");
@@ -68,6 +76,27 @@ export function SearchPalette({ open, onOpenChange, messages, onJumpToMessage }:
       />
       <CommandList>
         <CommandEmpty>Aucun résultat.</CommandEmpty>
+
+        {!q && onSuggestion && (
+          <>
+            <CommandGroup heading="Suggestions">
+              {SUGGESTIONS.map((s) => (
+                <CommandItem
+                  key={s}
+                  value={`sugg-${s}`}
+                  onSelect={() => {
+                    onSuggestion(s);
+                    close();
+                  }}
+                >
+                  <Sparkles className="mr-2 h-4 w-4 opacity-60" />
+                  <span>{s}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+            <CommandSeparator />
+          </>
+        )}
 
         {matchedMessages.length > 0 && (
           <CommandGroup heading="Conversations">
