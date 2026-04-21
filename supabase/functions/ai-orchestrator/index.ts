@@ -313,6 +313,86 @@ async function callTool(name: string, args: any): Promise<{ widget: any; summary
   return { widget: null, summary: "Outil inconnu" };
 }
 
+function latestUserText(messages: any[]): string {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m?.role !== "user") continue;
+    if (typeof m.content === "string") return m.content;
+    if (Array.isArray(m.content)) {
+      return m.content
+        .filter((p: any) => p?.type === "text" && typeof p.text === "string")
+        .map((p: any) => p.text)
+        .join("\n");
+    }
+  }
+  return "";
+}
+
+function inferImageSearchQuery(text: string): string | null {
+  const raw = text.toLowerCase();
+  const asksForRealImages = /\b(photo|photos|image|images|mod[eè]le|mod[eè]les|exemple|exemples|montre|voir|visuel|r[ée]f[ée]rence|r[ée]f[ée]rences)\b/i.test(raw);
+  if (!asksForRealImages) return null;
+
+  if (/\b(air\s*force\s*(one|1)?|af1)\b/i.test(raw)) return "Nike Air Force 1 sneakers shoes white";
+  if (/\b(jordan|jordans|air\s*jordan)\b/i.test(raw)) return "Air Jordan basketball sneakers shoes";
+  if (/\b(yeezy|yeezys)\b/i.test(raw)) return "Adidas Yeezy sneakers shoes";
+
+  return null;
+}
+
+async function streamModelResponse(body: any, send: (obj: any) => void): Promise<string> {
+  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ ...body, stream: true }),
+  });
+
+  if (!response.ok || !response.body) throw new Error(`IA ${response.status}`);
+
+  const reader = response.body.getReader();
+  const dec = new TextDecoder();
+  let buf = "";
+  let fullText = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    let nl;
+    while ((nl = buf.indexOf("\n")) !== -1) {
+      const line = buf.slice(0, nl).replace(/\r$/, "");
+      buf = buf.slice(nl + 1);
+      if (!line.startsWith("data: ")) continue;
+      const json = line.slice(6).trim();
+      if (!json || json === "[DONE]") continue;
+      try {
+        const p = JSON.parse(json);
+        const delta =
+          p.choices?.[0]?.delta?.content ??
+          p.choices?.[0]?.message?.content ??
+          p.delta ??
+          p.content ??
+          "";
+        if (delta) {
+          fullText += delta;
+          send({ delta });
+        }
+      } catch { /* ignore partial */ }
+    }
+  }
+  return fullText;
+}
+
+async function completeModelResponse(body: any): Promise<string> {
+  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) throw new Error(`IA ${response.status}`);
+  const data = await response.json();
+  return String(data.choices?.[0]?.message?.content || data.choices?.[0]?.text || "").trim();
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -361,6 +441,16 @@ Deno.serve(async (req) => {
         const send = (obj: any) => controller.enqueue(enc.encode(`data: ${JSON.stringify(obj)}\n\n`));
 
         try {
+          const inferredImageQuery = inferImageSearchQuery(latestUserText(messages));
+          if (inferredImageQuery) {
+            const { widget, summary } = await callTool("search_images", { query: inferredImageQuery, count: 8 });
+            if (widget) send({ widgets: [widget] });
+            send({ delta: `Bien sûr monsieur — j’ai compris que vous parlez des sneakers Nike Air Force 1. Voici des exemples visuels pertinents.\n\n${summary}` });
+            send({ done: true });
+            controller.close();
+            return;
+          }
+
           // Force tool choice when user explicitly clicked a tool button
           let phase1ToolChoice: any = "auto";
           if (forceTool === "image") {
@@ -430,10 +520,7 @@ Deno.serve(async (req) => {
             send({ widgets });
 
             // Phase 3: streaming synthesis with tool results
-            const phase3 = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-              method: "POST",
-              headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-              body: JSON.stringify({
+            const phase3Body = {
                 model: "google/gemini-3-flash-preview",
                 messages: [
                   { role: "system", content: SYSTEM_PROMPT },
@@ -441,73 +528,20 @@ Deno.serve(async (req) => {
                   { role: "assistant", content: msg.content || "", tool_calls: toolCalls },
                   ...toolResults,
                 ],
-                stream: true,
-              }),
-            });
-
-            if (!phase3.ok || !phase3.body) {
-              send({ error: "Erreur lors de la synthèse." });
-              controller.close(); return;
-            }
-
-            const reader = phase3.body.getReader();
-            const dec = new TextDecoder();
-            let buf = "";
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              buf += dec.decode(value, { stream: true });
-              let nl;
-              while ((nl = buf.indexOf("\n")) !== -1) {
-                const line = buf.slice(0, nl).replace(/\r$/, "");
-                buf = buf.slice(nl + 1);
-                if (!line.startsWith("data: ")) continue;
-                const json = line.slice(6).trim();
-                if (json === "[DONE]") continue;
-                try {
-                  const p = JSON.parse(json);
-                  const delta = p.choices?.[0]?.delta?.content;
-                  if (delta) send({ delta });
-                } catch { /* ignore partial */ }
-              }
-            }
+            };
+            const streamed = await streamModelResponse(phase3Body, send);
+            if (!streamed.trim()) send({ delta: `Voilà monsieur.\n\n${toolResults.map((r) => r.content).join("\n")}` });
           } else {
             // No tools: stream the direct response token by token
             // Re-call with stream=true (since phase1 was not streamed)
-            const phaseDirect = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-              method: "POST",
-              headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-              body: JSON.stringify({
-                model: "google/gemini-3-flash-preview",
-                messages: [{ role: "system", content: SYSTEM_PROMPT }, ...messages],
-                stream: true,
-              }),
-            });
-
-            if (!phaseDirect.ok || !phaseDirect.body) {
-              send({ error: "Erreur IA." });
-              controller.close(); return;
-            }
-            const reader = phaseDirect.body.getReader();
-            const dec = new TextDecoder();
-            let buf = "";
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              buf += dec.decode(value, { stream: true });
-              let nl;
-              while ((nl = buf.indexOf("\n")) !== -1) {
-                const line = buf.slice(0, nl).replace(/\r$/, "");
-                buf = buf.slice(nl + 1);
-                if (!line.startsWith("data: ")) continue;
-                const json = line.slice(6).trim();
-                if (json === "[DONE]") continue;
-                try {
-                  const p = JSON.parse(json);
-                  const delta = p.choices?.[0]?.delta?.content;
-                  if (delta) send({ delta });
-                } catch { /* ignore */ }
-              }
+            const directBody = {
+              model: "google/gemini-3-flash-preview",
+              messages: [{ role: "system", content: SYSTEM_PROMPT }, ...messages],
+            };
+            const streamed = await streamModelResponse(directBody, send);
+            if (!streamed.trim()) {
+              const fallback = await completeModelResponse({ ...directBody, model: "google/gemini-2.5-flash" });
+              send({ delta: fallback || "Je suis là monsieur, mais je n’ai pas reçu de contenu exploitable. Reformulez votre demande en une phrase et je m’en occupe." });
             }
           }
 
