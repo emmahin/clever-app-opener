@@ -33,6 +33,7 @@ export interface AppNotification {
 export interface NotificationPrefs {
   enabled: boolean;
   doNotDisturb: boolean;
+  quietHoursEnabled: boolean;
   quietStartHour: number; // 0-23
   quietEndHour: number; // 0-23
   byType: Record<NotificationType, boolean>;
@@ -46,6 +47,7 @@ const MAX_STORED = 100;
 const DEFAULT_PREFS: NotificationPrefs = {
   enabled: true,
   doNotDisturb: false,
+  quietHoursEnabled: false,
   quietStartHour: 22,
   quietEndHour: 8,
   byType: {
