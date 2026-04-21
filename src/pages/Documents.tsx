@@ -560,6 +560,40 @@ export default function Documents() {
             Seule l'explication est rédigée par l'IA (~150 tokens).
             {explaining && <span className="ml-2 italic text-primary">L'IA rédige son explication…</span>}
           </p>
+
+          {/* Champ de chat : consigne en français */}
+          <div className="mt-4 flex items-end gap-2">
+            <div className="flex-1 relative">
+              <Textarea
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleNaturalLanguage();
+                  }
+                }}
+                placeholder={
+                  files.length
+                    ? "Dis-moi en français comment organiser… (ex: « range mes factures par année et mets les photos dans un dossier Médias »)"
+                    : "Importez d'abord un dossier pour activer le chat."
+                }
+                disabled={!files.length || interpreting || organizing}
+                className="min-h-[60px] pr-12 resize-none text-sm"
+              />
+            </div>
+            <Button
+              onClick={handleNaturalLanguage}
+              disabled={!chatInput.trim() || !files.length || interpreting || organizing}
+              className="gap-1 h-[60px]"
+            >
+              {interpreting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              Envoyer
+            </Button>
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-1">
+            💬 L'IA traduit ta phrase en règles (~200 tokens), puis le logiciel local trie. Tes noms de fichiers ne sont jamais envoyés.
+          </p>
         </div>
       </main>
     </div>
