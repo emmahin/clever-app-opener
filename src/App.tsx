@@ -9,6 +9,7 @@ import Dashboard from "./pages/Dashboard.tsx";
 import Analytics from "./pages/Analytics.tsx";
 import { LanguageProvider } from "@/i18n/LanguageProvider";
 import { SettingsProvider } from "@/contexts/SettingsProvider";
+import { ProjectsProvider } from "@/contexts/ProjectsProvider";
 import Settings from "./pages/Settings.tsx";
 import VideoEditor from "./pages/VideoEditor.tsx";
 import Documents from "./pages/Documents.tsx";
@@ -19,6 +20,7 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <LanguageProvider>
       <SettingsProvider>
+        <ProjectsProvider>
         <TooltipProvider>
         <Toaster />
         <Sonner />
@@ -35,6 +37,7 @@ const App = () => (
           </Routes>
         </BrowserRouter>
         </TooltipProvider>
+        </ProjectsProvider>
       </SettingsProvider>
     </LanguageProvider>
   </QueryClientProvider>
