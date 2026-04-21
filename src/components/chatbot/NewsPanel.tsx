@@ -2,7 +2,11 @@ import { useEffect, useState } from "react";
 import { newsService, NewsItem } from "@/services";
 import { ExternalLink } from "lucide-react";
 
-export function NewsPanel() {
+interface NewsPanelProps {
+  layout?: "vertical" | "horizontal";
+}
+
+export function NewsPanel({ layout = "vertical" }: NewsPanelProps = {}) {
   const [news, setNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -13,28 +17,34 @@ export function NewsPanel() {
     });
   }, []);
 
+  const isHorizontal = layout === "horizontal";
+
   return (
-    <div className="glass rounded-2xl p-4 flex-1 min-h-0 overflow-y-auto">
+    <div className={
+      isHorizontal
+        ? "glass rounded-2xl p-4"
+        : "glass rounded-2xl p-4 flex-1 min-h-0 overflow-y-auto"
+    }>
       <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
         <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
         Dernières actus
       </h3>
 
       {loading ? (
-        <div className="space-y-3">
+        <div className={isHorizontal ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3" : "space-y-3"}>
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-20 bg-white/5 rounded-xl animate-pulse" />
+            <div key={i} className="h-28 bg-white/5 rounded-xl animate-pulse" />
           ))}
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className={isHorizontal ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3" : "space-y-3"}>
           {news.map((item) => (
             <a
               key={item.id}
               href={item.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="block p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors group"
+              className="block p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors group h-full"
             >
               <div className="flex items-start justify-between gap-2">
                 <h4 className="text-sm font-medium text-foreground line-clamp-2 group-hover:text-primary transition-colors">
