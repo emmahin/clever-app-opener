@@ -33,7 +33,11 @@ export default function Index() {
     }
   };
 
-  const sendMessage = async (content: string, attachments?: ChatAttachment[]) => {
+  const sendMessage = async (
+    content: string,
+    attachments?: ChatAttachment[],
+    options?: { webSearch?: boolean; deepThink?: boolean; forceTool?: "image" | "code" | null },
+  ) => {
     if (!content.trim() && !attachments?.length) return;
 
     // Add user message
@@ -92,6 +96,9 @@ export default function Index() {
       customInstructions: settings.customInstructions,
       aiName: settings.aiName,
       attachments,
+      webSearch: options?.webSearch,
+      deepThink: options?.deepThink,
+      forceTool: options?.forceTool ?? null,
     });
   };
 
