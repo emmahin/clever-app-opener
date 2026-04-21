@@ -6,7 +6,7 @@ import { ChatInput } from "@/components/chatbot/ChatInput";
 import { SuggestionPills } from "@/components/chatbot/SuggestionPills";
 import { ChatMessageItem } from "@/components/chatbot/ChatMessage";
 import { HeaderSearch } from "@/components/chatbot/HeaderSearch";
-import { chatService, ChatMessage } from "@/services";
+import { chatService, ChatMessage, ChatAttachment } from "@/services";
 import { Expand, Settings2, Sparkles } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useSettings } from "@/contexts/SettingsProvider";
@@ -31,14 +31,17 @@ export default function Index() {
     }
   };
 
-  const sendMessage = async (content: string) => {
-    if (!content.trim()) return;
+  const sendMessage = async (content: string, attachments?: ChatAttachment[]) => {
+    if (!content.trim() && !attachments?.length) return;
 
     // Add user message
+    const attachmentSummary = attachments?.length
+      ? "\n\n" + attachments.map((a) => `📎 ${a.name}`).join("\n")
+      : "";
     const userMsg: ChatMessage = {
       id: crypto.randomUUID(),
       role: "user",
-      content: content.trim(),
+      content: content.trim() + attachmentSummary,
       createdAt: Date.now(),
     };
     setMessages((prev) => [...prev, userMsg]);
@@ -86,6 +89,7 @@ export default function Index() {
       detailLevel: settings.detailLevel,
       customInstructions: settings.customInstructions,
       aiName: settings.aiName,
+      attachments,
     });
   };
 

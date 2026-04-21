@@ -212,6 +212,16 @@ const STRINGS: Record<string, Record<Lang, string>> = {
   thinking: { fr: "Réflexion en cours", en: "Thinking", es: "Pensando", de: "Denke nach" },
   capitalRising: { fr: "Capital qui explose", en: "Trending stocks", es: "Capital al alza", de: "Trend-Aktien" },
   clear: { fr: "Effacer", en: "Clear", es: "Borrar", de: "Löschen" },
+  attachFile: { fr: "Joindre un fichier", en: "Attach a file", es: "Adjuntar archivo", de: "Datei anhängen" },
+  processingFile: { fr: "Analyse du fichier…", en: "Processing file…", es: "Procesando archivo…", de: "Datei wird verarbeitet…" },
+  fileError: { fr: "Erreur fichier", en: "File error", es: "Error de archivo", de: "Dateifehler" },
+  remove: { fr: "Retirer", en: "Remove", es: "Quitar", de: "Entfernen" },
+  attachmentsHint: {
+    fr: "Images, audios et documents (PDF, TXT, MD, CSV, JSON) acceptés.",
+    en: "Images, audio and documents (PDF, TXT, MD, CSV, JSON) supported.",
+    es: "Se admiten imágenes, audios y documentos (PDF, TXT, MD, CSV, JSON).",
+    de: "Bilder, Audio und Dokumente (PDF, TXT, MD, CSV, JSON) werden unterstützt.",
+  },
   // News categories
   cat_top: { fr: "À la une", en: "Top stories", es: "Destacados", de: "Schlagzeilen" },
   cat_tech: { fr: "Tech & IA", en: "Tech & AI", es: "Tech e IA", de: "Tech & KI" },
