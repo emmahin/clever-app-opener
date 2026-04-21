@@ -97,7 +97,7 @@ export function ScheduleWidget({
     <div className="rounded-xl border border-violet-500/40 bg-gradient-to-br from-violet-900/25 to-fuchsia-900/15 p-4">
       <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-3">
         {added ? <Plus className="w-3.5 h-3.5 text-violet-300" /> :
-          typeof removed_count === "number" ? <Trash2 className="w-3.5 h-3.5 text-pink-300" /> :
+          remove_query ? <Trash2 className="w-3.5 h-3.5 text-pink-300" /> :
           <Calendar className="w-3.5 h-3.5 text-violet-300" />}
         {headerLabel}
       </div>
@@ -119,11 +119,11 @@ export function ScheduleWidget({
         </div>
       )}
 
-      {typeof removed_count === "number" && (
+      {remove_query && removedCount !== null && (
         <p className="mb-3 text-sm text-pink-200">
-          {removed_count > 0
-            ? `${removed_count} événement${removed_count > 1 ? "s" : ""} supprimé${removed_count > 1 ? "s" : ""}.`
-            : "Aucun événement correspondant trouvé."}
+          {removedCount > 0
+            ? `${removedCount} événement${removedCount > 1 ? "s" : ""} supprimé${removedCount > 1 ? "s" : ""} (correspondant à « ${remove_query} »).`
+            : `Aucun événement correspondant à « ${remove_query} » trouvé.`}
         </p>
       )}
 
