@@ -37,6 +37,7 @@ function buildSystemPrompt(opts: {
   const userCustom = opts.customInstructions?.trim()
     ? `\n\nINSTRUCTIONS PERSONNALISÉES DE L'UTILISATEUR (à respecter en priorité tant qu'elles ne contredisent pas les règles ci-dessus) :\n${opts.customInstructions.trim()}`
     : "";
+  const nowIso = new Date().toISOString();
   const webHint = opts.webSearch
     ? `\n\nMODE RECHERCHE WEB ACTIVÉ : utilise OBLIGATOIREMENT l'outil web_search pour appuyer ta réponse sur des sources web fraîches. Cite les sources dans ta réponse.`
     : "";
@@ -49,6 +50,8 @@ function buildSystemPrompt(opts: {
   return `Tu es un assistant IA analyste pour un dashboard.
 ${aiIdentity}
 IMPORTANT : tu réponds TOUJOURS en ${name}, en markdown. Even if the user writes in another language, answer in ${name}.
+
+CONTEXTE TEMPOREL : la date/heure courante est ${nowIso}. Utilise-la pour calculer les dates ISO des rappels (ex: "dans 1h" → +3600s, "demain à 15h" → date du lendemain à 15:00 dans le fuseau local).
 
 Tu disposes d'OUTILS pour récupérer des données réelles :
 - fetch_news : dernières actualités (catégories: à_la_une, tech, économie, international, all)
