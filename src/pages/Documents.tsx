@@ -133,6 +133,8 @@ export default function Documents() {
   const [newRootName, setNewRootName] = useState("Dossier-Reorganise");
   const [groupByYear, setGroupByYear] = useState(false);
   const [explaining, setExplaining] = useState(false);
+  const [customRulesText, setCustomRulesText] = useState("");
+  const [showRules, setShowRules] = useState(false);
   // Chat de récap : messages échangés entre l'utilisateur et le "trieur"
   type ChatMsg = { role: "user" | "assistant"; content: string; ts: number };
   const [chat, setChat] = useState<ChatMsg[]>([
