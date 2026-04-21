@@ -289,15 +289,17 @@ export default function Documents() {
       <Header />
       <FloatingProjectsBar
         category="documents"
-        getSnapshot={() => ({ folderName, instructions, mapping, explanation, newRootName })}
+        getSnapshot={() => ({ folderName, mapping, explanation, newRootName, chat, engine, groupByYear })}
         onLoad={(p) => {
           const d = p.data as any;
           if (!d) return;
           if (typeof d.folderName === "string") setFolderName(d.folderName);
-          if (typeof d.instructions === "string") setInstructions(d.instructions);
           if (Array.isArray(d.mapping)) setMapping(d.mapping);
           if (typeof d.explanation === "string") setExplanation(d.explanation);
           if (typeof d.newRootName === "string") setNewRootName(d.newRootName);
+          if (Array.isArray(d.chat)) setChat(d.chat);
+          if (d.engine === "local" || d.engine === "ai") setEngine(d.engine);
+          if (typeof d.groupByYear === "boolean") setGroupByYear(d.groupByYear);
         }}
       />
       <main className="pl-[88px] pr-6 pt-20 pb-10 max-w-[1400px] mx-auto">
