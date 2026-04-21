@@ -73,10 +73,16 @@ export default function Index() {
 
   const handleSuggestion = (text: string) => sendMessage(text);
 
+  const handleNewChat = () => {
+    abortRef.current?.abort();
+    setIsLoading(false);
+    setMessages([]);
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground overflow-hidden">
       <Sidebar />
-      <Header />
+      <Header onNewChat={handleNewChat} />
 
       <main className="ml-[72px] pt-14 min-h-screen flex">
         {/* Main chat area */}
