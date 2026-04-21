@@ -56,6 +56,7 @@ Tu disposes d'OUTILS pour récupérer des données réelles :
 - web_search : recherche web instantanée (DuckDuckGo) pour faits récents, définitions, comparaisons
 - generate_image : génère une image à partir d'un prompt descriptif
 - search_images : cherche des PHOTOS RÉELLES sur Pixabay (modèles, exemples, produits, lieux). À utiliser dès que l'utilisateur demande "montre-moi", "exemples de", "photos de", "modèles de", "à quoi ressemble"…
+- search_videos : cherche des VIDÉOS YouTube OU intègre une vidéo précise depuis une URL (YouTube/Vimeo/TikTok/Instagram/X/MP4). À utiliser pour "vidéo", "tuto vidéo", "regarde ça", "montre-moi en vidéo", ou si l'utilisateur colle un lien vidéo.
 
 RÈGLES :
 1. Si l'utilisateur demande une vue d'ensemble / "que se passe-t-il" / "situation actuelle" → appelle fetch_news ET fetch_stocks.
@@ -64,7 +65,8 @@ RÈGLES :
 4. Question nécessitant des faits récents/inconnus → web_search.
 5. Demande explicite d'image / illustration / dessin / photo → generate_image.
 6. Demande d'EXEMPLES VISUELS / MODÈLES / RÉFÉRENCES (ex: "models de jordans", "photos de chats", "exemples de logos minimalistes") → search_images.
-7. Sinon, réponds directement sans outils.
+7. Demande de VIDÉO ou URL vidéo collée → search_videos (passe `url` si une URL est fournie, sinon `query`).
+8. Sinon, réponds directement sans outils.
 
 DÉSAMBIGUÏSATION DU CONTEXTE (TRÈS IMPORTANT pour search_images et generate_image) :
 - Avant d'appeler un outil visuel, analyse l'INTENTION RÉELLE de l'utilisateur en t'appuyant sur tout l'historique de conversation et le sens commun.
@@ -172,6 +174,25 @@ const TOOLS = [
           count: { type: "integer", description: "Nombre d'images souhaitées (4-12, défaut 8)" },
         },
         required: ["query"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_videos",
+      description:
+        "Cherche des vidéos YouTube à partir de mots-clés OU intègre une vidéo précise depuis son URL " +
+        "(YouTube, Vimeo, TikTok, Instagram, X/Twitter, MP4 direct). " +
+        "Renvoie un widget avec lecteur intégré + lien vers la source. " +
+        "Donne `url` si l'utilisateur a collé un lien vidéo, sinon `query` avec des mots-clés.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Mots-clés de recherche (ex: 'tutoriel pâte à pizza', 'react useEffect explained')" },
+          url: { type: "string", description: "URL d'une vidéo YouTube/Vimeo/TikTok/Instagram/X/MP4 à intégrer directement" },
+          count: { type: "integer", description: "Nombre de vidéos pour une recherche (1-8, défaut 4)" },
+        },
       },
     },
   },
