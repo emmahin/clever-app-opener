@@ -159,27 +159,40 @@ export function VoiceCallMode({ open, onClose }: Props) {
 
       {/* Orb */}
       <div className="flex-1 flex flex-col items-center justify-center gap-8 w-full max-w-xl">
-        <div className="relative w-56 h-56">
+        <div className="relative w-64 h-64">
+          {/* Outer halo */}
           <div
-            className={`absolute inset-0 rounded-full transition-all duration-500
-              ${phase === "listening" ? "bg-gradient-to-br from-primary to-fuchsia-500 animate-pulse scale-110" : ""}
-              ${phase === "thinking" ? "bg-gradient-to-br from-amber-400 to-orange-500 animate-spin-slow" : ""}
-              ${phase === "speaking" ? "bg-gradient-to-br from-emerald-400 to-cyan-500 animate-pulse" : ""}
-              ${phase === "idle" ? "bg-gradient-to-br from-slate-600 to-slate-800" : ""}`}
-            style={{ filter: "blur(40px)", opacity: 0.7 }}
+            className={`absolute -inset-6 rounded-full transition-all duration-700
+              ${phase === "listening" ? "bg-fuchsia-500/40 animate-pulse" : ""}
+              ${phase === "thinking" ? "bg-amber-400/30 animate-pulse" : ""}
+              ${phase === "speaking" ? "bg-violet-400/50 animate-pulse" : ""}
+              ${phase === "idle" ? "bg-violet-600/20" : ""}`}
+            style={{ filter: "blur(40px)" }}
           />
+          {/* Galaxy circle */}
           <div
-            className={`absolute inset-6 rounded-full transition-all duration-500
-              ${phase === "listening" ? "bg-gradient-to-br from-primary to-fuchsia-500" : ""}
-              ${phase === "thinking" ? "bg-gradient-to-br from-amber-400 to-orange-500" : ""}
-              ${phase === "speaking" ? "bg-gradient-to-br from-emerald-400 to-cyan-500" : ""}
-              ${phase === "idle" ? "bg-gradient-to-br from-slate-700 to-slate-900" : ""}`}
-          />
-          <div className="absolute inset-0 flex items-center justify-center">
-            {phase === "listening" && <Mic className="w-14 h-14 text-white" />}
-            {phase === "thinking" && <Loader2 className="w-14 h-14 text-white animate-spin" />}
-            {phase === "speaking" && <Volume2 className="w-14 h-14 text-white" />}
-            {phase === "idle" && <Mic className="w-14 h-14 text-white/60" />}
+            className={`relative w-full h-full rounded-full overflow-hidden ring-1 ring-white/10 shadow-[0_0_80px_rgba(168,85,247,0.45)] transition-transform duration-500
+              ${phase === "listening" ? "scale-110 animate-pulse" : ""}
+              ${phase === "speaking" ? "scale-105" : ""}
+              ${phase === "idle" ? "scale-100" : ""}`}
+          >
+            <img
+              src={galaxyOrb}
+              alt=""
+              className={`w-full h-full object-cover transition-all duration-700
+                ${phase === "thinking" ? "animate-spin-slow" : ""}
+                ${phase === "speaking" ? "scale-110" : "scale-100"}`}
+              style={phase === "thinking" ? { animation: "spin 8s linear infinite" } : undefined}
+            />
+            {/* Subtle inner shine overlay */}
+            <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white/10 via-transparent to-black/30 pointer-events-none" />
+          </div>
+          {/* Phase icon */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            {phase === "listening" && <Mic className="w-12 h-12 text-white drop-shadow-[0_0_12px_rgba(255,255,255,0.8)]" />}
+            {phase === "thinking" && <Loader2 className="w-12 h-12 text-white animate-spin drop-shadow-[0_0_12px_rgba(255,255,255,0.8)]" />}
+            {phase === "speaking" && <Volume2 className="w-12 h-12 text-white drop-shadow-[0_0_12px_rgba(255,255,255,0.8)]" />}
+            {phase === "idle" && <Mic className="w-12 h-12 text-white/70 drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]" />}
           </div>
         </div>
 
