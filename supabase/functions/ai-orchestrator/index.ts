@@ -31,6 +31,7 @@ function buildSystemPrompt(opts: {
   forceTool?: string | null;
   schedule?: Array<{ title: string; start_iso: string; end_iso?: string; location?: string; notes?: string }>;
   timezone?: string;
+  scheduleRelevant?: boolean;
 }): string {
   const name = LANG_NAMES[opts.lang] || "français";
   const detail = DETAIL_STYLES[opts.detailLevel || "normal"] || DETAIL_STYLES.normal;
@@ -65,11 +66,11 @@ function buildSystemPrompt(opts: {
     tzOffsetStr = `${sign}${String(Math.floor(abs / 60)).padStart(2, "0")}:${String(abs % 60).padStart(2, "0")}`;
   } catch { /* fallback to UTC */ }
   const sched = (opts.schedule || []).slice().sort((a, b) => Date.parse(a.start_iso) - Date.parse(b.start_iso));
-  const schedBlock = sched.length
-    ? `\n\nEMPLOI DU TEMPS ACTUEL DE L'UTILISATEUR (${sched.length} événement(s)) :\n` +
-      sched.map((e) => `- ${e.start_iso}${e.end_iso ? ` → ${e.end_iso}` : ""} : ${e.title}${e.location ? ` @ ${e.location}` : ""}${e.notes ? ` (${e.notes})` : ""}`).join("\n") +
-      `\nUtilise ces informations pour répondre aux questions sur le planning, détecter les conflits, et calculer les disponibilités.`
-    : `\n\nEMPLOI DU TEMPS ACTUEL : vide.`;
+  // Planning : injecté UNIQUEMENT si la requête en parle (économie de tokens).
+  const schedBlock = (sched.length && opts.scheduleRelevant)
+    ? `\n\nEMPLOI DU TEMPS (${sched.length} évt) :\n` +
+      sched.map((e) => `- ${e.start_iso}${e.end_iso ? `→${e.end_iso}` : ""}: ${e.title}${e.location ? ` @${e.location}` : ""}`).join("\n")
+    : "";
   const webHint = opts.webSearch
     ? `\n\nMODE RECHERCHE WEB ACTIVÉ : utilise OBLIGATOIREMENT l'outil web_search pour appuyer ta réponse sur des sources web fraîches. Cite les sources dans ta réponse.`
     : "";
@@ -79,70 +80,20 @@ function buildSystemPrompt(opts: {
     ? `\n\nMODE CODE : réponds avec du code propre et complet dans des blocs \`\`\`langue. Explique brièvement avant et après.`
     : "";
 
-  return `Tu es un assistant IA analyste pour un dashboard.
+  return `Assistant IA analyste pour un dashboard.
 ${aiIdentity}
-IMPORTANT : tu réponds TOUJOURS en ${name}, en markdown. Even if the user writes in another language, answer in ${name}.
+Réponds TOUJOURS en ${name}, en markdown.
+Heure locale: ${nowLocalReadable} (${tz}, ${tzOffsetStr}). UTC: ${nowIsoUtc}.
+Quand l'utilisateur dit une heure, c'est l'heure LOCALE. Format ISO 8601 avec offset ${tzOffsetStr} (jamais "Z").${schedBlock}
 
-CONTEXTE TEMPOREL :
-- Heure LOCALE de l'utilisateur (à utiliser comme référence) : ${nowLocalReadable}
-- Fuseau horaire IANA : ${tz} (offset UTC ${tzOffsetStr})
-- Heure UTC équivalente : ${nowIsoUtc}
-RÈGLES TEMPORELLES STRICTES :
-- Quand l'utilisateur dit "à 15h", "demain à 9h", "dans 1h", il parle TOUJOURS en heure LOCALE.
-- Quand tu produis un start_iso / end_iso / when_iso, écris-le au format ISO 8601 AVEC l'offset du fuseau de l'utilisateur (ex: "2026-04-22T15:00:00${tzOffsetStr}"). N'écris JAMAIS un "Z" (UTC) sauf si l'utilisateur a explicitement parlé en UTC.
-- "demain" = jour LOCAL suivant la date locale ci-dessus, "ce soir" = même jour local, "lundi prochain" = prochain lundi en heure locale.${schedBlock}
+RÈGLES OUTILS (n'utilise un outil QUE si la demande l'exige) :
+- Données fraîches/web/actu/finance → fetch_news / fetch_stocks / web_search.
+- Image générée / photos d'exemples / vidéo → generate_image / search_images / search_videos.
+- "Envoie/écris à X" → send_whatsapp_message. "Rappelle-moi…" → create_reminder.
+- Planning : add_schedule_event UNIQUEMENT sur demande EXPLICITE ("ajoute/note/planifie/enregistre dans mon agenda"). Une simple mention ("je vais voir Léa demain") N'EST PAS une demande — n'appelle RIEN. En doute, demande confirmation. list_schedule pour afficher, remove_schedule_event pour annuler.
+- Sinon, réponds directement sans outil.
 
-Tu disposes d'OUTILS pour récupérer des données réelles :
-- fetch_news : dernières actualités (catégories: à_la_une, tech, économie, international, all)
-- fetch_stocks : cours boursiers et performance 6 mois
-- web_search : recherche web instantanée (DuckDuckGo) pour faits récents, définitions, comparaisons
-- generate_image : génère une image à partir d'un prompt descriptif
-- search_images : cherche des PHOTOS RÉELLES sur Pixabay (modèles, exemples, produits, lieux). À utiliser dès que l'utilisateur demande "montre-moi", "exemples de", "photos de", "modèles de", "à quoi ressemble"…
-- search_videos : cherche des VIDÉOS YouTube OU intègre une vidéo précise depuis une URL (YouTube/Vimeo/TikTok/Instagram/X/MP4). À utiliser pour "vidéo", "tuto vidéo", "regarde ça", "montre-moi en vidéo", ou si l'utilisateur colle un lien vidéo.
-- send_whatsapp_message : prépare un message WhatsApp à envoyer à un contact local de l'utilisateur. À utiliser dès que l'utilisateur dit "envoie un message à X", "écris à Y sur WhatsApp", "dis bonjour à Z", etc. Tu n'envoies PAS toi-même : tu prépares le message et l'utilisateur confirme dans la carte.
-- create_reminder : programme un rappel pour l'utilisateur. À utiliser pour "rappelle-moi de…", "préviens-moi à 15h…", "n'oublie pas de me dire…". Le rappel apparaîtra comme notification au moment voulu.
-- create_insight : pousse une observation/conseil proactif comme notification (ex: après une analyse, suggérer une action utile). À utiliser avec parcimonie, seulement quand tu as une vraie suggestion à valeur ajoutée à proposer.
-- add_schedule_event : ajoute un événement à l'emploi du temps de l'utilisateur (RDV, cours, réunion, sport…). À utiliser pour "ajoute X à mon planning", "j'ai un RDV demain à 14h", "note que je vois Léa lundi".
-- list_schedule : affiche l'emploi du temps de l'utilisateur sur une plage donnée (today/tomorrow/week/month/all). À utiliser pour "montre-moi mon emploi du temps", "qu'est-ce que j'ai cette semaine", "mon planning de demain".
-- remove_schedule_event : supprime un ou plusieurs événements correspondant à un titre. À utiliser pour "annule mon RDV avec Léa", "supprime ma réunion de 15h".
-
-RÈGLES :
-1. Si l'utilisateur demande une vue d'ensemble / "que se passe-t-il" / "situation actuelle" → appelle fetch_news ET fetch_stocks.
-2. Question finance/marché → fetch_stocks.
-3. Question actu/politique/évènements → fetch_news.
-4. Question nécessitant des faits récents/inconnus → web_search.
-5. Demande explicite d'image / illustration / dessin / photo → generate_image.
-6. Demande d'EXEMPLES VISUELS / MODÈLES / RÉFÉRENCES (ex: "models de jordans", "photos de chats", "exemples de logos minimalistes") → search_images.
-7. Demande de VIDÉO ou URL vidéo collée → search_videos (passe le paramètre 'url' si une URL est fournie, sinon 'query').
-8. Demande d'envoyer un message à quelqu'un (WhatsApp, "envoie à…", "écris à…", "dis à…") → send_whatsapp_message avec le prénom/nom du contact et le corps du message exact à envoyer.
-9. Demande de rappel ("rappelle-moi", "préviens-moi", "dans 1h…", "demain à 15h…") → create_reminder. Calcule la date ISO en te basant sur la date courante. Si l'horaire est ambigu, demande une précision.
-10. Si tu as fini une analyse et que tu veux proposer un suivi/conseil utile à l'utilisateur, tu peux appeler create_insight (optionnel, pas systématique).
-11. Demande relative à l'emploi du temps — N'APPELLE JAMAIS add_schedule_event de ta propre initiative.
-    - add_schedule_event : UNIQUEMENT si l'utilisateur formule une demande EXPLICITE d'enregistrement avec un verbe d'action sur le planning : "ajoute", "note", "planifie", "enregistre", "mets dans mon agenda/planning/emploi du temps", "rappelle-moi que j'ai…". Une simple mention ("je vais voir Léa demain", "j'ai mangé une pizza", "j'ai cours lundi") N'EST PAS une demande d'ajout : ne fais RIEN sur le planning, réponds normalement. En cas de doute, NE PAS appeler l'outil et demander confirmation : « Tu veux que je l'ajoute à ton emploi du temps ? ».
-    - list_schedule : "montre / affiche / qu'est-ce que j'ai… (aujourd'hui/demain/cette semaine…)".
-    - remove_schedule_event : "annule / supprime / enlève…" avec un title_query qui matche.
-    Pour répondre à des questions analytiques sur le planning ("suis-je libre vendredi ?", "combien de RDV ai-je cette semaine ?"), utilise directement le bloc EMPLOI DU TEMPS ACTUEL fourni dans le contexte SANS appeler d'outil.
-12. Sinon, réponds directement sans outils.
-
-DÉSAMBIGUÏSATION DU CONTEXTE (TRÈS IMPORTANT pour search_images et generate_image) :
-- Avant d'appeler un outil visuel, analyse l'INTENTION RÉELLE de l'utilisateur en t'appuyant sur tout l'historique de conversation et le sens commun.
-- Beaucoup de termes sont AMBIGUS — choisis le sens le plus probable selon le contexte (mode, sport, tech, animaux, lieux, cuisine…) et précise-le dans la requête.
-  Exemples concrets de pièges à éviter :
-    • "Air Force One" / "Air Force 1" / "AF1" → sneakers Nike, PAS l'avion présidentiel américain. Requête : "Nike Air Force 1 sneakers shoes white".
-    • "Jordan" (sans contexte politique/pays) → baskets Air Jordan. Requête : "Air Jordan basketball sneakers".
-    • "Yeezy" → sneakers Adidas Yeezy.
-    • "Apple" sans contexte tech → fruit ; avec contexte tech → produits Apple. Précise "fruit" ou "iPhone/MacBook".
-    • "Mustang" → cheval OU voiture Ford selon contexte. Précise "horse" ou "Ford Mustang car".
-    • "Jaguar" → animal OU voiture. Précise.
-    • "Puma" / "Cougar" → animal OU marque sportswear.
-    • "Galaxy" → cosmos OU smartphone Samsung.
-    • "Surface" → tablette Microsoft OU surface géométrique.
-    • Marques de mode (Off-White, Supreme, Balenciaga…) → vêtements/accessoires, jamais le sens littéral.
-- Si l'utilisateur a déjà mentionné le contexte plus tôt (ex: il parlait de chaussures puis dit "montre-moi des Air Force One"), GARDE ce contexte.
-- Si vraiment ambigu et que tu ne peux pas trancher, demande UNE question courte de précision AVANT d'appeler l'outil (ex: "Tu veux dire les sneakers Nike Air Force 1 ou l'avion présidentiel ?").
-- Pour search_images, formule TOUJOURS la requête en anglais avec des mots-clés précis (marque + type de produit + détail visuel).
-
-STYLE DE SYNTHÈSE :
+STYLE :
 - ${detail}
 - Pas de titres lourds, pas de répétition des données déjà visibles dans les widgets.
 - Ton fluide, naturel.
@@ -398,9 +349,10 @@ async function callTool(name: string, args: any): Promise<{ widget: any; summary
     if (cat && cat !== "all" && map[cat]) {
       items = items.filter((n: any) => n.category === map[cat]);
     }
-    items = items.slice(0, 12);
+    items = items.slice(0, 8);
+    // Résumé compact pour l'IA (le widget contient déjà le détail visible par l'utilisateur)
     const summary = items.map((n: any, i: number) =>
-      `${i + 1}. [${n.source}] ${n.title}${n.summary ? " — " + n.summary : ""}`
+      `${i + 1}. [${n.source}] ${String(n.title).slice(0, 120)}`
     ).join("\n");
     return { widget: { type: "news", items }, summary };
   }
@@ -456,8 +408,11 @@ async function callTool(name: string, args: any): Promise<{ widget: any; summary
           }
         } catch (e) { console.error("ddg html error", e); }
       }
-      const top = items.slice(0, 8);
-      const summary = top.map((it, i) => `${i + 1}. ${it.title} — ${it.snippet || ""} (${it.url})`).join("\n") || "Aucun résultat.";
+      const top = items.slice(0, 5);
+      const summary = top.map((it, i) => {
+        const snip = String(it.snippet || "").slice(0, 180);
+        return `${i + 1}. ${String(it.title).slice(0, 100)} — ${snip} (${it.url})`;
+      }).join("\n") || "Aucun résultat.";
       return { widget: { type: "web_sources", items: top }, summary };
     } catch (e) {
       console.error("web_search error", e);
@@ -730,20 +685,70 @@ async function completeModelResponse(body: any): Promise<string> {
   return String(data.choices?.[0]?.message?.content || data.choices?.[0]?.text || "").trim();
 }
 
+// --- Helpers d'économie de tokens ---
+
+/** Détecte si le message courant nécessite le contexte planning. */
+function needsScheduleContext(text: string): boolean {
+  const t = text.toLowerCase();
+  return /\b(planning|emploi du temps|agenda|rdv|rendez[- ]?vous|réunion|reunion|cours|dispo|dispo(nibilité|nible)|libre|occup|aujourd'?hui|demain|hier|semaine|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche|matin|midi|apr[èe]s[- ]midi|soir|nuit|\bh\d|\d{1,2}h\b|annul|supprim|note(r)?|planifi|ajoute|enregistre|\bmets?\b)/.test(t);
+}
+
+/**
+ * Filtre les outils déclarés à l'IA selon la pertinence pour la requête courante.
+ * Économise ~600-800 tokens / appel en supprimant les schémas inutiles.
+ */
+function filterToolsForMessage(
+  text: string,
+  history: any[],
+  webSearch: boolean,
+  forceTool: string | null,
+): any[] {
+  const t = text.toLowerCase();
+  const histText = history.slice(-3).map((m) => {
+    if (typeof m.content === "string") return m.content;
+    if (Array.isArray(m.content)) return m.content.map((p: any) => p?.text || "").join(" ");
+    return "";
+  }).join(" ").toLowerCase();
+  const ctx = t + " " + histText;
+
+  const matchers: Record<string, RegExp> = {
+    fetch_news: /\b(actu|news|nouvelle|info|politique|monde|événement|evenement|à la une|breaking)\b/,
+    fetch_stocks: /\b(bourse|action|stock|cours|nasdaq|cac|s&p|nvda|tesla|apple|crypto|march[ée])\b/,
+    web_search: /\b(cherche|recherche|trouve|qui est|c'?est quoi|d[ée]finition|comparaison|combien|quand|où|web)\b/,
+    generate_image: /\b(g[ée]n[èe]re|cr[ée]e|dessine|illustr|fais[- ]moi une image|image de|peinture)\b/,
+    search_images: /\b(photo|photos|image|images|mod[èe]le|exemple|montre|visuel|r[ée]f[ée]rence)\b/,
+    search_videos: /\b(vid[ée]o|youtube|tuto|tutoriel|regarde|film|clip)\b/,
+    send_whatsapp_message: /\b(whatsapp|envoie|écris|ecris|dis [àa]|message [àa])\b/,
+    create_reminder: /\b(rappelle|rappel|pr[ée]viens|n'?oublie|alerte|dans \d|demain [àa]|ce soir [àa])\b/,
+    create_insight: /\b(conseil|suggestion|recommand|insight|observation)\b/,
+    add_schedule_event: /\b(ajoute|note|planifie|enregistre|mets dans (mon )?(agenda|planning|emploi))\b/,
+    list_schedule: /\b(planning|emploi du temps|agenda|qu'?est[- ]ce que j'?ai|mon planning|mes rdv)\b/,
+    remove_schedule_event: /\b(annul|supprim|enl[èe]ve|retire)\b.*(rdv|rendez|r[ée]union|cours|planning|agenda)/,
+  };
+
+  // Outils toujours actifs (forcés ou contextuels)
+  const alwaysOn = new Set<string>();
+  if (webSearch) alwaysOn.add("web_search");
+  if (forceTool === "image") alwaysOn.add("generate_image");
+
+  const filtered = TOOLS.filter((tool) => {
+    const name = tool.function?.name;
+    if (!name) return false;
+    if (alwaysOn.has(name)) return true;
+    const re = matchers[name];
+    if (!re) return true; // outil sans matcher : conservé par sécurité
+    return re.test(ctx);
+  });
+
+  // Garde-fou : si tout a été filtré, garder un set minimal pour ne pas bloquer.
+  return filtered.length ? filtered : TOOLS.filter((t) => ["web_search", "search_images"].includes(t.function?.name));
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
     const { messages, lang, detailLevel, customInstructions, aiName, attachments, webSearch, deepThink, forceTool, schedule } = await req.json();
-    const SYSTEM_PROMPT = buildSystemPrompt({
-      lang: typeof lang === "string" ? lang : "fr",
-      detailLevel: typeof detailLevel === "string" ? detailLevel : "normal",
-      customInstructions: typeof customInstructions === "string" ? customInstructions : "",
-      aiName: typeof aiName === "string" ? aiName : "",
-      webSearch: !!webSearch,
-      forceTool: typeof forceTool === "string" ? forceTool : null,
-      schedule: Array.isArray(schedule) ? schedule : [],
-    });
     if (!Array.isArray(messages)) {
       return new Response(JSON.stringify({ error: "messages must be an array" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -763,9 +768,9 @@ Deno.serve(async (req) => {
           if (a.kind === "image" && typeof a.dataUrl === "string") {
             parts.push({ type: "image_url", image_url: { url: a.dataUrl } });
           } else if (a.kind === "document" && typeof a.text === "string") {
-            docTexts.push(`\n\n--- Document joint: ${a.name || "document"} ---\n${a.text.slice(0, 60000)}\n--- fin du document ---`);
+            docTexts.push(`\n\n--- Document joint: ${a.name || "document"} ---\n${a.text.slice(0, 12000)}\n--- fin du document ---`);
           } else if (a.kind === "audio" && typeof a.text === "string") {
-            docTexts.push(`\n\n--- Transcription audio: ${a.name || "audio"} ---\n${a.text}\n--- fin transcription ---`);
+            docTexts.push(`\n\n--- Transcription audio: ${a.name || "audio"} ---\n${a.text.slice(0, 8000)}\n--- fin transcription ---`);
           }
         }
         if (docTexts.length) parts[0].text = String(last.content || "") + docTexts.join("");
@@ -780,6 +785,17 @@ Deno.serve(async (req) => {
 
         try {
           const userText = latestUserText(messages);
+          // Construit le prompt système en fonction du message courant (gain de tokens si planning non pertinent)
+          const SYSTEM_PROMPT = buildSystemPrompt({
+            lang: typeof lang === "string" ? lang : "fr",
+            detailLevel: typeof detailLevel === "string" ? detailLevel : "normal",
+            customInstructions: typeof customInstructions === "string" ? customInstructions : "",
+            aiName: typeof aiName === "string" ? aiName : "",
+            webSearch: !!webSearch,
+            forceTool: typeof forceTool === "string" ? forceTool : null,
+            schedule: Array.isArray(schedule) ? schedule : [],
+            scheduleRelevant: needsScheduleContext(userText),
+          });
           const pastedVideoUrl = extractVideoUrl(userText);
           if (pastedVideoUrl) {
             const { widget, summary } = await callTool("search_videos", { url: pastedVideoUrl });
@@ -808,9 +824,9 @@ Deno.serve(async (req) => {
             phase1ToolChoice = { type: "function", function: { name: "web_search" } };
           }
           const phase1Body: any = {
-            model: deepThink ? "google/gemini-2.5-pro" : "google/gemini-2.5-flash",
+            model: deepThink ? "google/gemini-3.1-pro-preview" : "google/gemini-3-flash-preview",
             messages: [{ role: "system", content: SYSTEM_PROMPT }, ...messages],
-            tools: TOOLS,
+            tools: filterToolsForMessage(userText, messages, !!webSearch, forceTool),
             tool_choice: phase1ToolChoice,
           };
           if (deepThink) phase1Body.reasoning = { effort: "medium" };

@@ -91,8 +91,21 @@ export default function Index() {
     const rawHistory = [...messagesRef.current, userMsg].filter(
       (m) => m.content && m.content.trim(),
     );
+    // Sliding window : on ne garde que les 8 derniers messages pour limiter les tokens.
+    // Les plus anciens sont remplacés par un court résumé système.
+    const WINDOW_SIZE = 8;
+    const trimmed = rawHistory.length > WINDOW_SIZE
+      ? rawHistory.slice(-WINDOW_SIZE)
+      : rawHistory;
     const historyForAI: { role: "user" | "assistant" | "system"; content: string }[] = [];
-    for (const m of rawHistory) {
+    if (rawHistory.length > WINDOW_SIZE) {
+      const dropped = rawHistory.length - WINDOW_SIZE;
+      historyForAI.push({
+        role: "system",
+        content: `[Contexte] Cette conversation contient ${dropped} message(s) plus ancien(s) non transmis pour limiter les tokens. Demande à l'utilisateur s'il a besoin de revenir dessus.`,
+      });
+    }
+    for (const m of trimmed) {
       const last = historyForAI[historyForAI.length - 1];
       if (last && last.role === m.role) {
         // Fusionne deux messages consécutifs du même rôle pour éviter un refus de l'IA
