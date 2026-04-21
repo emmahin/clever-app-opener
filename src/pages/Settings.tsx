@@ -10,11 +10,9 @@ export default function Settings() {
   const { settings, update, reset } = useSettings();
   const { lang, setLang, t } = useLanguage();
   const [draftInstructions, setDraftInstructions] = useState(settings.customInstructions);
-  const [draftAiName, setDraftAiName] = useState(settings.aiName);
 
   const saveCustom = () => {
     update("customInstructions", draftInstructions);
-    update("aiName", draftAiName);
     toast.success(t("settingsSaved"));
   };
 
@@ -110,17 +108,6 @@ export default function Settings() {
           >
             <div className="space-y-4">
               <div>
-                <label className="text-sm font-medium block mb-2">{t("aiName")}</label>
-                <input
-                  type="text"
-                  value={draftAiName}
-                  onChange={(e) => setDraftAiName(e.target.value)}
-                  maxLength={40}
-                  placeholder={t("aiNamePlaceholder")}
-                  className="w-full h-10 px-3 rounded-lg bg-secondary/40 border border-border/60 text-sm focus:outline-none focus:border-primary"
-                />
-              </div>
-              <div>
                 <label className="text-sm font-medium block mb-2">{t("customInstructions")}</label>
                 <textarea
                   value={draftInstructions}
@@ -145,7 +132,6 @@ export default function Settings() {
                 <button
                   onClick={() => {
                     setDraftInstructions(settings.customInstructions);
-                    setDraftAiName(settings.aiName);
                   }}
                   className="px-4 py-2 rounded-lg bg-secondary text-sm hover:bg-secondary/80 transition-colors"
                 >
