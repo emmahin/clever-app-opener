@@ -379,27 +379,93 @@ export default function Documents() {
           </div>
         </div>
 
-        {/* Instructions */}
+        {/* Chat de récap + contrôles moteur */}
         <div className="rounded-2xl border border-border/60 bg-card/40 p-5 mt-6">
-          <h2 className="font-semibold mb-2 text-sm flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-primary" /> Consignes d'organisation
-          </h2>
-          <Textarea
-            value={instructions}
-            onChange={(e) => setInstructions(e.target.value)}
-            placeholder="Ex: Trie par année puis par type (factures, contrats, photos). Mets toutes les images dans un dossier 'Médias'…"
-            className="min-h-[100px] resize-none"
-          />
-          <div className="flex justify-end items-center gap-2 mt-3">
-            <TokenCounter
-              text={instructions}
-              extra={files.reduce((acc, f: any) => acc + estimateTokens(f?.name || ""), 0)}
-            />
-            <Button onClick={handleOrganize} disabled={!files.length || organizing} className="gap-2">
-              {organizing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              Organiser avec l'IA
-            </Button>
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+            <h2 className="font-semibold text-sm flex items-center gap-2">
+              <Bot className="w-4 h-4 text-primary" /> Journal du trieur
+            </h2>
+            <div className="flex items-center gap-4 flex-wrap">
+              {/* Moteur */}
+              <div className="flex items-center gap-1 rounded-lg border border-border/60 p-1 bg-background/40">
+                <button
+                  onClick={() => setEngine("local")}
+                  className={cn(
+                    "px-2.5 py-1 rounded text-xs flex items-center gap-1 transition",
+                    engine === "local" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+                  )}
+                  title="Tri local — gratuit, 0 token"
+                >
+                  <Zap className="w-3 h-3" /> Local (gratuit)
+                </button>
+                <button
+                  onClick={() => setEngine("ai")}
+                  className={cn(
+                    "px-2.5 py-1 rounded text-xs flex items-center gap-1 transition",
+                    engine === "ai" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+                  )}
+                  title="Tri par IA — consomme des tokens"
+                >
+                  <Cloud className="w-3 h-3" /> IA
+                </button>
+              </div>
+              {/* Option année */}
+              <div className="flex items-center gap-2">
+                <Switch id="year" checked={groupByYear} onCheckedChange={setGroupByYear} />
+                <Label htmlFor="year" className="text-xs text-muted-foreground cursor-pointer">
+                  Grouper par année
+                </Label>
+              </div>
+              <Button onClick={handleOrganize} disabled={!files.length || organizing} className="gap-2" size="sm">
+                {organizing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                Organiser
+              </Button>
+            </div>
           </div>
+
+          <div className="rounded-xl bg-background/40 border border-border/40 p-3 max-h-[360px] overflow-y-auto space-y-3">
+            {chat.map((m, i) => (
+              <div key={i} className={cn("flex gap-2", m.role === "user" && "flex-row-reverse")}>
+                <div
+                  className={cn(
+                    "w-7 h-7 rounded-full flex items-center justify-center shrink-0",
+                    m.role === "assistant" ? "bg-primary/15 text-primary" : "bg-secondary text-secondary-foreground",
+                  )}
+                >
+                  {m.role === "assistant" ? <Bot className="w-3.5 h-3.5" /> : <User className="w-3.5 h-3.5" />}
+                </div>
+                <div
+                  className={cn(
+                    "rounded-xl px-3 py-2 text-sm max-w-[85%] whitespace-pre-wrap leading-relaxed",
+                    m.role === "assistant"
+                      ? "bg-card border border-border/50 text-foreground"
+                      : "bg-primary text-primary-foreground",
+                  )}
+                >
+                  {m.content.split("\n").map((line, j) => (
+                    <div key={j}>
+                      {line.split(/(\*\*[^*]+\*\*)/g).map((part, k) =>
+                        part.startsWith("**") && part.endsWith("**") ? (
+                          <strong key={k}>{part.slice(2, -2)}</strong>
+                        ) : (
+                          <span key={k}>{part}</span>
+                        ),
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+            <div ref={chatEndRef} />
+          </div>
+
+          <p className="text-[11px] text-muted-foreground mt-2 flex items-center gap-1">
+            {engine === "local" ? (
+              <><Zap className="w-3 h-3 text-emerald-400" /> Mode local actif — aucun token consommé, tout se passe dans votre navigateur.</>
+            ) : (
+              <><Cloud className="w-3 h-3 text-amber-400" /> Mode IA actif — consomme des tokens à chaque organisation.</>
+            )}
+          </p>
         </div>
       </main>
     </div>
