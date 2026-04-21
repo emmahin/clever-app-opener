@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Plus, Globe, Sparkles, Code, Mic, X, FileText, Image as ImageIcon, Music, Loader2 } from "lucide-react";
+import { Plus, Globe, Sparkles, Code, Mic, X, FileText, Image as ImageIcon, Music, Loader2, Phone } from "lucide-react";
 import { voiceService, ChatAttachment } from "@/services";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { processFile } from "@/lib/attachments";
@@ -9,9 +9,10 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 interface ChatInputProps {
   onSend: (message: string, attachments?: ChatAttachment[]) => void;
   disabled?: boolean;
+  onOpenVoiceCall?: () => void;
 }
 
-export function ChatInput({ onSend, disabled }: ChatInputProps) {
+export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps) {
   const { t } = useLanguage();
   const [value, setValue] = useState("");
   const [isRecording, setIsRecording] = useState(false);
@@ -221,6 +222,23 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
           </TooltipProvider>
 
           <TooltipProvider delayDuration={150}>
+            <div className="flex items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={onOpenVoiceCall}
+                  className="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center hover:scale-105 transition-transform shadow-lg"
+                >
+                  <Phone className="w-5 h-5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <div className="flex items-center gap-2">
+                  <Phone className="w-3.5 h-3.5" />
+                  <span>{t("voiceCall")}</span>
+                </div>
+              </TooltipContent>
+            </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
@@ -242,6 +260,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
                 </div>
               </TooltipContent>
             </Tooltip>
+            </div>
           </TooltipProvider>
         </div>
       </div>
