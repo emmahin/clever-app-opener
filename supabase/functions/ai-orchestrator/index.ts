@@ -137,7 +137,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages, lang, detailLevel, customInstructions, aiName } = await req.json();
+    const { messages, lang, detailLevel, customInstructions, aiName, attachments } = await req.json();
     const SYSTEM_PROMPT = buildSystemPrompt({
       lang: typeof lang === "string" ? lang : "fr",
       detailLevel: typeof detailLevel === "string" ? detailLevel : "normal",
@@ -148,6 +148,29 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "messages must be an array" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Inject attachments (images + extracted text from documents/audio) into the last user message
+    // as multimodal content for Gemini.
+    const atts = Array.isArray(attachments) ? attachments : [];
+    if (atts.length > 0 && messages.length > 0) {
+      const lastIdx = messages.length - 1;
+      const last = messages[lastIdx];
+      if (last?.role === "user") {
+        const parts: any[] = [{ type: "text", text: String(last.content || "") }];
+        const docTexts: string[] = [];
+        for (const a of atts) {
+          if (a.kind === "image" && typeof a.dataUrl === "string") {
+            parts.push({ type: "image_url", image_url: { url: a.dataUrl } });
+          } else if (a.kind === "document" && typeof a.text === "string") {
+            docTexts.push(`\n\n--- Document joint: ${a.name || "document"} ---\n${a.text.slice(0, 60000)}\n--- fin du document ---`);
+          } else if (a.kind === "audio" && typeof a.text === "string") {
+            docTexts.push(`\n\n--- Transcription audio: ${a.name || "audio"} ---\n${a.text}\n--- fin transcription ---`);
+          }
+        }
+        if (docTexts.length) parts[0].text = String(last.content || "") + docTexts.join("");
+        messages[lastIdx] = { role: "user", content: parts };
+      }
     }
 
     const stream = new ReadableStream({
