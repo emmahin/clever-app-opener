@@ -54,9 +54,24 @@ export function VoiceCallMode({ open, onClose }: Props) {
       const u = new SpeechSynthesisUtterance(text);
       u.lang = LANG_TO_BCP47[lang] || "fr-FR";
       const voices = window.speechSynthesis.getVoices();
-      const match = voices.find((v) => v.lang?.toLowerCase().startsWith((LANG_TO_BCP47[lang] || "fr").slice(0, 2).toLowerCase()));
-      if (match) u.voice = match;
-      u.rate = 1;
+      const langPrefix = (LANG_TO_BCP47[lang] || "fr").slice(0, 2).toLowerCase();
+      const langVoices = voices.filter((v) =>
+        v.lang?.toLowerCase().startsWith(langPrefix)
+      );
+      // Mots-cl\u00e9s indiquant une voix masculine selon les OS / moteurs TTS
+      const maleHints = [
+        "male", "homme", "thomas", "daniel", "paul", "henri", "nicolas",
+        "jean", "google fran\u00e7ais", "fred", "alex", "george", "james",
+        "diego", "jorge", "stefan", "markus", "yannick"
+      ];
+      const femaleHints = ["female", "femme", "amelie", "marie", "audrey", "virginie", "samantha", "victoria", "karen"];
+      const maleVoice =
+        langVoices.find((v) => maleHints.some((h) => v.name.toLowerCase().includes(h))) ||
+        langVoices.find((v) => !femaleHints.some((h) => v.name.toLowerCase().includes(h))) ||
+        langVoices[0];
+      if (maleVoice) u.voice = maleVoice;
+      u.rate = 1.25; // d\u00e9bit plus rapide
+      u.pitch = 0.9; // l\u00e9g\u00e8rement plus grave
       u.onend = () => resolve();
       u.onerror = () => resolve();
       utteranceRef.current = u;
