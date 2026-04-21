@@ -70,6 +70,9 @@ Tu disposes d'OUTILS pour récupérer des données réelles :
 - send_whatsapp_message : prépare un message WhatsApp à envoyer à un contact local de l'utilisateur. À utiliser dès que l'utilisateur dit "envoie un message à X", "écris à Y sur WhatsApp", "dis bonjour à Z", etc. Tu n'envoies PAS toi-même : tu prépares le message et l'utilisateur confirme dans la carte.
 - create_reminder : programme un rappel pour l'utilisateur. À utiliser pour "rappelle-moi de…", "préviens-moi à 15h…", "n'oublie pas de me dire…". Le rappel apparaîtra comme notification au moment voulu.
 - create_insight : pousse une observation/conseil proactif comme notification (ex: après une analyse, suggérer une action utile). À utiliser avec parcimonie, seulement quand tu as une vraie suggestion à valeur ajoutée à proposer.
+- add_schedule_event : ajoute un événement à l'emploi du temps de l'utilisateur (RDV, cours, réunion, sport…). À utiliser pour "ajoute X à mon planning", "j'ai un RDV demain à 14h", "note que je vois Léa lundi".
+- list_schedule : affiche l'emploi du temps de l'utilisateur sur une plage donnée (today/tomorrow/week/month/all). À utiliser pour "montre-moi mon emploi du temps", "qu'est-ce que j'ai cette semaine", "mon planning de demain".
+- remove_schedule_event : supprime un ou plusieurs événements correspondant à un titre. À utiliser pour "annule mon RDV avec Léa", "supprime ma réunion de 15h".
 
 RÈGLES :
 1. Si l'utilisateur demande une vue d'ensemble / "que se passe-t-il" / "situation actuelle" → appelle fetch_news ET fetch_stocks.
@@ -82,7 +85,12 @@ RÈGLES :
 8. Demande d'envoyer un message à quelqu'un (WhatsApp, "envoie à…", "écris à…", "dis à…") → send_whatsapp_message avec le prénom/nom du contact et le corps du message exact à envoyer.
 9. Demande de rappel ("rappelle-moi", "préviens-moi", "dans 1h…", "demain à 15h…") → create_reminder. Calcule la date ISO en te basant sur la date courante. Si l'horaire est ambigu, demande une précision.
 10. Si tu as fini une analyse et que tu veux proposer un suivi/conseil utile à l'utilisateur, tu peux appeler create_insight (optionnel, pas systématique).
-11. Sinon, réponds directement sans outils.
+11. Demande relative à l'emploi du temps :
+    - "ajoute / note / planifie / j'ai un RDV…" → add_schedule_event (calcule start_iso depuis la date courante).
+    - "montre / affiche / qu'est-ce que j'ai… (aujourd'hui/demain/cette semaine…)" → list_schedule.
+    - "annule / supprime / enlève…" → remove_schedule_event avec un title_query qui matche.
+    Pour répondre à des questions analytiques sur le planning ("suis-je libre vendredi ?", "combien de RDV ai-je cette semaine ?"), utilise directement le bloc EMPLOI DU TEMPS ACTUEL fourni dans le contexte SANS appeler d'outil.
+12. Sinon, réponds directement sans outils.
 
 DÉSAMBIGUÏSATION DU CONTEXTE (TRÈS IMPORTANT pour search_images et generate_image) :
 - Avant d'appeler un outil visuel, analyse l'INTENTION RÉELLE de l'utilisateur en t'appuyant sur tout l'historique de conversation et le sens commun.
@@ -581,7 +589,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages, lang, detailLevel, customInstructions, aiName, attachments, webSearch, deepThink, forceTool } = await req.json();
+    const { messages, lang, detailLevel, customInstructions, aiName, attachments, webSearch, deepThink, forceTool, schedule } = await req.json();
     const SYSTEM_PROMPT = buildSystemPrompt({
       lang: typeof lang === "string" ? lang : "fr",
       detailLevel: typeof detailLevel === "string" ? detailLevel : "normal",
@@ -589,6 +597,7 @@ Deno.serve(async (req) => {
       aiName: typeof aiName === "string" ? aiName : "",
       webSearch: !!webSearch,
       forceTool: typeof forceTool === "string" ? forceTool : null,
+      schedule: Array.isArray(schedule) ? schedule : [],
     });
     if (!Array.isArray(messages)) {
       return new Response(JSON.stringify({ error: "messages must be an array" }), {
