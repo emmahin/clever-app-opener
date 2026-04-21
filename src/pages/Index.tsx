@@ -151,12 +151,12 @@ export default function Index() {
           </div>
 
           {/* Messages area */}
-          <div className="flex-1 px-6 overflow-y-auto pb-80">
+          <div className="flex-1 px-6 overflow-y-auto pb-80 relative z-0">
             {messages.length === 0 ? (
               // Empty state with orb
-              <div className="h-full flex flex-col items-center justify-center">
+              <div className="h-full flex flex-col items-center justify-center -mt-8">
                 <ChatOrb isLoading={isLoading} />
-                <p className="text-muted-foreground text-sm mt-4">
+                <p className="text-foreground/80 text-sm mt-6 relative z-10 px-4 py-2 rounded-full bg-background/60 backdrop-blur-md">
                   {t("assistantReady")}
                 </p>
               </div>
