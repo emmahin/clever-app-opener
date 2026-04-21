@@ -299,6 +299,7 @@ export function VoiceCallMode({ open, onClose }: Props) {
           <button
             onClick={stopTurn}
             className="px-6 py-3 rounded-full bg-primary text-primary-foreground font-medium hover:scale-105 transition-transform"
+            title="Envoyer maintenant (sinon envoi automatique après silence)"
           >
             {t("voiceSendTurn")}
           </button>
