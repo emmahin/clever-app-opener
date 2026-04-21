@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import JSZip from "jszip";
+import { TokenCounter, estimateTokens } from "@/components/chatbot/TokenCounter";
 import { saveAs } from "file-saver";
 import { FloatingProjectsBar } from "@/components/chatbot/FloatingProjectsBar";
 
@@ -334,7 +335,11 @@ export default function Documents() {
             placeholder="Ex: Trie par année puis par type (factures, contrats, photos). Mets toutes les images dans un dossier 'Médias'…"
             className="min-h-[100px] resize-none"
           />
-          <div className="flex justify-end mt-3">
+          <div className="flex justify-end items-center gap-2 mt-3">
+            <TokenCounter
+              text={instructions}
+              extra={files.reduce((acc, f: any) => acc + estimateTokens(f?.name || ""), 0)}
+            />
             <Button onClick={handleOrganize} disabled={!files.length || organizing} className="gap-2">
               {organizing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
               Organiser avec l'IA
