@@ -8,8 +8,10 @@ import { ChatMessageItem } from "@/components/chatbot/ChatMessage";
 import { HeaderSearch } from "@/components/chatbot/HeaderSearch";
 import { chatService, ChatMessage } from "@/services";
 import { Expand, Settings2, Sparkles } from "lucide-react";
+import { useLanguage } from "@/i18n/LanguageProvider";
 
 export default function Index() {
+  const { lang } = useLanguage();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -78,6 +80,7 @@ export default function Index() {
         );
       },
       signal: abortRef.current.signal,
+      lang,
     });
   };
 
