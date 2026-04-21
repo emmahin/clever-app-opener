@@ -37,6 +37,7 @@ function buildSystemPrompt(opts: {
   const userCustom = opts.customInstructions?.trim()
     ? `\n\nINSTRUCTIONS PERSONNALISÉES DE L'UTILISATEUR (à respecter en priorité tant qu'elles ne contredisent pas les règles ci-dessus) :\n${opts.customInstructions.trim()}`
     : "";
+  const nowIso = new Date().toISOString();
   const webHint = opts.webSearch
     ? `\n\nMODE RECHERCHE WEB ACTIVÉ : utilise OBLIGATOIREMENT l'outil web_search pour appuyer ta réponse sur des sources web fraîches. Cite les sources dans ta réponse.`
     : "";
@@ -50,6 +51,8 @@ function buildSystemPrompt(opts: {
 ${aiIdentity}
 IMPORTANT : tu réponds TOUJOURS en ${name}, en markdown. Even if the user writes in another language, answer in ${name}.
 
+CONTEXTE TEMPOREL : la date/heure courante est ${nowIso}. Utilise-la pour calculer les dates ISO des rappels (ex: "dans 1h" → +3600s, "demain à 15h" → date du lendemain à 15:00 dans le fuseau local).
+
 Tu disposes d'OUTILS pour récupérer des données réelles :
 - fetch_news : dernières actualités (catégories: à_la_une, tech, économie, international, all)
 - fetch_stocks : cours boursiers et performance 6 mois
@@ -58,6 +61,8 @@ Tu disposes d'OUTILS pour récupérer des données réelles :
 - search_images : cherche des PHOTOS RÉELLES sur Pixabay (modèles, exemples, produits, lieux). À utiliser dès que l'utilisateur demande "montre-moi", "exemples de", "photos de", "modèles de", "à quoi ressemble"…
 - search_videos : cherche des VIDÉOS YouTube OU intègre une vidéo précise depuis une URL (YouTube/Vimeo/TikTok/Instagram/X/MP4). À utiliser pour "vidéo", "tuto vidéo", "regarde ça", "montre-moi en vidéo", ou si l'utilisateur colle un lien vidéo.
 - send_whatsapp_message : prépare un message WhatsApp à envoyer à un contact local de l'utilisateur. À utiliser dès que l'utilisateur dit "envoie un message à X", "écris à Y sur WhatsApp", "dis bonjour à Z", etc. Tu n'envoies PAS toi-même : tu prépares le message et l'utilisateur confirme dans la carte.
+- create_reminder : programme un rappel pour l'utilisateur. À utiliser pour "rappelle-moi de…", "préviens-moi à 15h…", "n'oublie pas de me dire…". Le rappel apparaîtra comme notification au moment voulu.
+- create_insight : pousse une observation/conseil proactif comme notification (ex: après une analyse, suggérer une action utile). À utiliser avec parcimonie, seulement quand tu as une vraie suggestion à valeur ajoutée à proposer.
 
 RÈGLES :
 1. Si l'utilisateur demande une vue d'ensemble / "que se passe-t-il" / "situation actuelle" → appelle fetch_news ET fetch_stocks.
@@ -68,7 +73,9 @@ RÈGLES :
 6. Demande d'EXEMPLES VISUELS / MODÈLES / RÉFÉRENCES (ex: "models de jordans", "photos de chats", "exemples de logos minimalistes") → search_images.
 7. Demande de VIDÉO ou URL vidéo collée → search_videos (passe le paramètre 'url' si une URL est fournie, sinon 'query').
 8. Demande d'envoyer un message à quelqu'un (WhatsApp, "envoie à…", "écris à…", "dis à…") → send_whatsapp_message avec le prénom/nom du contact et le corps du message exact à envoyer.
-9. Sinon, réponds directement sans outils.
+9. Demande de rappel ("rappelle-moi", "préviens-moi", "dans 1h…", "demain à 15h…") → create_reminder. Calcule la date ISO en te basant sur la date courante. Si l'horaire est ambigu, demande une précision.
+10. Si tu as fini une analyse et que tu veux proposer un suivi/conseil utile à l'utilisateur, tu peux appeler create_insight (optionnel, pas systématique).
+11. Sinon, réponds directement sans outils.
 
 DÉSAMBIGUÏSATION DU CONTEXTE (TRÈS IMPORTANT pour search_images et generate_image) :
 - Avant d'appeler un outil visuel, analyse l'INTENTION RÉELLE de l'utilisateur en t'appuyant sur tout l'historique de conversation et le sens commun.
@@ -222,6 +229,45 @@ TOOLS.push({
         },
       },
       required: ["contact_name", "body"],
+    },
+  },
+});
+
+TOOLS.push({
+  type: "function",
+  function: {
+    name: "create_reminder",
+    description:
+      "Programme un rappel qui s'affichera comme notification au moment voulu. " +
+      "Utilise quand l'utilisateur demande 'rappelle-moi…', 'préviens-moi à…', 'dans X minutes…'. " +
+      "Calcule when_iso à partir de la date/heure courante (passée dans le contexte si disponible).",
+    parameters: {
+      type: "object",
+      properties: {
+        title: { type: "string", description: "Titre court du rappel (ex: 'Appeler Léa')." },
+        body: { type: "string", description: "Détails optionnels (lieu, contexte, etc.)." },
+        when_iso: { type: "string", description: "Date/heure du rappel au format ISO 8601 (ex: '2026-04-21T15:00:00')." },
+      },
+      required: ["title", "when_iso"],
+    },
+  },
+});
+
+TOOLS.push({
+  type: "function",
+  function: {
+    name: "create_insight",
+    description:
+      "Pousse une observation ou un conseil proactif comme notification persistante. " +
+      "À utiliser avec parcimonie, seulement quand tu as une vraie suggestion à valeur ajoutée " +
+      "(ex: après avoir analysé des données, suggérer une action concrète).",
+    parameters: {
+      type: "object",
+      properties: {
+        title: { type: "string", description: "Titre concis de l'insight." },
+        body: { type: "string", description: "Description détaillée de l'observation/conseil." },
+      },
+      required: ["title", "body"],
     },
   },
 });
@@ -392,6 +438,29 @@ async function callTool(name: string, args: any): Promise<{ widget: any; summary
     return {
       widget: { type: "whatsapp_send", contact_name, body },
       summary: `Message WhatsApp préparé pour ${contact_name} : « ${body} ». En attente de confirmation de l'utilisateur dans la carte.`,
+    };
+  }
+
+  if (name === "create_reminder") {
+    const title = String(args.title || "").trim();
+    const body = args.body ? String(args.body).trim() : undefined;
+    const when_iso = String(args.when_iso || "").trim();
+    if (!title || !when_iso) return { widget: null, summary: "Titre ou date du rappel manquant." };
+    const ts = Date.parse(when_iso);
+    if (isNaN(ts)) return { widget: null, summary: `Date invalide : "${when_iso}".` };
+    return {
+      widget: { type: "reminder_created", title, body, when_iso },
+      summary: `Rappel programmé : "${title}" pour le ${when_iso}.`,
+    };
+  }
+
+  if (name === "create_insight") {
+    const title = String(args.title || "").trim();
+    const body = String(args.body || "").trim();
+    if (!title || !body) return { widget: null, summary: "Titre ou contenu de l'insight manquant." };
+    return {
+      widget: { type: "insight_created", title, body },
+      summary: `Insight envoyé en notification : "${title}".`,
     };
   }
 

@@ -14,6 +14,7 @@ import {
   Popover, PopoverContent, PopoverTrigger,
 } from "@/components/ui/popover";
 import { toast } from "@/hooks/use-toast";
+import { notificationService } from "@/services/notificationService";
 
 interface Attachment {
   kind: "image" | "file" | "audio";
@@ -262,9 +263,11 @@ export default function WhatsAppPage() {
   const handleSend = (overrideAttachment?: Attachment) => {
     const att = overrideAttachment ?? pendingAttachment;
     if ((!draft.trim() && !att) || !activeId) return;
+    const targetContactId = activeId;
+    const targetContact = contacts.find((c) => c.id === targetContactId);
     const msg: Message = {
       id: crypto.randomUUID(),
-      contactId: activeId,
+      contactId: targetContactId,
       body: draft.trim(),
       fromMe: true,
       timestamp: Date.now(),
@@ -281,6 +284,41 @@ export default function WhatsAppPage() {
         return updated;
       });
     }, 800);
+    // Simulate a reply ~50% of the time after 4-12s, only for plain text messages
+    if (msg.body && !att && targetContact && Math.random() < 0.5) {
+      const replyDelay = 4000 + Math.random() * 8000;
+      const replies = [
+        "Ah ok 👌",
+        "Top, merci !",
+        "Je te réponds plus tard 😉",
+        "Carrément 💜",
+        "Pas de souci, on en reparle.",
+        "Intéressant, raconte 🙂",
+      ];
+      const replyBody = replies[Math.floor(Math.random() * replies.length)];
+      setTimeout(() => {
+        const reply: Message = {
+          id: crypto.randomUUID(),
+          contactId: targetContactId,
+          body: replyBody,
+          fromMe: false,
+          timestamp: Date.now(),
+          status: "read",
+        };
+        setMessages((cur) => {
+          const updated = [...cur, reply];
+          saveMessages(updated);
+          return updated;
+        });
+        notificationService.notify({
+          type: "whatsapp_message",
+          title: targetContact.name,
+          body: replyBody,
+          source: "WhatsApp",
+          actionUrl: `/whatsapp?contact=${targetContactId}`,
+        });
+      }, replyDelay);
+    }
   };
 
   const handlePickFile = async (e: React.ChangeEvent<HTMLInputElement>, kind: "image" | "file") => {

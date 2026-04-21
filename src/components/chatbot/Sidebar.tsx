@@ -1,13 +1,15 @@
-import { Grid, Sparkles, Clapperboard, Activity, FileText, Settings, MessageCircle } from "lucide-react";
+import { Grid, Sparkles, Clapperboard, Activity, FileText, Settings, MessageCircle, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link, useLocation } from "react-router-dom";
 import nexLogo from "@/assets/nex-logo.png";
+import { useNotifications } from "@/hooks/useNotifications";
 
 const navItems = [
   { icon: Sparkles, label: "AI Tools", to: "/" },
   { icon: Clapperboard, label: "Montage vidéo", to: "/video" },
   { icon: FileText, label: "Documents", to: "/documents" },
   { icon: MessageCircle, label: "WhatsApp", to: "/whatsapp" },
+  { icon: Bell, label: "Notifications", to: "/notifications" },
   { icon: Grid, label: "Dashboard", to: "/dashboard" },
   { icon: Activity, label: "Analytics", to: "/analytics" },
   { icon: Settings, label: "Settings", to: "/settings" },
@@ -15,6 +17,7 @@ const navItems = [
 
 export function Sidebar() {
   const { pathname } = useLocation();
+  const { unreadCount } = useNotifications();
   return (
     <aside className="fixed left-0 top-0 h-full w-[72px] flex flex-col items-center py-4 z-50"
       style={{ background: "linear-gradient(180deg, hsl(0, 0%, 4%), hsl(275, 85%, 45%))" }}>
@@ -27,12 +30,13 @@ export function Sidebar() {
       <nav className="flex flex-col gap-3">
         {navItems.map((item) => {
           const active = pathname === item.to;
+          const showBadge = item.to === "/notifications" && unreadCount > 0;
           return (
             <Link
               key={item.label}
               to={item.to}
               className={cn(
-                "w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200",
+                "relative w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200",
                 active
                   ? "bg-white/25 text-white shadow-lg"
                   : "text-white/60 hover:bg-white/15 hover:text-white"
@@ -40,6 +44,11 @@ export function Sidebar() {
               title={item.label}
             >
               <item.icon className="w-5 h-5" />
+              {showBadge && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-fuchsia-500 text-white text-[9px] font-bold flex items-center justify-center ring-2 ring-black/40">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
             </Link>
           );
         })}

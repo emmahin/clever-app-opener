@@ -13,6 +13,7 @@ import { useSettings } from "@/contexts/SettingsProvider";
 import { VoiceCallMode } from "@/components/chatbot/VoiceCallMode";
 import { ProjectsBar } from "@/components/chatbot/ProjectsBar";
 import { useNavigate } from "react-router-dom";
+import { notificationService } from "@/services/notificationService";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -126,7 +127,19 @@ export default function Index() {
           prev.map((m) => (m.id === assistantId ? { ...m, widgets } : m))
         );
       },
-      onDone: () => setIsLoading(false),
+      onDone: () => {
+        setIsLoading(false);
+        if (typeof document !== "undefined" && document.hidden) {
+          const preview = accumulated.replace(/[#*`>_\-]/g, "").trim().slice(0, 140);
+          notificationService.notify({
+            type: "chat_response",
+            title: `${settings.aiName || "Nex"} a répondu`,
+            body: preview || "Ta réponse est prête.",
+            source: settings.aiName || "Nex",
+            actionUrl: "/",
+          });
+        }
+      },
       onError: (err) => {
         setIsLoading(false);
         setMessages((prev) =>
