@@ -5,6 +5,7 @@ import { ChatOrb } from "@/components/chatbot/ChatOrb";
 import { ChatInput } from "@/components/chatbot/ChatInput";
 import { SuggestionPills } from "@/components/chatbot/SuggestionPills";
 import { NewsPanel } from "@/components/chatbot/NewsPanel";
+import { StockPanel } from "@/components/chatbot/StockPanel";
 import { ChatMessageItem } from "@/components/chatbot/ChatMessage";
 import { chatService, ChatMessage } from "@/services";
 import { Expand, Settings2, Sparkles } from "lucide-react";
@@ -142,8 +143,9 @@ export default function Index() {
           </div>
         </div>
 
-        {/* News sidebar */}
-        <div className="hidden xl:block w-96 p-4 border-l border-border/50">
+        {/* Right sidebar: news + stocks */}
+        <div className="hidden xl:flex flex-col w-96 p-4 gap-4 border-l border-border/50 overflow-y-auto h-[calc(100vh-56px)]">
+          <StockPanel />
           <NewsPanel />
         </div>
       </main>
