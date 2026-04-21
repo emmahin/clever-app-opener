@@ -14,6 +14,7 @@ import { VoiceCallMode } from "@/components/chatbot/VoiceCallMode";
 import { ProjectsBar } from "@/components/chatbot/ProjectsBar";
 import { useNavigate } from "react-router-dom";
 import { notificationService } from "@/services/notificationService";
+import { scheduleService } from "@/services/scheduleService";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -159,6 +160,13 @@ export default function Index() {
       webSearch: options?.webSearch,
       deepThink: options?.deepThink,
       forceTool: options?.forceTool ?? null,
+      schedule: scheduleService.getAll().map((e) => ({
+        title: e.title,
+        start_iso: e.start_iso,
+        end_iso: e.end_iso,
+        location: e.location,
+        notes: e.notes,
+      })),
     });
   };
 

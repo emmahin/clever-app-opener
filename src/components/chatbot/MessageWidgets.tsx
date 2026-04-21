@@ -5,6 +5,7 @@ import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YA
 import { WhatsAppSendWidget } from "./WhatsAppSendWidget";
 import { ReminderWidget } from "./widgets/ReminderWidget";
 import { InsightWidget } from "./widgets/InsightWidget";
+import { ScheduleWidget } from "./widgets/ScheduleWidget";
 
 export function MessageWidgets({ widgets }: { widgets: ChatWidget[] }) {
   if (!widgets?.length) return null;
@@ -20,6 +21,16 @@ export function MessageWidgets({ widgets }: { widgets: ChatWidget[] }) {
         if (w.type === "whatsapp_send") return <WhatsAppSendWidget key={i} contact_name={w.contact_name} body={w.body} />;
         if (w.type === "reminder_created") return <ReminderWidget key={i} title={w.title} body={w.body} when_iso={w.when_iso} />;
         if (w.type === "insight_created") return <InsightWidget key={i} title={w.title} body={w.body} />;
+        if (w.type === "schedule") return (
+          <ScheduleWidget
+            key={i}
+            range_label={w.range_label}
+            range_start_iso={w.range_start_iso}
+            range_end_iso={w.range_end_iso}
+            added={w.added}
+            remove_query={w.remove_query}
+          />
+        );
         return null;
       })}
     </div>

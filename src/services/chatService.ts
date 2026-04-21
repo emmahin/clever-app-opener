@@ -20,6 +20,7 @@ export interface StreamChatParams {
   webSearch?: boolean;
   deepThink?: boolean;
   forceTool?: "image" | "code" | null;
+  schedule?: { title: string; start_iso: string; end_iso?: string; location?: string; notes?: string }[];
 }
 
 export interface IChatService {
@@ -29,7 +30,7 @@ export interface IChatService {
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-orchestrator`;
 
 export const webChatService: IChatService = {
-  async streamChat({ messages, onDelta, onWidgets, onDone, onError, signal, lang, detailLevel, customInstructions, aiName, attachments, webSearch, deepThink, forceTool }) {
+  async streamChat({ messages, onDelta, onWidgets, onDone, onError, signal, lang, detailLevel, customInstructions, aiName, attachments, webSearch, deepThink, forceTool, schedule }) {
     try {
       const resp = await fetch(CHAT_URL, {
         method: "POST",
@@ -37,7 +38,7 @@ export const webChatService: IChatService = {
           "Content-Type": "application/json",
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({ messages, lang, detailLevel, customInstructions, aiName, attachments, webSearch, deepThink, forceTool }),
+        body: JSON.stringify({ messages, lang, detailLevel, customInstructions, aiName, attachments, webSearch, deepThink, forceTool, schedule }),
         signal,
       });
 
