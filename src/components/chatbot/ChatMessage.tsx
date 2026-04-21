@@ -21,7 +21,7 @@ export function ChatMessageItem({ message, isThinking }: ChatMessageProps) {
     !isUser &&
     hasWidgets &&
     message.widgets!.some((w) =>
-      ["image_gallery", "news", "stocks", "image", "web_sources"].includes(w.type as string),
+      ["image_gallery", "news", "stocks", "image", "web_sources", "videos"].includes(w.type as string),
     );
 
   return (
