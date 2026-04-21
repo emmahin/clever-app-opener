@@ -7,22 +7,52 @@ import { SuggestionPills } from "@/components/chatbot/SuggestionPills";
 import { ChatMessageItem } from "@/components/chatbot/ChatMessage";
 import { HeaderSearch } from "@/components/chatbot/HeaderSearch";
 import { chatService, ChatMessage, ChatAttachment } from "@/services";
-import { Expand, Settings2, Sparkles } from "lucide-react";
+import { Expand, Minimize2, Settings2, Sparkles, MessageSquarePlus, Trash2, SlidersHorizontal, PhoneCall } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useSettings } from "@/contexts/SettingsProvider";
 import { VoiceCallMode } from "@/components/chatbot/VoiceCallMode";
 import { ProjectsBar } from "@/components/chatbot/ProjectsBar";
+import { useNavigate } from "react-router-dom";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function Index() {
   const { lang, t } = useLanguage();
   const { settings } = useSettings();
+  const navigate = useNavigate();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [voiceCallOpen, setVoiceCallOpen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const messagesRef = useRef<ChatMessage[]>([]);
   useEffect(() => { messagesRef.current = messages; }, [messages]);
+
+  // Track fullscreen state
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+
+  const toggleFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch (e) {
+      console.error("Fullscreen error", e);
+    }
+  };
 
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   useEffect(() => scrollToBottom(), [messages]);
@@ -152,14 +182,46 @@ export default function Index() {
                   if (data?.messages) setMessages(data.messages);
                 }}
               />
-              <button className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 backdrop-blur-md text-sm font-medium flex items-center gap-2 transition-colors">
-                <Expand className="w-4 h-4" />
+              <button
+                onClick={toggleFullscreen}
+                className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 backdrop-blur-md text-sm font-medium flex items-center gap-2 transition-colors"
+                title={isFullscreen ? "Quitter le plein écran" : "Passer en plein écran"}
+              >
+                {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Expand className="w-4 h-4" />}
                 {t("fullscreen")}
               </button>
-              <button className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 backdrop-blur-md text-sm font-medium flex items-center gap-2 transition-colors">
-                <Settings2 className="w-4 h-4" />
-                {t("options")}
-              </button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 backdrop-blur-md text-sm font-medium flex items-center gap-2 transition-colors">
+                    <Settings2 className="w-4 h-4" />
+                    {t("options")}
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>Actions rapides</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleNewChat}>
+                    <MessageSquarePlus className="w-4 h-4 mr-2" />
+                    Nouvelle conversation
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => setMessages([])}
+                    disabled={messages.length === 0}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Effacer les messages
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setVoiceCallOpen(true)}>
+                    <PhoneCall className="w-4 h-4 mr-2" />
+                    Mode appel vocal
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate("/settings")}>
+                    <SlidersHorizontal className="w-4 h-4 mr-2" />
+                    Paramètres
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
 
