@@ -300,16 +300,25 @@ Deno.serve(async (req) => {
         const send = (obj: any) => controller.enqueue(enc.encode(`data: ${JSON.stringify(obj)}\n\n`));
 
         try {
+          // Force tool choice when user explicitly clicked a tool button
+          let phase1ToolChoice: any = "auto";
+          if (forceTool === "image") {
+            phase1ToolChoice = { type: "function", function: { name: "generate_image" } };
+          } else if (webSearch) {
+            phase1ToolChoice = { type: "function", function: { name: "web_search" } };
+          }
+          const phase1Body: any = {
+            model: deepThink ? "google/gemini-2.5-pro" : "google/gemini-2.5-flash",
+            messages: [{ role: "system", content: SYSTEM_PROMPT }, ...messages],
+            tools: TOOLS,
+            tool_choice: phase1ToolChoice,
+          };
+          if (deepThink) phase1Body.reasoning = { effort: "medium" };
           // Phase 1: tool-call detection (non-streaming)
           const phase1 = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
             method: "POST",
             headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-            body: JSON.stringify({
-              model: "google/gemini-2.5-flash",
-              messages: [{ role: "system", content: SYSTEM_PROMPT }, ...messages],
-              tools: TOOLS,
-              tool_choice: "auto",
-            }),
+            body: JSON.stringify(phase1Body),
           });
 
           if (phase1.status === 429) {
