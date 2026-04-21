@@ -205,13 +205,15 @@ export default function WhatsAppPage() {
 
   useEffect(() => {
     const seeded = seedDemoIfNeeded();
+    const params = new URLSearchParams(window.location.search);
+    const requestedId = params.get("contact");
     if (seeded) {
       setContacts(seeded.contacts); setMessages(seeded.messages);
-      setActiveId(seeded.contacts[0].id);
+      setActiveId(requestedId && seeded.contacts.some((c) => c.id === requestedId) ? requestedId : seeded.contacts[0].id);
     } else {
       const c = loadContacts();
       setContacts(c); setMessages(loadMessages());
-      if (c.length > 0) setActiveId(c[0].id);
+      if (c.length > 0) setActiveId(requestedId && c.some((x) => x.id === requestedId) ? requestedId : c[0].id);
     }
   }, []);
 
