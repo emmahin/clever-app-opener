@@ -5,10 +5,10 @@ import nexLogo from "@/assets/nex-logo.png";
 
 const navItems = [
   { icon: Sparkles, label: "AI Tools", to: "/" },
-  { icon: Grid, label: "Dashboard", to: "/dashboard" },
   { icon: Clapperboard, label: "Montage vidéo", to: "/video" },
-  { icon: Activity, label: "Analytics", to: "/analytics" },
   { icon: FileText, label: "Documents", to: "/documents" },
+  { icon: Grid, label: "Dashboard", to: "/dashboard" },
+  { icon: Activity, label: "Analytics", to: "/analytics" },
   { icon: Settings, label: "Settings", to: "/settings" },
 ];
 
