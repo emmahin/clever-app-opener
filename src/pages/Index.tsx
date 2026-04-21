@@ -158,7 +158,14 @@ export default function Index() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground overflow-hidden">
+    <div
+      className="min-h-screen text-foreground overflow-hidden"
+      style={{
+        backgroundImage:
+          "radial-gradient(ellipse 90% 70% at 20% 0%, hsl(280 90% 35%) 0%, transparent 55%), radial-gradient(ellipse 80% 60% at 80% 30%, hsl(295 85% 30%) 0%, transparent 55%), linear-gradient(160deg, hsl(270 75% 18%) 0%, hsl(275 60% 8%) 45%, hsl(0 0% 0%) 100%)",
+        backgroundAttachment: "fixed",
+      }}
+    >
       <Sidebar />
       <Header
         onNewChat={handleNewChat}
