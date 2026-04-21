@@ -5,7 +5,6 @@ import { useLanguage, LANGS, Lang } from "@/i18n/LanguageProvider";
 import { Settings as SettingsIcon, Globe, Sparkles, MessageSquare, Trash2, RotateCcw, Check } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { FloatingProjectsBar } from "@/components/chatbot/FloatingProjectsBar";
 
 export default function Settings() {
   const { settings, update, reset } = useSettings();
@@ -32,10 +31,6 @@ export default function Settings() {
     <div className="min-h-screen bg-background text-foreground">
       <Sidebar />
       <Header />
-      <FloatingProjectsBar
-        category="settings"
-        getSnapshot={() => ({ settings })}
-      />
       <main className="ml-[72px] pt-14 min-h-screen">
         <div className="max-w-3xl mx-auto px-6 py-8 space-y-6">
           <header className="flex items-center gap-3">
