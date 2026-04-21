@@ -151,7 +151,7 @@ export default function Index() {
           </div>
 
           {/* Messages area */}
-          <div className="flex-1 px-6 overflow-y-auto pb-80 relative z-0">
+          <div className="flex-1 px-6 overflow-y-auto pb-96 relative z-0">
             {messages.length === 0 ? (
               // Empty state with orb
               <div className="h-full flex flex-col items-center justify-center mt-8">
