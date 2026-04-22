@@ -1,73 +1,94 @@
 
 
-## Plan : réduire au maximum la consommation de tokens
+## Système d'authentification + comptes connectés
 
-Objectif : diviser par **3 à 5** la consommation actuelle, sans perdre de fonctionnalité visible.
+### Vue d'ensemble
+Auth e-mail/mot de passe (Lovable Cloud) avec :
+- Page **`/auth`** unifiée (Sign up / Sign in / Mot de passe oublié)
+- **Garde de routes** : tout sauf `/auth` redirige vers `/auth` si non connecté
+- **Préférences synchronisées** côté serveur (Settings, langue, instructions IA, prefs notifications)
+- Table **`connected_accounts`** prête pour intégrer plus tard WhatsApp, ChatGPT, Notion, Google, etc. — chaque connecteur stocke ses credentials chiffrés dans une colonne `JSONB credentials` (clé/token/secret + métadonnées)
+- Migration **transparente du localStorage → cloud** au premier login (one-shot, marquée pour ne pas se répéter)
 
-### Estimation actuelle (par message)
-- System prompt : **~3 000 tokens** envoyés à CHAQUE appel
-- Historique : croît sans limite (~500 tokens / échange)
-- Documents joints : tronqués à **60 000 caractères** (~15 000 tokens)
-- Modèle par défaut : `gemini-2.5-flash` (OK), mais `gemini-2.5-pro` activé dès que "deep think" est coché (10× plus cher)
+Auto-confirm des e-mails **activé** (mode dev) pour ne pas bloquer le flux. Tu pourras le désactiver plus tard.
 
-### Optimisations à appliquer
+### Architecture backend (Lovable Cloud)
 
-**1. System prompt modulaire (gain ~60 % du prompt)**
-- Bloc "désambiguïsation visuelle" (Air Force, Yeezy, Mustang…) : déplacé UNIQUEMENT dans la `description` de l'outil `search_images`. Économie : **~400 tokens / appel**.
-- Bloc "EMPLOI DU TEMPS" : envoyé seulement si la question ressemble à du planning (regex simple côté serveur sur `latestUserText`). Économie : **proportionnelle au nombre d'événements**.
-- 12 règles numérotées → compactées en 6 lignes courtes. Économie : **~300 tokens**.
-- Désactiver les outils non sollicités via détection contextuelle : ne déclarer `fetch_news`/`fetch_stocks`/`send_whatsapp_message`/`create_reminder`/schedule QUE si le message courant ou les 2 derniers les évoquent (mots-clés). Économie : **~600-800 tokens / appel** (les schémas d'outils sont la plus grosse partie du prompt).
+**Tables**
+```text
+profiles
+├── id (uuid, PK, FK → auth.users.id, on delete cascade)
+├── email (text)
+├── display_name (text, nullable)
+├── created_at / updated_at
 
-**2. Sliding window sur l'historique (gain linéaire)**
-- Côté `Index.tsx` : ne transmettre que les **8 derniers messages** + un résumé compressé du reste (1-2 phrases) si > 8.
-- Économie : sur une conversation de 20 tours, on passe de ~10 000 → ~2 500 tokens d'historique.
+user_settings
+├── user_id (uuid, PK, FK → auth.users.id, on delete cascade)
+├── detail_level (text)             ← short/normal/detailed
+├── typewriter (bool)
+├── custom_instructions (text)
+├── ai_name (text)
+├── language (text)                 ← fr/en/es/de
+├── notification_prefs (jsonb)      ← quiet hours, do not disturb, etc.
+├── updated_at
 
-**3. Réduire les pièces jointes**
-- `attachments` documents : troncature **60 000 → 12 000 caractères** (`ai-orchestrator/index.ts` ligne ~734). Suffisant pour la plupart des PDF/textes, économie **~12 000 tokens** sur un gros doc.
-- Audio transcrit : ajouter une troncature à 8 000 caractères (actuellement illimitée).
+connected_accounts
+├── id (uuid, PK)
+├── user_id (uuid, FK → auth.users.id, on delete cascade)
+├── provider (text)                 ← 'whatsapp' | 'chatgpt' | 'notion' | 'google' | …
+├── account_label (text)            ← affiché dans l'UI ("Compte perso", numéro masqué…)
+├── credentials (jsonb)             ← {api_key, refresh_token, phone_number, …}
+├── status (text)                   ← 'active' | 'expired' | 'revoked'
+├── connected_at / last_used_at
+├── UNIQUE(user_id, provider, account_label)
+```
 
-**4. Modèle par défaut plus léger**
-- Remplacer `google/gemini-2.5-flash` par `google/gemini-3-flash-preview` (le défaut Lovable, moins cher et plus rapide).
-- Renommer le toggle "Deep think" pour qu'il soit clair qu'il coûte 10× plus, et le passer de `gemini-2.5-pro` → `gemini-3.1-pro-preview` (équivalent perf, moins cher).
+**RLS** : sur les 3 tables, chaque user ne voit/modifie QUE ses lignes (`auth.uid() = user_id`).
 
-**5. Web search & news : limiter le retour**
-- `web_search` : passer de 8 résultats à **5**, snippets tronqués à **180 caractères**. Économie : **~400 tokens** par appel d'outil.
-- `fetch_news` : passer de 12 → **8** items, retirer les `summary` de la sortie résumée envoyée au modèle (déjà visibles dans le widget).
+**Trigger** `handle_new_user` : à chaque insert dans `auth.users`, crée automatiquement la ligne `profiles` + `user_settings` (defaults).
 
-**6. (Optionnel) Cache du system prompt**
-- Le SDK Lovable AI ne supporte pas encore explicitement le prompt caching côté client, mais en figeant le prompt système (mêmes octets entre 2 appels d'un même utilisateur) on maximise les chances de cache transparent côté gateway.
+### Frontend
+
+**Nouveaux fichiers**
+- `src/pages/Auth.tsx` — UI Sign up / Sign in / Forgot password (3 onglets), redirige vers `/` au succès
+- `src/components/AuthGuard.tsx` — wrap des routes protégées, montre splash le temps de `getSession()`, redirige vers `/auth` sinon
+- `src/hooks/useAuth.ts` — `{ user, session, loading, signOut }` avec `onAuthStateChange` (setup AVANT `getSession`)
+- `src/services/userPreferencesService.ts` — `loadPrefs()` / `savePrefs()` côté serveur + migration one-shot du localStorage (clé `app.settings.v1` → `user_settings`)
+- `src/services/connectedAccountsService.ts` — `list()` / `add({provider, label, credentials})` / `remove(id)` / `getByProvider(provider)` (générique pour tous les providers futurs)
+
+**Fichiers modifiés**
+- `src/App.tsx` — route `/auth` publique, toutes les autres entourées de `<AuthGuard>`
+- `src/contexts/SettingsProvider.tsx` — au mount : si user connecté, charge depuis Cloud (fallback localStorage), sauvegarde dans Cloud à chaque update (debounced 500 ms), garde localStorage en miroir pour mode hors-ligne
+- `src/components/chatbot/Header.tsx` — l'icône user devient un menu avec "Mon compte" + "Se déconnecter"
+- `src/pages/Settings.tsx` — nouvelle section **"Comptes connectés"** : liste des `connected_accounts`, bouton "Ajouter un compte" avec un menu (WhatsApp / ChatGPT / Notion / Google), pour l'instant juste un dialog placeholder par provider (saisie API key) → câblage réel viendra par provider plus tard
+
+### Flux migration localStorage → cloud
+Au premier login après mise à jour :
+1. Lire `localStorage["app.settings.v1"]`
+2. UPSERT dans `user_settings` (en gardant les valeurs serveur si plus récentes)
+3. Marquer `localStorage["__migrated_to_cloud_v1"] = "1"`
+4. Garder `localStorage` en miroir lecture seule pour usage hors-ligne
+
+WhatsApp local (`wa_contacts`, `wa_messages`) **non migré pour l'instant** (ce n'est qu'un mock UI) — sera traité quand tu connecteras l'API WhatsApp Business via `connected_accounts`.
 
 ### Détails techniques
 
-```text
-ai-orchestrator/index.ts
-├─ buildSystemPrompt()
-│   ├─ supprimer bloc "DÉSAMBIGUÏSATION DU CONTEXTE" (113 lignes → 0)
-│   ├─ schedBlock : ne render que si needsScheduleContext(userText)
-│   └─ règles 1-12 → 6 lignes
-├─ TOOLS array
-│   └─ filterToolsForMessage(userText, history) : renvoyer un sous-ensemble
-├─ ligne 734 : .slice(0, 60000) → .slice(0, 12000)
-├─ ligne 736 : ajouter .slice(0, 8000) sur audio.text
-├─ ligne 811 : "gemini-2.5-flash" → "gemini-3-flash-preview"
-└─ web_search/fetch_news : réduire items + tronquer snippets
+- `supabase.auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin + '/' } })`
+- `supabase.auth.signInWithPassword({ email, password })`
+- `supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + '/auth?mode=reset' })`
+- `useAuth` : appelle `supabase.auth.onAuthStateChange(...)` PUIS `supabase.auth.getSession()` (ordre critique — recommandation Supabase)
+- Auto-confirm e-mail activé via `configure_auth({ auto_confirm_email: true, ... })` pour éviter le blocage en dev
+- HIBP (vérification mot de passe compromis) **activé**
+- Aucun stockage clair des secrets dans le front : les `credentials` JSONB sont protégés par RLS strict + chiffrement au repos par Postgres
 
-src/pages/Index.tsx
-└─ historyForAI : ne garder que les 8 derniers, optionnellement préfixer
-   par { role: "system", content: "Résumé conversation antérieure: …" }
-```
+### Sécurité
+- RLS partout (`auth.uid() = user_id`)
+- Pas de rôles admin pour l'instant (single-user perspective)
+- `credentials` JSONB jamais loggué côté client, jamais exposé via une view
+- Trigger `handle_new_user` en `SECURITY DEFINER` avec `SET search_path = public`
 
-### Gain estimé
-| Poste | Avant | Après | Économie |
-|---|---|---|---|
-| System prompt | ~3 000 | ~1 200 | -1 800 |
-| Historique (10 tours) | ~5 000 | ~1 500 | -3 500 |
-| Doc joint typique | ~15 000 | ~3 000 | -12 000 |
-| **Total / message moyen** | **~5-8 k** | **~1.5-2.5 k** | **~65 %** |
-
-### Fichiers modifiés
-- `supabase/functions/ai-orchestrator/index.ts` (refonte prompt + filtre outils + troncatures + modèle)
-- `src/pages/Index.tsx` (sliding window historique)
-
-Aucune fonctionnalité visible n'est retirée. Tu peux toujours forcer l'IA à utiliser n'importe quel outil avec une demande explicite — le filtrage est basé sur des mots-clés permissifs.
+### Hors-périmètre (à faire plus tard)
+- Implémentation réelle des connecteurs WhatsApp Business / OpenAI / Notion (chacun nécessitera une edge function dédiée pour utiliser les credentials)
+- Migration des messages WhatsApp locaux vers cloud
+- Google OAuth (peut être ajouté en 1 étape via Lovable Cloud, à activer quand tu veux)
 
