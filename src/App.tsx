@@ -15,6 +15,8 @@ import VideoEditor from "./pages/VideoEditor.tsx";
 import Documents from "./pages/Documents.tsx";
 import WhatsApp from "./pages/WhatsApp.tsx";
 import Notifications from "./pages/Notifications.tsx";
+import Auth from "./pages/Auth.tsx";
+import { AuthGuard } from "@/components/AuthGuard";
 
 const queryClient = new QueryClient();
 
@@ -28,14 +30,15 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/analytics" element={<Analytics />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/video" element={<VideoEditor />} />
-            <Route path="/documents" element={<Documents />} />
-            <Route path="/whatsapp" element={<WhatsApp />} />
-            <Route path="/notifications" element={<Notifications />} />
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/" element={<AuthGuard><Index /></AuthGuard>} />
+            <Route path="/dashboard" element={<AuthGuard><Dashboard /></AuthGuard>} />
+            <Route path="/analytics" element={<AuthGuard><Analytics /></AuthGuard>} />
+            <Route path="/settings" element={<AuthGuard><Settings /></AuthGuard>} />
+            <Route path="/video" element={<AuthGuard><VideoEditor /></AuthGuard>} />
+            <Route path="/documents" element={<AuthGuard><Documents /></AuthGuard>} />
+            <Route path="/whatsapp" element={<AuthGuard><WhatsApp /></AuthGuard>} />
+            <Route path="/notifications" element={<AuthGuard><Notifications /></AuthGuard>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
