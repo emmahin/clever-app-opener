@@ -2,11 +2,12 @@ import { Sidebar } from "@/components/chatbot/Sidebar";
 import { Header } from "@/components/chatbot/Header";
 import { useSettings, DetailLevel } from "@/contexts/SettingsProvider";
 import { useLanguage, LANGS, Lang } from "@/i18n/LanguageProvider";
-import { Settings as SettingsIcon, Globe, Sparkles, MessageSquare, Trash2, RotateCcw, Check, Bell } from "lucide-react";
+import { Settings as SettingsIcon, Globe, Sparkles, MessageSquare, Trash2, RotateCcw, Check, Bell, Link2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useNotificationPrefs } from "@/hooks/useNotifications";
 import { NotificationType } from "@/services/notificationService";
+import { ConnectedAccountsSection } from "@/components/chatbot/ConnectedAccountsSection";
 
 export default function Settings() {
   const { settings, update, reset } = useSettings();
@@ -243,6 +244,24 @@ export default function Settings() {
           </Section>
 
           {/* Confidentialité */}
+          <Section
+            icon={<Trash2 className="w-5 h-5" />}
+            title={t("privacy")}
+            description={t("privacyDesc")}
+          >
+
+          </Section>
+
+          {/* Comptes connectés */}
+          <Section
+            icon={<Link2 className="w-5 h-5" />}
+            title="Comptes connectés"
+            description="WhatsApp, ChatGPT, Notion… connecte tes services pour qu'ils soient accessibles depuis l'IA."
+          >
+            <ConnectedAccountsSection />
+          </Section>
+
+          {/* Confidentialité (boutons) */}
           <Section
             icon={<Trash2 className="w-5 h-5" />}
             title={t("privacy")}
