@@ -14,7 +14,96 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      connected_accounts: {
+        Row: {
+          account_label: string
+          connected_at: string
+          credentials: Json
+          id: string
+          last_used_at: string | null
+          provider: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          account_label?: string
+          connected_at?: string
+          credentials?: Json
+          id?: string
+          last_used_at?: string | null
+          provider: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          account_label?: string
+          connected_at?: string
+          credentials?: Json
+          id?: string
+          last_used_at?: string | null
+          provider?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          email: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          email?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          email?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_settings: {
+        Row: {
+          ai_name: string
+          custom_instructions: string
+          detail_level: string
+          language: string
+          notification_prefs: Json
+          typewriter: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ai_name?: string
+          custom_instructions?: string
+          detail_level?: string
+          language?: string
+          notification_prefs?: Json
+          typewriter?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ai_name?: string
+          custom_instructions?: string
+          detail_level?: string
+          language?: string
+          notification_prefs?: Json
+          typewriter?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
