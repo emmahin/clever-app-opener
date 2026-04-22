@@ -42,7 +42,7 @@ export async function addAccount(input: {
       account_label: input.account_label ?? "",
       credentials: input.credentials,
       status: "active",
-    })
+    }] as any)
     .select()
     .single();
 
