@@ -243,15 +243,6 @@ export default function Settings() {
             </div>
           </Section>
 
-          {/* Confidentialité */}
-          <Section
-            icon={<Trash2 className="w-5 h-5" />}
-            title={t("privacy")}
-            description={t("privacyDesc")}
-          >
-
-          </Section>
-
           {/* Comptes connectés */}
           <Section
             icon={<Link2 className="w-5 h-5" />}
