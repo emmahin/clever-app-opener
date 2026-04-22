@@ -36,7 +36,7 @@ export async function addAccount(input: {
 
   const { data, error } = await supabase
     .from("connected_accounts")
-    .insert({
+    .insert([{
       user_id: uid,
       provider: input.provider,
       account_label: input.account_label ?? "",

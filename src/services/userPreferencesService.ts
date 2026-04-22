@@ -27,7 +27,7 @@ export async function loadPrefs(userId: string): Promise<CloudPrefs | null> {
 export async function savePrefs(userId: string, patch: Partial<CloudPrefs>): Promise<void> {
   const { error } = await supabase
     .from("user_settings")
-    .upsert({ user_id: userId, ...patch }, { onConflict: "user_id" });
+    .upsert([{ user_id: userId, ...patch }] as any, { onConflict: "user_id" });
   if (error) console.warn("savePrefs error", error);
 }
 
