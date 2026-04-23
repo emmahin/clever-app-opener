@@ -10,3 +10,4 @@ Actus IA : mock statique pour l'instant (`mockNewsService`).
 
 ## Memories
 - [Service layer rules](mem://architecture/service-layer) — règles de séparation front/services et plan de portage VSCode/Windows
+- [Local Agent](mem://architecture/local-agent) — agent Python FastAPI sur le PC pour ouvrir des apps natives
