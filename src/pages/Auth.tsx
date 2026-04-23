@@ -1,12 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Sparkles, Mail, Lock, Loader2, Eye, EyeOff, KeyRound } from "lucide-react";
+import { Sparkles, Mail, Lock, Loader2, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
-type Mode = "signin" | "signup" | "forgot";
-
-const SIGNUP_GATE_PASSWORD = "15032010";
+type Mode = "signin" | "forgot";
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -15,25 +13,6 @@ export default function Auth() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [signupUnlocked, setSignupUnlocked] = useState(false);
-  const [gatePassword, setGatePassword] = useState("");
-  const [gateError, setGateError] = useState<string | null>(null);
-
-  const requestSignup = () => {
-    setGatePassword("");
-    setGateError(null);
-    setMode("signup");
-  };
-
-  const submitGate = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (gatePassword === SIGNUP_GATE_PASSWORD) {
-      setSignupUnlocked(true);
-      setGateError(null);
-    } else {
-      setGateError("Mot de passe incorrect");
-    }
-  };
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -54,15 +33,6 @@ export default function Auth() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         toast.success("Connecté");
-      } else if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { emailRedirectTo: `${window.location.origin}/` },
-        });
-        if (error) throw error;
-        toast.success("Compte créé. Vérifie ton e-mail si la confirmation est requise.");
-        setMode("signin");
       } else {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
           redirectTo: `${window.location.origin}/auth`,
