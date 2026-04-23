@@ -14,4 +14,11 @@ export {
   buildAppCatalogHint,
 } from "./appLauncherService";
 export type { AppEntry, AppKind } from "./appLauncherService";
+export { localAgentService } from "./localAgentService";
+export type {
+  ILocalAgentService,
+  LocalAgentConfig,
+  LocalAgentPing,
+  LaunchResult,
+} from "./localAgentService";
 export * from "./types";
