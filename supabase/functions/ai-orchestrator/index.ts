@@ -746,6 +746,29 @@ async function callTool(name: string, args: any): Promise<{ widget: any; summary
     };
   }
 
+  if (name === "launch_local_app") {
+    const target = String(args.target || "").trim();
+    if (!target) {
+      return { widget: null, summary: "Cible manquante pour launch_local_app." };
+    }
+    const argList = Array.isArray(args.args)
+      ? args.args.map((a: any) => String(a)).filter((s: string) => s.length > 0)
+      : [];
+    const label = args.label ? String(args.label).trim() : undefined;
+    return {
+      widget: {
+        type: "launch_local_app",
+        target,
+        args: argList.length ? argList : undefined,
+        label,
+      },
+      summary:
+        `Demande de lancement local envoyée pour "${label || target}". ` +
+        `Le widget côté client tente l'ouverture via l'agent Nex sur le PC de l'utilisateur. ` +
+        `Si l'agent n'est pas configuré, l'utilisateur sera invité à le faire dans les Paramètres.`,
+    };
+  }
+
   return { widget: null, summary: "Outil inconnu" };
 }
 
