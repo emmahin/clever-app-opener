@@ -60,72 +60,15 @@ export default function Auth() {
         </div>
 
         <div className="rounded-2xl border border-border/60 bg-card/70 backdrop-blur-xl p-6 shadow-2xl">
-          {mode === "signup" && !signupUnlocked ? (
-            <>
-              <div className="mb-6 text-center">
-                <div className="mx-auto w-12 h-12 rounded-2xl bg-primary/15 flex items-center justify-center mb-3">
-                  <KeyRound className="w-5 h-5 text-primary" />
-                </div>
-                <h2 className="text-lg font-semibold">Accès restreint</h2>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Entre le mot de passe d'accès pour créer un compte.
-                </p>
-              </div>
-              <form onSubmit={submitGate} className="space-y-4">
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground block mb-1.5">
-                    Mot de passe d'accès
-                  </label>
-                  <div className="relative">
-                    <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                    <input
-                      type="password"
-                      required
-                      autoFocus
-                      value={gatePassword}
-                      onChange={(e) => {
-                        setGatePassword(e.target.value);
-                        if (gateError) setGateError(null);
-                      }}
-                      className="w-full pl-10 pr-3 py-2.5 rounded-lg bg-secondary/40 border border-border/60 text-sm focus:outline-none focus:border-primary"
-                      placeholder="••••••••"
-                    />
-                  </div>
-                  {gateError && (
-                    <p className="text-xs text-destructive mt-1.5">{gateError}</p>
-                  )}
-                </div>
-                <button
-                  type="submit"
-                  className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
-                >
-                  Déverrouiller
-                </button>
-              </form>
-              <div className="mt-4 text-center">
-                <button
-                  onClick={() => setMode("signin")}
-                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  ← Retour à la connexion
-                </button>
-              </div>
-            </>
-          ) : (
-          <>
           <div className="mb-6 text-center">
             <h2 className="text-lg font-semibold">
               {mode === "forgot"
                 ? "Réinitialiser le mot de passe"
-                : mode === "signup"
-                ? "Créer un compte"
                 : "Se connecter"}
             </h2>
             <p className="text-xs text-muted-foreground mt-1">
               {mode === "forgot"
                 ? "Reçois un lien par e-mail pour choisir un nouveau mot de passe."
-                : mode === "signup"
-                ? "Crée ton compte pour accéder à Nex."
                 : "Connecte-toi à ton compte."}
             </p>
           </div>
