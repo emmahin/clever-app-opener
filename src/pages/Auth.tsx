@@ -125,26 +125,14 @@ export default function Auth() {
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
               {mode === "signin"
                 ? "Se connecter"
-                : mode === "signup"
-                ? "Créer le compte"
                 : "Envoyer l'e-mail"}
             </button>
           </form>
 
           <div className="mt-4 text-center space-y-2">
             {mode === "signin" && (
-              <>
-                <button onClick={() => setMode("forgot")} className="block w-full text-xs text-muted-foreground hover:text-foreground transition-colors">
-                  Mot de passe oublié ?
-                </button>
-                <button onClick={requestSignup} className="block w-full text-xs text-primary hover:opacity-80 transition-opacity">
-                  Pas encore de compte ? Créer un compte
-                </button>
-              </>
-            )}
-            {mode === "signup" && (
-              <button onClick={() => setMode("signin")} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-                ← Retour à la connexion
+              <button onClick={() => setMode("forgot")} className="block w-full text-xs text-muted-foreground hover:text-foreground transition-colors">
+                Mot de passe oublié ?
               </button>
             )}
             {mode === "forgot" && (
@@ -153,8 +141,6 @@ export default function Auth() {
               </button>
             )}
           </div>
-          </>
-          )}
         </div>
 
         <p className="text-xs text-muted-foreground text-center mt-6">
