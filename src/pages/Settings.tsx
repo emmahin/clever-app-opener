@@ -2,12 +2,13 @@ import { Sidebar } from "@/components/chatbot/Sidebar";
 import { Header } from "@/components/chatbot/Header";
 import { useSettings, DetailLevel } from "@/contexts/SettingsProvider";
 import { useLanguage, LANGS, Lang } from "@/i18n/LanguageProvider";
-import { Settings as SettingsIcon, Globe, Sparkles, MessageSquare, Trash2, RotateCcw, Check, Bell, Link2 } from "lucide-react";
+import { Settings as SettingsIcon, Globe, Sparkles, MessageSquare, Trash2, RotateCcw, Check, Bell, Link2, Monitor } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useNotificationPrefs } from "@/hooks/useNotifications";
 import { NotificationType } from "@/services/notificationService";
 import { ConnectedAccountsSection } from "@/components/chatbot/ConnectedAccountsSection";
+import { LocalAgentSection } from "@/components/chatbot/LocalAgentSection";
 
 export default function Settings() {
   const { settings, update, reset } = useSettings();
@@ -250,6 +251,15 @@ export default function Settings() {
             description="WhatsApp, ChatGPT, Notion… connecte tes services pour qu'ils soient accessibles depuis l'IA."
           >
             <ConnectedAccountsSection />
+          </Section>
+
+          {/* Agent local PC */}
+          <Section
+            icon={<Monitor className="w-5 h-5" />}
+            title="Agent local PC"
+            description="Permet à l'IA d'ouvrir des applications installées sur ton ordinateur."
+          >
+            <LocalAgentSection />
           </Section>
 
           {/* Confidentialité (boutons) */}

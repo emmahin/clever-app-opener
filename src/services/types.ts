@@ -26,6 +26,12 @@ export type ChatWidget =
       range_end_iso?: string;
       added?: { title: string; start_iso: string; end_iso?: string; location?: string; notes?: string };
       remove_query?: string;
+    }
+  | {
+      type: "launch_local_app";
+      target: string;
+      args?: string[];
+      label?: string; // nom lisible pour l'UI (ex: "Notepad")
     };
 
 export interface ChatMessage {

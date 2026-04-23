@@ -412,6 +412,42 @@ TOOLS.push({
   },
 });
 
+TOOLS.push({
+  type: "function",
+  function: {
+    name: "launch_local_app",
+    description:
+      "Ouvre une application installée sur l'ORDINATEUR de l'utilisateur via l'agent local Nex. " +
+      "À utiliser quand l'utilisateur dit explicitement 'ouvre/lance/démarre <app>' ET que l'app est " +
+      "un programme natif (Notepad, Word, Excel, Photoshop, Steam, OBS, un .exe, un dossier, etc.) " +
+      "PLUTÔT qu'un site web. " +
+      "Pour les apps web (Gmail, YouTube, etc.), utilise plutôt 'open_app'. " +
+      "Le nom 'target' doit être : soit un nom d'exécutable connu du PATH (ex: 'notepad', 'code', " +
+      "'spotify'), soit un chemin absolu fourni par l'utilisateur (ex: 'C:\\\\Users\\\\moi\\\\app.exe'). " +
+      "L'agent local côté PC vérifie que l'app existe ; s'il n'est pas configuré, l'utilisateur sera invité " +
+      "à le faire dans les Paramètres.",
+    parameters: {
+      type: "object",
+      properties: {
+        target: {
+          type: "string",
+          description: "Nom d'exécutable (ex: 'notepad', 'code', 'spotify') OU chemin absolu de l'app/fichier/dossier.",
+        },
+        args: {
+          type: "array",
+          items: { type: "string" },
+          description: "Arguments optionnels passés à l'exécutable (ex: chemin de fichier à ouvrir).",
+        },
+        label: {
+          type: "string",
+          description: "Nom lisible affiché à l'utilisateur (ex: 'Notepad', 'Visual Studio Code').",
+        },
+      },
+      required: ["target"],
+    },
+  },
+});
+
 async function callTool(name: string, args: any): Promise<{ widget: any; summary: string }> {
   const headers = { Authorization: `Bearer ${ANON}` };
 
@@ -707,6 +743,29 @@ async function callTool(name: string, args: any): Promise<{ widget: any; summary
       summary: appName
         ? `App "${appName}" introuvable dans le catalogue. Demande à l'utilisateur de préciser une URL ou un nom plus connu.`
         : "Nom d'app ou URL manquant.",
+    };
+  }
+
+  if (name === "launch_local_app") {
+    const target = String(args.target || "").trim();
+    if (!target) {
+      return { widget: null, summary: "Cible manquante pour launch_local_app." };
+    }
+    const argList = Array.isArray(args.args)
+      ? args.args.map((a: any) => String(a)).filter((s: string) => s.length > 0)
+      : [];
+    const label = args.label ? String(args.label).trim() : undefined;
+    return {
+      widget: {
+        type: "launch_local_app",
+        target,
+        args: argList.length ? argList : undefined,
+        label,
+      },
+      summary:
+        `Demande de lancement local envoyée pour "${label || target}". ` +
+        `Le widget côté client tente l'ouverture via l'agent Nex sur le PC de l'utilisateur. ` +
+        `Si l'agent n'est pas configuré, l'utilisateur sera invité à le faire dans les Paramètres.`,
     };
   }
 

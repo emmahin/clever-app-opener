@@ -7,6 +7,7 @@ import { ReminderWidget } from "./widgets/ReminderWidget";
 import { InsightWidget } from "./widgets/InsightWidget";
 import { ScheduleWidget } from "./widgets/ScheduleWidget";
 import { OpenAppWidget } from "./widgets/OpenAppWidget";
+import { LocalAppLaunchWidget } from "./widgets/LocalAppLaunchWidget";
 
 export function MessageWidgets({ widgets }: { widgets: ChatWidget[] }) {
   if (!widgets?.length) return null;
@@ -30,6 +31,14 @@ export function MessageWidgets({ widgets }: { widgets: ChatWidget[] }) {
             target={w.target}
             fallback_url={w.fallback_url}
             auto_opened={w.auto_opened}
+          />
+        );
+        if (w.type === "launch_local_app") return (
+          <LocalAppLaunchWidget
+            key={i}
+            target={w.target}
+            args={w.args}
+            label={w.label}
           />
         );
         if (w.type === "schedule") return (
