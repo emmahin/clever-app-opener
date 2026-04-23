@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Sparkles, Mail, Lock, Loader2, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
-type Mode = "signin" | "signup" | "forgot";
+type Mode = "signin" | "forgot";
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -29,15 +29,7 @@ export default function Auth() {
     e.preventDefault();
     setLoading(true);
     try {
-      if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { emailRedirectTo: `${window.location.origin}/` },
-        });
-        if (error) throw error;
-        toast.success("Compte créé. Bienvenue !");
-      } else if (mode === "signin") {
+      if (mode === "signin") {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         toast.success("Connecté");
@@ -68,18 +60,15 @@ export default function Auth() {
         </div>
 
         <div className="rounded-2xl border border-border/60 bg-card/70 backdrop-blur-xl p-6 shadow-2xl">
-          <div className="flex gap-1 p-1 rounded-xl bg-secondary/40 mb-6">
-            {(["signin", "signup"] as Mode[]).map((m) => (
-              <button
-                key={m}
-                onClick={() => setMode(m)}
-                className={`flex-1 py-2 text-sm rounded-lg transition-colors ${
-                  mode === m ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {m === "signin" ? "Se connecter" : "Créer un compte"}
-              </button>
-            ))}
+          <div className="mb-6 text-center">
+            <h2 className="text-lg font-semibold">
+              {mode === "forgot" ? "Réinitialiser le mot de passe" : "Se connecter"}
+            </h2>
+            <p className="text-xs text-muted-foreground mt-1">
+              {mode === "forgot"
+                ? "Reçois un lien par e-mail pour choisir un nouveau mot de passe."
+                : "Accès réservé aux comptes existants."}
+            </p>
           </div>
 
           <form onSubmit={onSubmit} className="space-y-4">
@@ -108,7 +97,7 @@ export default function Auth() {
                     type={showPassword ? "text" : "password"}
                     required
                     minLength={6}
-                    autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                    autoComplete="current-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full pl-10 pr-10 py-2.5 rounded-lg bg-secondary/40 border border-border/60 text-sm focus:outline-none focus:border-primary"
@@ -123,9 +112,6 @@ export default function Auth() {
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-                {mode === "signup" && (
-                  <p className="text-xs text-muted-foreground mt-1">6 caractères minimum.</p>
-                )}
               </div>
             )}
 
@@ -135,7 +121,7 @@ export default function Auth() {
               className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-60"
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-              {mode === "signup" ? "Créer mon compte" : mode === "signin" ? "Se connecter" : "Envoyer l'e-mail"}
+              {mode === "signin" ? "Se connecter" : "Envoyer l'e-mail"}
             </button>
           </form>
 
