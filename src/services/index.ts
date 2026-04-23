@@ -7,5 +7,11 @@ export type { ChatAttachment } from "./chatService";
 export { webVoiceService as voiceService } from "./voiceService";
 export { rssNewsService as newsService } from "./newsService";
 export { yahooStockService as stockService } from "./stockService";
-export { mockAppLauncherService as appLauncherService } from "./appLauncherService";
+export {
+  APP_CATALOG,
+  findAppInCatalog,
+  openAppTarget,
+  buildAppCatalogHint,
+} from "./appLauncherService";
+export type { AppEntry, AppKind } from "./appLauncherService";
 export * from "./types";
