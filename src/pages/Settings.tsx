@@ -35,8 +35,8 @@ export default function Settings() {
     <div className="min-h-screen bg-background text-foreground">
       <Sidebar />
       <Header />
-      <main className="ml-[72px] pt-14 min-h-screen">
-        <div className="max-w-3xl mx-auto px-6 py-8 space-y-6">
+      <main className="ml-0 md:ml-[72px] pt-14 min-h-screen">
+        <div className="max-w-3xl mx-auto px-3 md:px-6 py-6 md:py-8 space-y-6">
           <header className="flex items-center gap-3">
             <SettingsIcon className="w-7 h-7 text-primary" />
             <div>

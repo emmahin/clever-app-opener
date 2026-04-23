@@ -212,21 +212,21 @@ export default function Index() {
         }
       />
 
-      <main className="ml-[72px] pt-14 min-h-screen flex">
+      <main className="ml-0 md:ml-[72px] pt-14 min-h-screen flex">
         {/* Main chat area */}
         <div className="flex-1 flex flex-col relative">
           {/* Floating title + actions (no background bar) */}
-          <div className="absolute top-0 left-0 right-0 px-6 py-4 flex items-start justify-between pointer-events-none z-20">
+          <div className="absolute top-0 left-0 right-0 px-3 md:px-6 py-3 md:py-4 flex flex-col md:flex-row md:items-start md:justify-between gap-2 pointer-events-none z-20">
             <div className="pointer-events-auto">
-              <h1 className="text-2xl font-semibold flex items-center gap-2 drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]">
+              <h1 className="text-lg md:text-2xl font-semibold flex items-center gap-2 drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]">
                 <Sparkles className="w-6 h-6 text-primary" />
                 {settings.aiName || "Jarvis"}
               </h1>
-              <p className="text-muted-foreground text-sm mt-1 drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)]">
+              <p className="hidden md:block text-muted-foreground text-sm mt-1 drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)]">
                 {t("appSubtitle")}
               </p>
             </div>
-            <div className="flex gap-2 pointer-events-auto">
+            <div className="flex gap-2 pointer-events-auto flex-wrap">
               <ProjectsBar
                 category="ai-tools"
                 getSnapshot={() => ({ messages })}
@@ -237,7 +237,7 @@ export default function Index() {
               />
               <button
                 onClick={toggleFullscreen}
-                className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 backdrop-blur-md text-sm font-medium flex items-center gap-2 transition-colors"
+                className="hidden md:flex px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 backdrop-blur-md text-sm font-medium items-center gap-2 transition-colors"
                 title={isFullscreen ? "Quitter le plein écran" : "Passer en plein écran"}
               >
                 {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Expand className="w-4 h-4" />}
@@ -245,9 +245,9 @@ export default function Index() {
               </button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 backdrop-blur-md text-sm font-medium flex items-center gap-2 transition-colors">
+                  <button className="px-2.5 md:px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 backdrop-blur-md text-xs md:text-sm font-medium flex items-center gap-1.5 md:gap-2 transition-colors">
                     <Settings2 className="w-4 h-4" />
-                    {t("options")}
+                    <span className="hidden sm:inline">{t("options")}</span>
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
@@ -279,14 +279,14 @@ export default function Index() {
           </div>
 
           {/* Messages area */}
-          <div className="flex-1 px-6 overflow-y-auto pb-96 relative z-0">
+          <div className="flex-1 px-3 md:px-6 overflow-y-auto pb-[420px] md:pb-96 relative z-0">
             {messages.length === 0 ? (
               // Empty state with orb
               <div className="h-full flex flex-col items-center justify-center mt-8">
                 <ChatOrb isLoading={isLoading} />
               </div>
             ) : (
-              <div className="space-y-4 max-w-3xl mx-auto pt-24">
+              <div className="space-y-4 max-w-3xl mx-auto pt-20 md:pt-24">
                 {messages.map((msg, idx) => {
                   const isLast = idx === messages.length - 1;
                   const isThinking =
@@ -305,12 +305,12 @@ export default function Index() {
           </div>
 
           {/* Input area */}
-          <div className="absolute bottom-0 left-0 right-0 px-6 pb-6 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
+          <div className="absolute bottom-0 left-0 right-0 px-3 md:px-6 pb-4 md:pb-6 pt-3 bg-gradient-to-t from-black/80 via-black/40 to-transparent" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
             <div className="max-w-3xl mx-auto">
               <ChatInput onSend={sendMessage} disabled={isLoading} onOpenVoiceCall={() => setVoiceCallOpen(true)} />
 
               {/* Suggestions */}
-              <div className="mt-4">
+              <div className="mt-3 md:mt-4">
                 <p className="text-center text-xs text-muted-foreground mb-3 flex items-center justify-center gap-1">
                   <Sparkles className="w-3 h-3" />
                   {t("tryAsking")}
@@ -319,7 +319,7 @@ export default function Index() {
               </div>
 
               {/* Footer hint */}
-              <p className="text-center text-xs text-muted-foreground/60 mt-4">
+              <p className="hidden md:block text-center text-xs text-muted-foreground/60 mt-4">
                 {t("inputHint")}
               </p>
             </div>

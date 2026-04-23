@@ -8,8 +8,8 @@ export default function Dashboard() {
     <div className="min-h-screen bg-background text-foreground">
       <Sidebar />
       <Header />
-      <main className="ml-[72px] pt-14 min-h-screen">
-        <div className="px-6 py-4">
+      <main className="ml-0 md:ml-[72px] pt-14 min-h-screen">
+        <div className="px-3 md:px-6 py-4">
           <h1 className="text-2xl font-semibold flex items-center gap-2">
             <Newspaper className="w-6 h-6 text-primary" />
             Dashboard
@@ -18,7 +18,7 @@ export default function Dashboard() {
             Dernières actualités IA et tech depuis Le Monde, Les Echos, Reuters, BBC
           </p>
         </div>
-        <div className="px-6 pb-8">
+        <div className="px-3 md:px-6 pb-8">
           <NewsPanel layout="horizontal" />
         </div>
       </main>

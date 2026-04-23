@@ -23,21 +23,24 @@ export function Header({ onNewChat, searchSlot }: HeaderProps = {}) {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   return (
-    <header className="fixed top-0 left-[72px] right-0 h-14 flex items-center justify-between px-6 z-40"
+    <header
+      className="fixed top-0 left-0 md:left-[72px] right-0 h-14 flex items-center justify-between pl-14 pr-3 md:px-6 gap-2 z-40"
       style={{ background: "linear-gradient(90deg, hsl(0, 0%, 4%, 0.95), hsl(275, 85%, 45%, 0.95))" }}>
-      {/* Search slot (champ contrôlé par Index) */}
-      {searchSlot}
+      {/* Search slot (caché sur mobile pour libérer la barre — ⌘K reste accessible) */}
+      <div className="hidden md:block min-w-0 flex-shrink">{searchSlot}</div>
+      <div className="md:hidden flex-1 min-w-0" />
 
       {/* Right actions */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
         {onNewChat && (
           <button
             onClick={onNewChat}
-            className="h-9 px-3 rounded-lg bg-white/15 hover:bg-white/25 flex items-center gap-2 text-white text-sm font-medium transition-colors border border-white/20"
+            className="h-9 w-9 md:w-auto md:px-3 rounded-lg bg-white/15 hover:bg-white/25 flex items-center justify-center md:gap-2 text-white text-sm font-medium transition-colors border border-white/20"
             title={t("newChatTitle")}
+            aria-label={t("newChat")}
           >
             <Plus className="w-4 h-4" />
-            {t("newChat")}
+            <span className="hidden md:inline">{t("newChat")}</span>
           </button>
         )}
         <NotificationBell />
