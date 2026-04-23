@@ -71,12 +71,18 @@ export default function Auth() {
         <div className="rounded-2xl border border-border/60 bg-card/70 backdrop-blur-xl p-6 shadow-2xl">
           <div className="mb-6 text-center">
             <h2 className="text-lg font-semibold">
-              {mode === "forgot" ? "Réinitialiser le mot de passe" : "Se connecter"}
+              {mode === "forgot"
+                ? "Réinitialiser le mot de passe"
+                : mode === "signup"
+                ? "Créer un compte"
+                : "Se connecter"}
             </h2>
             <p className="text-xs text-muted-foreground mt-1">
               {mode === "forgot"
                 ? "Reçois un lien par e-mail pour choisir un nouveau mot de passe."
-                : "Accès réservé aux comptes existants."}
+                : mode === "signup"
+                ? "Crée ton compte pour accéder à Nex."
+                : "Connecte-toi à ton compte."}
             </p>
           </div>
 
@@ -130,20 +136,35 @@ export default function Auth() {
               className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-60"
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-              {mode === "signin" ? "Se connecter" : "Envoyer l'e-mail"}
+              {mode === "signin"
+                ? "Se connecter"
+                : mode === "signup"
+                ? "Créer le compte"
+                : "Envoyer l'e-mail"}
             </button>
           </form>
 
-          <div className="mt-4 text-center">
-            {mode === "signin" ? (
-              <button onClick={() => setMode("forgot")} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-                Mot de passe oublié ?
-              </button>
-            ) : mode === "forgot" ? (
+          <div className="mt-4 text-center space-y-2">
+            {mode === "signin" && (
+              <>
+                <button onClick={() => setMode("forgot")} className="block w-full text-xs text-muted-foreground hover:text-foreground transition-colors">
+                  Mot de passe oublié ?
+                </button>
+                <button onClick={() => setMode("signup")} className="block w-full text-xs text-primary hover:opacity-80 transition-opacity">
+                  Pas encore de compte ? Créer un compte
+                </button>
+              </>
+            )}
+            {mode === "signup" && (
               <button onClick={() => setMode("signin")} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
                 ← Retour à la connexion
               </button>
-            ) : null}
+            )}
+            {mode === "forgot" && (
+              <button onClick={() => setMode("signin")} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                ← Retour à la connexion
+              </button>
+            )}
           </div>
         </div>
 
