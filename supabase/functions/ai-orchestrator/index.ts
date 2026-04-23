@@ -412,6 +412,42 @@ TOOLS.push({
   },
 });
 
+TOOLS.push({
+  type: "function",
+  function: {
+    name: "launch_local_app",
+    description:
+      "Ouvre une application installée sur l'ORDINATEUR de l'utilisateur via l'agent local Nex. " +
+      "À utiliser quand l'utilisateur dit explicitement 'ouvre/lance/démarre <app>' ET que l'app est " +
+      "un programme natif (Notepad, Word, Excel, Photoshop, Steam, OBS, un .exe, un dossier, etc.) " +
+      "PLUTÔT qu'un site web. " +
+      "Pour les apps web (Gmail, YouTube, etc.), utilise plutôt 'open_app'. " +
+      "Le nom 'target' doit être : soit un nom d'exécutable connu du PATH (ex: 'notepad', 'code', " +
+      "'spotify'), soit un chemin absolu fourni par l'utilisateur (ex: 'C:\\\\Users\\\\moi\\\\app.exe'). " +
+      "L'agent local côté PC vérifie que l'app existe ; s'il n'est pas configuré, l'utilisateur sera invité " +
+      "à le faire dans les Paramètres.",
+    parameters: {
+      type: "object",
+      properties: {
+        target: {
+          type: "string",
+          description: "Nom d'exécutable (ex: 'notepad', 'code', 'spotify') OU chemin absolu de l'app/fichier/dossier.",
+        },
+        args: {
+          type: "array",
+          items: { type: "string" },
+          description: "Arguments optionnels passés à l'exécutable (ex: chemin de fichier à ouvrir).",
+        },
+        label: {
+          type: "string",
+          description: "Nom lisible affiché à l'utilisateur (ex: 'Notepad', 'Visual Studio Code').",
+        },
+      },
+      required: ["target"],
+    },
+  },
+});
+
 async function callTool(name: string, args: any): Promise<{ widget: any; summary: string }> {
   const headers = { Authorization: `Bearer ${ANON}` };
 
