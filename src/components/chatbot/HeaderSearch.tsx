@@ -8,7 +8,8 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import { newsService, appLauncherService, NewsItem, AppDescriptor, ChatMessage } from "@/services";
+import { useNavigate } from "react-router-dom";
+import { newsService, NewsItem, ChatMessage, APP_CATALOG, openAppTarget, AppEntry } from "@/services";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useTranslatedNews } from "@/hooks/useTranslatedNews";
 
@@ -20,6 +21,7 @@ interface HeaderSearchProps {
 
 export function HeaderSearch({ messages, onJumpToMessage, onSuggestion }: HeaderSearchProps) {
   const { t } = useLanguage();
+  const navigate = useNavigate();
   const SUGGESTIONS = [
     t("suggestion1"),
     t("suggestion2"),
@@ -30,7 +32,7 @@ export function HeaderSearch({ messages, onJumpToMessage, onSuggestion }: Header
   const [open, setOpen] = useState(false);
   const [rawNews, setRawNews] = useState<NewsItem[]>([]);
   const { news } = useTranslatedNews(rawNews);
-  const [apps, setApps] = useState<AppDescriptor[]>([]);
+  const apps: AppEntry[] = APP_CATALOG;
   const wrapRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -38,8 +40,7 @@ export function HeaderSearch({ messages, onJumpToMessage, onSuggestion }: Header
   useEffect(() => {
     if (!open) return;
     if (rawNews.length === 0) newsService.getLatest().then(setRawNews);
-    if (apps.length === 0) appLauncherService.listApps().then(setApps);
-  }, [open, rawNews.length, apps.length]);
+  }, [open, rawNews.length]);
 
   // Fermer au clic extérieur
   useEffect(() => {
@@ -84,8 +85,12 @@ export function HeaderSearch({ messages, onJumpToMessage, onSuggestion }: Header
   }, [news, q]);
 
   const matchedApps = useMemo(() => {
-    if (!q) return apps;
-    return apps.filter((a) => a.name.toLowerCase().includes(q));
+    if (!q) return apps.slice(0, 8);
+    return apps.filter(
+      (a) =>
+        a.name.toLowerCase().includes(q) ||
+        a.aliases.some((al) => al.toLowerCase().includes(q)),
+    );
   }, [apps, q]);
 
   const reset = () => {
@@ -198,9 +203,8 @@ export function HeaderSearch({ messages, onJumpToMessage, onSuggestion }: Header
                   key={a.id}
                   icon={<AppWindow className="w-4 h-4 opacity-60" />}
                   trailing={<span className="text-xs opacity-50">{t("launch")}</span>}
-                  onClick={async () => {
-                    const res = await appLauncherService.launchByName(a.name);
-                    console.info("[launch]", res.message);
+                  onClick={() => {
+                    openAppTarget({ kind: a.kind, target: a.target, fallbackUrl: a.fallbackUrl, navigate });
                     reset();
                   }}
                 >

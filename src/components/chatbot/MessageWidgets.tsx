@@ -6,6 +6,7 @@ import { WhatsAppSendWidget } from "./WhatsAppSendWidget";
 import { ReminderWidget } from "./widgets/ReminderWidget";
 import { InsightWidget } from "./widgets/InsightWidget";
 import { ScheduleWidget } from "./widgets/ScheduleWidget";
+import { OpenAppWidget } from "./widgets/OpenAppWidget";
 
 export function MessageWidgets({ widgets }: { widgets: ChatWidget[] }) {
   if (!widgets?.length) return null;
@@ -21,6 +22,16 @@ export function MessageWidgets({ widgets }: { widgets: ChatWidget[] }) {
         if (w.type === "whatsapp_send") return <WhatsAppSendWidget key={i} contact_name={w.contact_name} body={w.body} />;
         if (w.type === "reminder_created") return <ReminderWidget key={i} title={w.title} body={w.body} when_iso={w.when_iso} />;
         if (w.type === "insight_created") return <InsightWidget key={i} title={w.title} body={w.body} />;
+        if (w.type === "open_app") return (
+          <OpenAppWidget
+            key={i}
+            app_name={w.app_name}
+            kind={w.kind}
+            target={w.target}
+            fallback_url={w.fallback_url}
+            auto_opened={w.auto_opened}
+          />
+        );
         if (w.type === "schedule") return (
           <ScheduleWidget
             key={i}

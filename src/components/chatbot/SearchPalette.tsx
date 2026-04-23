@@ -8,7 +8,8 @@ import {
   CommandList,
   CommandSeparator,
 } from "@/components/ui/command";
-import { newsService, appLauncherService, NewsItem, AppDescriptor } from "@/services";
+import { useNavigate } from "react-router-dom";
+import { newsService, NewsItem, APP_CATALOG, openAppTarget, AppEntry } from "@/services";
 import { MessageSquare, Newspaper, AppWindow, ExternalLink, Sparkles } from "lucide-react";
 import { ChatMessage } from "@/services";
 
@@ -28,14 +29,14 @@ interface SearchPaletteProps {
 }
 
 export function SearchPalette({ open, onOpenChange, messages, onJumpToMessage, onSuggestion }: SearchPaletteProps) {
+  const navigate = useNavigate();
   const [news, setNews] = useState<NewsItem[]>([]);
-  const [apps, setApps] = useState<AppDescriptor[]>([]);
+  const apps: AppEntry[] = APP_CATALOG;
   const [query, setQuery] = useState("");
 
   useEffect(() => {
     if (!open) return;
     newsService.getLatest().then(setNews);
-    appLauncherService.listApps().then(setApps);
   }, [open]);
 
   const q = query.trim().toLowerCase();
@@ -58,8 +59,12 @@ export function SearchPalette({ open, onOpenChange, messages, onJumpToMessage, o
   }, [news, q]);
 
   const matchedApps = useMemo(() => {
-    if (!q) return apps;
-    return apps.filter((a) => a.name.toLowerCase().includes(q));
+    if (!q) return apps.slice(0, 8);
+    return apps.filter(
+      (a) =>
+        a.name.toLowerCase().includes(q) ||
+        a.aliases.some((al) => al.toLowerCase().includes(q)),
+    );
   }, [apps, q]);
 
   const close = () => {
@@ -150,21 +155,19 @@ export function SearchPalette({ open, onOpenChange, messages, onJumpToMessage, o
         {matchedNews.length > 0 && matchedApps.length > 0 && <CommandSeparator />}
 
         {matchedApps.length > 0 && (
-          <CommandGroup heading="Applications (Windows)">
+          <CommandGroup heading="Applications">
             {matchedApps.map((a) => (
               <CommandItem
                 key={a.id}
                 value={`app-${a.id}-${a.name}`}
-                onSelect={async () => {
-                  const res = await appLauncherService.launchByName(a.name);
-                  // Notif simple via console pour l'instant ; remplacée plus tard par toast
-                  console.info("[launch]", res.message);
+                onSelect={() => {
+                  openAppTarget({ kind: a.kind, target: a.target, fallbackUrl: a.fallbackUrl, navigate });
                   close();
                 }}
               >
                 <AppWindow className="mr-2 h-4 w-4 opacity-60" />
                 <span>{a.name}</span>
-                <span className="ml-auto text-xs opacity-50">Lancer</span>
+                <span className="ml-auto text-xs opacity-50">Ouvrir</span>
               </CommandItem>
             ))}
           </CommandGroup>

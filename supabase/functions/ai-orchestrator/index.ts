@@ -332,6 +332,86 @@ TOOLS.push({
   },
 });
 
+// Catalogue d'apps connues — dupliqué côté serveur pour que l'IA puisse résoudre une app par nom.
+// Doit rester aligné avec src/services/appLauncherService.ts (APP_CATALOG).
+const APP_CATALOG_SERVER: Array<{
+  id: string;
+  name: string;
+  aliases: string[];
+  kind: "internal" | "web" | "deeplink";
+  target: string;
+  fallback_url?: string;
+}> = [
+  { id: "internal-dashboard", name: "Dashboard",     aliases: ["dashboard", "tableau de bord", "accueil"], kind: "internal", target: "/dashboard" },
+  { id: "internal-analytics", name: "Analytics",     aliases: ["analytics", "stats", "statistiques", "analyses"], kind: "internal", target: "/analytics" },
+  { id: "internal-documents", name: "Documents",     aliases: ["documents", "docs", "fichiers"], kind: "internal", target: "/documents" },
+  { id: "internal-video",     name: "Éditeur vidéo", aliases: ["video", "vidéo", "editeur video", "éditeur vidéo", "montage"], kind: "internal", target: "/video" },
+  { id: "internal-whatsapp",  name: "WhatsApp (app)", aliases: ["whatsapp interne", "page whatsapp", "mes messages"], kind: "internal", target: "/whatsapp" },
+  { id: "internal-notifs",    name: "Notifications", aliases: ["notifications", "notifs", "alertes"], kind: "internal", target: "/notifications" },
+  { id: "internal-settings",  name: "Paramètres",    aliases: ["paramètres", "parametres", "réglages", "settings"], kind: "internal", target: "/settings" },
+  { id: "gmail",    name: "Gmail",           aliases: ["gmail", "mail", "email"], kind: "web", target: "https://mail.google.com" },
+  { id: "gcal",     name: "Google Agenda",   aliases: ["google calendar", "agenda", "calendrier google"], kind: "web", target: "https://calendar.google.com" },
+  { id: "gdrive",   name: "Google Drive",    aliases: ["drive", "google drive"], kind: "web", target: "https://drive.google.com" },
+  { id: "youtube",  name: "YouTube",         aliases: ["youtube", "yt"], kind: "web", target: "https://www.youtube.com" },
+  { id: "google",   name: "Google",          aliases: ["google"], kind: "web", target: "https://www.google.com" },
+  { id: "chatgpt",  name: "ChatGPT",         aliases: ["chatgpt", "openai", "gpt"], kind: "web", target: "https://chat.openai.com" },
+  { id: "claude",   name: "Claude",          aliases: ["claude", "anthropic"], kind: "web", target: "https://claude.ai" },
+  { id: "gemini",   name: "Gemini",          aliases: ["gemini", "bard"], kind: "web", target: "https://gemini.google.com" },
+  { id: "github",   name: "GitHub",          aliases: ["github", "git"], kind: "web", target: "https://github.com" },
+  { id: "notion",   name: "Notion",          aliases: ["notion"], kind: "web", target: "https://www.notion.so" },
+  { id: "linear",   name: "Linear",          aliases: ["linear"], kind: "web", target: "https://linear.app" },
+  { id: "figma",    name: "Figma",           aliases: ["figma"], kind: "web", target: "https://www.figma.com" },
+  { id: "linkedin", name: "LinkedIn",        aliases: ["linkedin"], kind: "web", target: "https://www.linkedin.com" },
+  { id: "x",        name: "X (Twitter)",     aliases: ["twitter", "x.com", "x"], kind: "web", target: "https://x.com" },
+  { id: "wikipedia",name: "Wikipédia",       aliases: ["wikipedia", "wikipédia", "wiki"], kind: "web", target: "https://fr.wikipedia.org" },
+  { id: "maps",     name: "Google Maps",     aliases: ["maps", "google maps", "carte"], kind: "web", target: "https://maps.google.com" },
+  { id: "spotify",  name: "Spotify",   aliases: ["spotify", "musique"], kind: "deeplink", target: "spotify://", fallback_url: "https://open.spotify.com" },
+  { id: "discord",  name: "Discord",   aliases: ["discord"], kind: "deeplink", target: "discord://", fallback_url: "https://discord.com/app" },
+  { id: "vscode",   name: "VS Code",   aliases: ["vscode", "vs code", "visual studio code"], kind: "deeplink", target: "vscode://", fallback_url: "https://vscode.dev" },
+  { id: "slack",    name: "Slack",     aliases: ["slack"], kind: "deeplink", target: "slack://open", fallback_url: "https://app.slack.com" },
+  { id: "zoom",     name: "Zoom",      aliases: ["zoom"], kind: "deeplink", target: "zoommtg://", fallback_url: "https://zoom.us" },
+];
+
+function normalizeStr(s: string): string {
+  return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+}
+
+function findAppServer(query: string) {
+  const q = normalizeStr(query);
+  if (!q) return null;
+  for (const app of APP_CATALOG_SERVER) {
+    if (normalizeStr(app.name) === q) return app;
+    if (app.aliases.some((a) => normalizeStr(a) === q)) return app;
+  }
+  for (const app of APP_CATALOG_SERVER) {
+    if (normalizeStr(app.name).includes(q) || q.includes(normalizeStr(app.name))) return app;
+    if (app.aliases.some((a) => normalizeStr(a).includes(q) || q.includes(normalizeStr(a)))) return app;
+  }
+  return null;
+}
+
+TOOLS.push({
+  type: "function",
+  function: {
+    name: "open_app",
+    description:
+      "Ouvre une application/page pour l'utilisateur. Trois cas :\n" +
+      "1) Page interne de l'app (Dashboard, Analytics, Documents, Vidéo, WhatsApp, Notifications, Paramètres) → s'ouvre AUTOMATIQUEMENT.\n" +
+      "2) Site/web app connue (Gmail, YouTube, GitHub, Notion, Spotify Web, etc.) → bouton de confirmation dans le chat.\n" +
+      "3) URL libre (https://...) si l'utilisateur précise un site précis non listé.\n" +
+      "Utilise app_name pour une app du catalogue (ex: 'Gmail', 'YouTube', 'Spotify'). " +
+      "Utilise url SEULEMENT si l'utilisateur a donné une URL précise ou un site non listé. " +
+      "N'appelle PAS cet outil pour de simples mentions ('hier j'étais sur YouTube') — uniquement sur demande explicite ('ouvre/lance/montre-moi…').",
+    parameters: {
+      type: "object",
+      properties: {
+        app_name: { type: "string", description: "Nom de l'app dans le catalogue. Ex: 'Gmail', 'YouTube', 'Spotify', 'Documents'." },
+        url: { type: "string", description: "URL https complète à ouvrir si app_name n'est pas dans le catalogue." },
+      },
+    },
+  },
+});
+
 async function callTool(name: string, args: any): Promise<{ widget: any; summary: string }> {
   const headers = { Authorization: `Bearer ${ANON}` };
 
@@ -579,6 +659,57 @@ async function callTool(name: string, args: any): Promise<{ widget: any; summary
     };
   }
 
+  if (name === "open_app") {
+    const appName = String(args.app_name || "").trim();
+    const url = String(args.url || "").trim();
+
+    // Match catalogue d'abord
+    if (appName) {
+      const found = findAppServer(appName);
+      if (found) {
+        return {
+          widget: {
+            type: "open_app",
+            app_id: found.id,
+            app_name: found.name,
+            kind: found.kind,
+            target: found.target,
+            fallback_url: found.fallback_url,
+            // Routes internes : on déclenche l'ouverture auto côté client
+            auto_opened: found.kind === "internal",
+          },
+          summary:
+            found.kind === "internal"
+              ? `Page "${found.name}" ouverte (route ${found.target}).`
+              : `Carte d'ouverture affichée pour ${found.name}. L'utilisateur clique pour confirmer.`,
+        };
+      }
+    }
+
+    // Fallback URL libre
+    if (url && /^https?:\/\//i.test(url)) {
+      let host = url;
+      try { host = new URL(url).hostname; } catch { /* ignore */ }
+      return {
+        widget: {
+          type: "open_app",
+          app_name: host,
+          kind: "web" as const,
+          target: url,
+          auto_opened: false,
+        },
+        summary: `Carte d'ouverture affichée pour ${host}.`,
+      };
+    }
+
+    return {
+      widget: null,
+      summary: appName
+        ? `App "${appName}" introuvable dans le catalogue. Demande à l'utilisateur de préciser une URL ou un nom plus connu.`
+        : "Nom d'app ou URL manquant.",
+    };
+  }
+
   return { widget: null, summary: "Outil inconnu" };
 }
 
@@ -724,6 +855,7 @@ function filterToolsForMessage(
     add_schedule_event: /\b(ajoute|note|planifie|enregistre|mets dans (mon )?(agenda|planning|emploi))\b/,
     list_schedule: /\b(planning|emploi du temps|agenda|qu'?est[- ]ce que j'?ai|mon planning|mes rdv)\b/,
     remove_schedule_event: /\b(annul|supprim|enl[èe]ve|retire)\b.*(rdv|rendez|r[ée]union|cours|planning|agenda)/,
+    open_app: /\b(ouvre|ouvrir|lance|lancer|d[ée]marre|emm[èe]ne|am[èe]ne|va sur|navigue|montre[- ]moi (la )?(page|le site)|acc[èe]de [àa])\b/,
   };
 
   // Outils toujours actifs (forcés ou contextuels)
