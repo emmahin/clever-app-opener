@@ -1,5 +1,5 @@
 import { ExternalLink, AppWindow, Globe, Monitor, Check } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { openAppTarget } from "@/services";
 
@@ -14,6 +14,17 @@ interface Props {
 export function OpenAppWidget({ app_name, kind, target, fallback_url, auto_opened }: Props) {
   const navigate = useNavigate();
   const [opened, setOpened] = useState(auto_opened);
+  const didAutoOpenRef = useRef(false);
+
+  // Routes internes : ouvre automatiquement à l'arrivée du widget (une seule fois).
+  useEffect(() => {
+    if (auto_opened && kind === "internal" && !didAutoOpenRef.current) {
+      didAutoOpenRef.current = true;
+      openAppTarget({ kind, target, fallbackUrl: fallback_url, navigate });
+      setOpened(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const Icon = kind === "internal" ? AppWindow : kind === "web" ? Globe : Monitor;
   const kindLabel =
