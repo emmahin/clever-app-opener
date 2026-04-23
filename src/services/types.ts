@@ -11,6 +11,15 @@ export type ChatWidget =
   | { type: "reminder_created"; title: string; body?: string; when_iso: string }
   | { type: "insight_created"; title: string; body: string }
   | {
+      type: "open_app";
+      app_id?: string;
+      app_name: string;
+      kind: "internal" | "web" | "deeplink";
+      target: string;
+      fallback_url?: string;
+      auto_opened: boolean; // true si déjà ouvert automatiquement (route interne)
+    }
+  | {
       type: "schedule";
       range_label?: string;
       range_start_iso?: string;
