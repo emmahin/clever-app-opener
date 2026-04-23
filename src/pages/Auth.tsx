@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Sparkles, Mail, Lock, Loader2, Eye, EyeOff } from "lucide-react";
+import { Sparkles, Mail, Lock, Loader2, Eye, EyeOff, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 
 type Mode = "signin" | "signup" | "forgot";
+
+const SIGNUP_GATE_PASSWORD = "15032010";
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -13,6 +15,25 @@ export default function Auth() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [signupUnlocked, setSignupUnlocked] = useState(false);
+  const [gatePassword, setGatePassword] = useState("");
+  const [gateError, setGateError] = useState<string | null>(null);
+
+  const requestSignup = () => {
+    setGatePassword("");
+    setGateError(null);
+    setMode("signup");
+  };
+
+  const submitGate = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (gatePassword === SIGNUP_GATE_PASSWORD) {
+      setSignupUnlocked(true);
+      setGateError(null);
+    } else {
+      setGateError("Mot de passe incorrect");
+    }
+  };
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -69,6 +90,59 @@ export default function Auth() {
         </div>
 
         <div className="rounded-2xl border border-border/60 bg-card/70 backdrop-blur-xl p-6 shadow-2xl">
+          {mode === "signup" && !signupUnlocked ? (
+            <>
+              <div className="mb-6 text-center">
+                <div className="mx-auto w-12 h-12 rounded-2xl bg-primary/15 flex items-center justify-center mb-3">
+                  <KeyRound className="w-5 h-5 text-primary" />
+                </div>
+                <h2 className="text-lg font-semibold">Accès restreint</h2>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Entre le mot de passe d'accès pour créer un compte.
+                </p>
+              </div>
+              <form onSubmit={submitGate} className="space-y-4">
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground block mb-1.5">
+                    Mot de passe d'accès
+                  </label>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    <input
+                      type="password"
+                      required
+                      autoFocus
+                      value={gatePassword}
+                      onChange={(e) => {
+                        setGatePassword(e.target.value);
+                        if (gateError) setGateError(null);
+                      }}
+                      className="w-full pl-10 pr-3 py-2.5 rounded-lg bg-secondary/40 border border-border/60 text-sm focus:outline-none focus:border-primary"
+                      placeholder="••••••••"
+                    />
+                  </div>
+                  {gateError && (
+                    <p className="text-xs text-destructive mt-1.5">{gateError}</p>
+                  )}
+                </div>
+                <button
+                  type="submit"
+                  className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+                >
+                  Déverrouiller
+                </button>
+              </form>
+              <div className="mt-4 text-center">
+                <button
+                  onClick={() => setMode("signin")}
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  ← Retour à la connexion
+                </button>
+              </div>
+            </>
+          ) : (
+          <>
           <div className="mb-6 text-center">
             <h2 className="text-lg font-semibold">
               {mode === "forgot"
@@ -150,7 +224,7 @@ export default function Auth() {
                 <button onClick={() => setMode("forgot")} className="block w-full text-xs text-muted-foreground hover:text-foreground transition-colors">
                   Mot de passe oublié ?
                 </button>
-                <button onClick={() => setMode("signup")} className="block w-full text-xs text-primary hover:opacity-80 transition-opacity">
+                <button onClick={requestSignup} className="block w-full text-xs text-primary hover:opacity-80 transition-opacity">
                   Pas encore de compte ? Créer un compte
                 </button>
               </>
@@ -166,6 +240,8 @@ export default function Auth() {
               </button>
             )}
           </div>
+          </>
+          )}
         </div>
 
         <p className="text-xs text-muted-foreground text-center mt-6">
