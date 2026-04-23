@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Sparkles, Mail, Lock, Loader2, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
-type Mode = "signin" | "signup" | "forgot";
+type Mode = "signin" | "forgot";
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -29,15 +29,7 @@ export default function Auth() {
     e.preventDefault();
     setLoading(true);
     try {
-      if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { emailRedirectTo: `${window.location.origin}/` },
-        });
-        if (error) throw error;
-        toast.success("Compte créé. Bienvenue !");
-      } else if (mode === "signin") {
+      if (mode === "signin") {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         toast.success("Connecté");
