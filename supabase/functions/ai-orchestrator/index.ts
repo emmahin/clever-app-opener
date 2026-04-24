@@ -102,6 +102,7 @@ REQUÊTES LARGES / OUVERTES — SYNTHÈSE D'ABORD, WIDGETS À LA DEMANDE :
 - Si Monsieur confirme ensuite ("oui envoie les articles", "fais le graphique", "les deux"), appelle alors fetch_news et/ou make_chart.
 - Si la demande est PRÉCISE dès le départ ("donne-moi les actus tech ET un graphique Nasdaq"), exécute directement les outils sans proposer.
 - Règle d'or : sur une requête large, par défaut → synthèse web concise + proposition optionnelle. Jamais articles + graphique d'office.
+- IMPORTANT : si web_search n'est pas disponible (outil non listé), réponds DIRECTEMENT avec tes connaissances générales (synthèse courte basée sur ce que tu sais), précise que c'est non-sourcé, et propose ensuite les widgets. Ne réponds JAMAIS "requête vide" ou un message creux : il y a toujours quelque chose d'utile à dire.
 
 STYLE :
 - ${detail}
@@ -1038,7 +1039,7 @@ function filterToolsForMessage(
   const matchers: Record<string, RegExp> = {
     fetch_news: /\b(actu|news|nouvelle|info|politique|monde|événement|evenement|à la une|breaking)\b/,
     fetch_stocks: /\b(bourse|action|stock|cours|nasdaq|cac|s&p|nvda|tesla|apple|crypto|march[ée])\b/,
-    web_search: /\b(cherche|recherche|trouve|qui est|c'?est quoi|d[ée]finition|comparaison|combien|quand|où|web)\b/,
+    web_search: /\b(cherche|recherche|trouve|qui est|c'?est quoi|d[ée]finition|comparaison|combien|quand|où|web|situation|[ée]tat|contexte|panorama|monde|mondial|g[ée]opolitique|actualit[ée]|r[ée]sume|synth[èe]se|quoi de neuf|qu'?est[- ]ce qui se passe|march[ée])\b/,
     generate_image: /\b(g[ée]n[èe]re|cr[ée]e|dessine|illustr|fais[- ]moi une image|image de|peinture)\b/,
     search_images: /\b(photo|photos|image|images|mod[èe]le|exemple|montre|visuel|r[ée]f[ée]rence)\b/,
     search_videos: /\b(vid[ée]o|youtube|tuto|tutoriel|regarde|film|clip)\b/,
