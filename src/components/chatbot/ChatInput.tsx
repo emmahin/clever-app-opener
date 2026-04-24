@@ -36,6 +36,7 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
   const [plusOpen, setPlusOpen] = useState(false);
   const ctrlHoldingRef = useRef(false);
   const isRecordingRef = useRef(false);
