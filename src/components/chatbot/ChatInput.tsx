@@ -361,6 +361,16 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
           className="hidden"
           onChange={(e) => handleFiles(e.target.files)}
         />
+        <input
+          ref={folderInputRef}
+          type="file"
+          // @ts-expect-error - non-standard but supported by Chromium/WebKit
+          webkitdirectory=""
+          directory=""
+          multiple
+          className="hidden"
+          onChange={(e) => handleFiles(e.target.files)}
+        />
 
         {/* Bottom toolbar */}
         <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/50">
