@@ -147,11 +147,19 @@ export default function Index() {
     }
     for (const m of trimmed) {
       const last = historyForAI[historyForAI.length - 1];
+      // Tronque les messages > 2000 caractères dans l'historique pour économiser les tokens.
+      // Le message courant (dernier user) n'est PAS tronqué pour préserver la requête.
+      const isCurrent = m === trimmed[trimmed.length - 1];
+      const MAX = 2000;
+      const safeContent =
+        !isCurrent && m.content.length > MAX
+          ? m.content.slice(0, MAX) + `\n\n[…tronqué — ${m.content.length - MAX} caractères]`
+          : m.content;
       if (last && last.role === m.role) {
         // Fusionne deux messages consécutifs du même rôle pour éviter un refus de l'IA
-        last.content = `${last.content}\n\n${m.content}`;
+        last.content = `${last.content}\n\n${safeContent}`;
       } else {
-        historyForAI.push({ role: m.role, content: m.content });
+        historyForAI.push({ role: m.role, content: safeContent });
       }
     }
 
