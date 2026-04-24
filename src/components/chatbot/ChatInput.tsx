@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Plus, Globe, Sparkles, Code, Mic, X, FileText, Image as ImageIcon, Music, Loader2, AudioLines, Brain, Wand2 } from "lucide-react";
+import { Plus, Globe, Sparkles, Code, Mic, X, FileText, Image as ImageIcon, Music, Loader2, AudioLines, Brain, Wand2, Camera, Folder, FileType2 } from "lucide-react";
 import { voiceService, ChatAttachment } from "@/services";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { processFile } from "@/lib/attachments";
@@ -32,6 +32,11 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
   const [toolsOpen, setToolsOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+  const docInputRef = useRef<HTMLInputElement>(null);
+  const audioInputRef = useRef<HTMLInputElement>(null);
+  const [plusOpen, setPlusOpen] = useState(false);
   const ctrlHoldingRef = useRef(false);
   const isRecordingRef = useRef(false);
   useEffect(() => { isRecordingRef.current = isRecording; }, [isRecording]);
@@ -323,46 +328,128 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
           className="hidden"
           onChange={(e) => handleFiles(e.target.files)}
         />
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={(e) => handleFiles(e.target.files)}
+        />
+        <input
+          ref={galleryInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          className="hidden"
+          onChange={(e) => handleFiles(e.target.files)}
+        />
+        <input
+          ref={docInputRef}
+          type="file"
+          accept="application/pdf,text/*,.md,.csv,.json,.log,.docx,.doc,.xlsx,.xls,.pptx,.ppt,.txt,.rtf"
+          multiple
+          className="hidden"
+          onChange={(e) => handleFiles(e.target.files)}
+        />
+        <input
+          ref={audioInputRef}
+          type="file"
+          accept="audio/*"
+          multiple
+          className="hidden"
+          onChange={(e) => handleFiles(e.target.files)}
+        />
 
         {/* Bottom toolbar */}
         <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/50">
           <TooltipProvider delayDuration={150}>
             <div className="flex items-center gap-2">
-              <Tooltip>
-                <TooltipTrigger asChild>
+              <Popover open={plusOpen} onOpenChange={setPlusOpen}>
+                <PopoverTrigger asChild>
                   <button
-                    onClick={() => fileInputRef.current?.click()}
                     disabled={processing}
-                    className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors disabled:opacity-50"
+                    className={cn(
+                      "w-9 h-9 rounded-xl flex items-center justify-center transition-all disabled:opacity-50",
+                      "bg-gradient-to-br from-primary/20 to-fuchsia-500/20 border border-primary/30",
+                      "text-primary hover:scale-105 hover:shadow-lg hover:shadow-primary/20",
+                      plusOpen && "scale-105 shadow-lg shadow-primary/30 ring-2 ring-primary/40",
+                    )}
+                    aria-label={t("attachFile")}
                   >
-                    <Plus className="w-4 h-4" />
+                    <Plus className={cn("w-4 h-4 transition-transform", plusOpen && "rotate-45")} />
                   </button>
-                </TooltipTrigger>
-                <TooltipContent side="top">
-                  <div className="flex items-center gap-2">
-                    <FileText className="w-3.5 h-3.5" />
-                    <span>{t("attachFile")}</span>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">{t("attachmentsHint")}</p>
-                </TooltipContent>
-              </Tooltip>
+                </PopoverTrigger>
+                <PopoverContent side="top" align="start" className="w-72 p-2 rounded-2xl">
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => { setPlusOpen(false); cameraInputRef.current?.click(); }}
+                      className="group flex items-center gap-3 p-2.5 rounded-xl hover:bg-accent transition-all hover:scale-[1.02] text-left"
+                    >
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-rose-500/30 to-orange-500/20 border border-rose-500/30 flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
+                        <Camera className="w-4 h-4 text-rose-300" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-semibold text-foreground">Photo</div>
+                        <div className="text-[10px] text-muted-foreground">Appareil photo</div>
+                      </div>
+                    </button>
 
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors"
-                  >
-                    <ImageIcon className="w-4 h-4" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="top">
-                  <div className="flex items-center gap-2">
-                    <ImageIcon className="w-3.5 h-3.5" />
-                    <span>{t("attachImage")}</span>
+                    <button
+                      onClick={() => { setPlusOpen(false); galleryInputRef.current?.click(); }}
+                      className="group flex items-center gap-3 p-2.5 rounded-xl hover:bg-accent transition-all hover:scale-[1.02] text-left"
+                    >
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500/30 to-fuchsia-500/20 border border-violet-500/30 flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
+                        <ImageIcon className="w-4 h-4 text-violet-300" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-semibold text-foreground">Galerie</div>
+                        <div className="text-[10px] text-muted-foreground">Image / vidéo</div>
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => { setPlusOpen(false); docInputRef.current?.click(); }}
+                      className="group flex items-center gap-3 p-2.5 rounded-xl hover:bg-accent transition-all hover:scale-[1.02] text-left"
+                    >
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-500/30 to-cyan-500/20 border border-sky-500/30 flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
+                        <FileType2 className="w-4 h-4 text-sky-300" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-semibold text-foreground">Document</div>
+                        <div className="text-[10px] text-muted-foreground">PDF, Word, Excel…</div>
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => { setPlusOpen(false); audioInputRef.current?.click(); }}
+                      className="group flex items-center gap-3 p-2.5 rounded-xl hover:bg-accent transition-all hover:scale-[1.02] text-left"
+                    >
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500/30 to-teal-500/20 border border-emerald-500/30 flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
+                        <Music className="w-4 h-4 text-emerald-300" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-semibold text-foreground">Audio</div>
+                        <div className="text-[10px] text-muted-foreground">MP3, WAV…</div>
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => { setPlusOpen(false); fileInputRef.current?.click(); }}
+                      className="group flex items-center gap-3 p-2.5 rounded-xl hover:bg-accent transition-all hover:scale-[1.02] text-left col-span-2"
+                    >
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500/30 to-yellow-500/20 border border-amber-500/30 flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
+                        <Folder className="w-4 h-4 text-amber-300" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-semibold text-foreground">Tous fichiers</div>
+                        <div className="text-[10px] text-muted-foreground">Sélection multiple, tout type</div>
+                      </div>
+                    </button>
                   </div>
-                </TooltipContent>
-              </Tooltip>
+                  <p className="text-[10px] text-muted-foreground text-center mt-2 px-2">{t("attachmentsHint")}</p>
+                </PopoverContent>
+              </Popover>
 
               <Tooltip>
                 <TooltipTrigger asChild>
