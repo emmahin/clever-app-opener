@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { localAgentService, type LocalAgentConfig } from "@/services";
-import { Loader2, Check, AlertTriangle, Eye, EyeOff } from "lucide-react";
+import { Loader2, Check, AlertTriangle, Eye, EyeOff, Download } from "lucide-react";
 import { toast } from "sonner";
 
 type TestState =
@@ -38,15 +38,40 @@ export function LocalAgentSection() {
     }
   };
 
+  const downloadAgent = () => {
+    fetch("/nex-local-agent.zip")
+      .then((r) => {
+        if (!r.ok) throw new Error(`Téléchargement impossible (${r.status})`);
+        return r.blob();
+      })
+      .then((blob) => {
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "nex-local-agent.zip";
+        a.click();
+        URL.revokeObjectURL(a.href);
+        toast.success("Agent téléchargé — décompresse et lance START_WINDOWS.bat");
+      })
+      .catch((e) => toast.error(e.message));
+  };
+
   return (
     <div className="space-y-5">
       <div className="rounded-lg bg-secondary/40 border border-border/60 p-3">
         <p className="text-xs text-muted-foreground leading-relaxed">
           Permet à l'IA d'<strong className="text-foreground">ouvrir n'importe quelle application
           installée sur ton PC</strong> (Notepad, Spotify, VS Code, dossiers…). Tu dois lancer
-          le petit agent Python sur ton ordinateur (voir <code className="text-primary">local-agent/README.md</code>),
+          le petit agent Python sur ton ordinateur (télécharge-le ci-dessous),
           puis coller ici son URL et le token que tu as choisi.
         </p>
+        <button
+          type="button"
+          onClick={downloadAgent}
+          className="mt-3 px-3 py-2 rounded-lg bg-primary/15 text-primary text-xs font-medium hover:bg-primary/25 transition-colors flex items-center gap-2"
+        >
+          <Download className="w-3.5 h-3.5" />
+          Télécharger l'agent (ZIP)
+        </button>
       </div>
 
       <ToggleRow
