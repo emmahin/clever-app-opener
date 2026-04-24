@@ -10,7 +10,7 @@ import { OpenAppWidget } from "./widgets/OpenAppWidget";
 import { LocalAppLaunchWidget } from "./widgets/LocalAppLaunchWidget";
 import { OrganizeFilesWidget } from "./widgets/OrganizeFilesWidget";
 
-export function MessageWidgets({ widgets }: { widgets: ChatWidget[] }) {
+export function MessageWidgets({ widgets, messageId }: { widgets: ChatWidget[]; messageId?: string }) {
   if (!widgets?.length) return null;
   return (
     <div className="space-y-4 mt-3">
@@ -51,6 +51,7 @@ export function MessageWidgets({ widgets }: { widgets: ChatWidget[] }) {
             categories={w.categories}
             mapping={w.mapping}
             explanation={w.explanation}
+            messageId={w.messageId || messageId}
           />
         );
         if (w.type === "schedule") return (
