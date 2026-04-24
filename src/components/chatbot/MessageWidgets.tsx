@@ -265,42 +265,48 @@ function WebSourcesWidget({ items }: { items: WebSource[] }) {
 function NewsWidget({ items }: { items: NewsItem[] }) {
   if (!items?.length) return null;
   return (
-    <div className="rounded-xl border border-border/40 bg-white/5 p-3">
-      <div className="text-xs font-semibold text-muted-foreground mb-3 flex items-center gap-2">
-        <Newspaper className="w-3.5 h-3.5 text-primary" />
-        ACTUALITÉS · {items.length} articles
+    <div className="rounded-2xl border border-border/40 bg-white/5 p-4">
+      <div className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+        <Newspaper className="w-4 h-4 text-primary" />
+        Actualités
+        <span className="text-xs text-muted-foreground font-normal">· {items.length} articles</span>
       </div>
-      <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1">
+      <div className="flex gap-4 overflow-x-auto pb-3 -mx-1 px-1 snap-x snap-mandatory scrollbar-thin">
         {items.map((n) => (
           <a
             key={n.id}
             href={n.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="group flex-shrink-0 w-56 rounded-lg overflow-hidden bg-background/40 border border-border/30 hover:border-primary/50 transition-all"
+            className="group flex-shrink-0 w-72 snap-start glass rounded-2xl overflow-hidden border border-border/40 hover:border-primary/50 transition-all hover:-translate-y-0.5"
           >
-            <div className="aspect-video bg-gradient-to-br from-primary/20 to-fuchsia-500/20 relative">
+            <div className="aspect-video bg-gradient-to-br from-primary/20 to-fuchsia-500/20 overflow-hidden relative">
               <div className="absolute inset-0 flex items-center justify-center">
-                <Newspaper className="w-6 h-6 text-white/30" />
+                <Newspaper className="w-10 h-10 text-white/30" />
               </div>
               {n.image && (
                 <img
                   src={n.image}
-                  alt=""
+                  alt={n.title}
                   loading="lazy"
                   referrerPolicy="no-referrer"
-                  className="relative w-full h-full object-cover"
-                  onError={(e) => (e.currentTarget.style.visibility = "hidden")}
+                  className="relative w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  onError={(e) => {
+                    e.currentTarget.style.visibility = "hidden";
+                  }}
                 />
               )}
             </div>
-            <div className="p-2.5">
-              <h4 className="text-xs font-medium text-foreground line-clamp-2 group-hover:text-primary transition-colors">
+            <div className="p-3">
+              <h4 className="text-sm font-medium text-foreground line-clamp-2 group-hover:text-primary transition-colors">
                 {n.title}
               </h4>
-              <div className="flex items-center justify-between mt-1.5 text-[10px] text-muted-foreground/70">
+              {n.summary && (
+                <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2">{n.summary}</p>
+              )}
+              <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground/70">
                 <span className="font-medium">{n.source}</span>
-                <ExternalLink className="w-2.5 h-2.5" />
+                <span>{n.publishedAt}</span>
               </div>
             </div>
           </a>
