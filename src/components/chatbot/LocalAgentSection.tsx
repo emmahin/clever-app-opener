@@ -15,9 +15,7 @@ export function LocalAgentSection() {
   const [test, setTest] = useState<TestState>({ kind: "idle" });
 
   useEffect(() => {
-    // Garde localStorage en phase à chaque modif locale (debounce léger).
-    const id = setTimeout(() => localAgentService.saveConfig(cfg), 250);
-    return () => clearTimeout(id);
+    localAgentService.saveConfig(cfg);
   }, [cfg]);
 
   const runTest = async () => {
