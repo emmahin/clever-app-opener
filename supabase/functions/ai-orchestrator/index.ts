@@ -904,6 +904,36 @@ async function callTool(name: string, args: any): Promise<{ widget: any; summary
     }
   }
 
+  if (name === "organize_files") {
+    try {
+      const fileNames: string[] = Array.isArray(args.file_names)
+        ? args.file_names.map((s: any) => String(s)).filter((s: string) => s.length > 0)
+        : [];
+      if (!fileNames.length) {
+        return { widget: null, summary: "Aucun nom de fichier à trier." };
+      }
+      const groupByYear = !!args.group_by_year;
+      const useSubcategories = args.use_subcategories !== false;
+      const result = organizeFilesServer(fileNames, { groupByYear, useSubcategories });
+      return {
+        widget: {
+          type: "organize_files",
+          root_name: result.rootName,
+          total: result.stats.total,
+          categories: result.stats.categories,
+          mapping: result.mapping,
+          explanation: result.explanation,
+        },
+        summary: `Tri proposé pour ${result.stats.total} fichiers. Catégories : ${
+          Object.entries(result.stats.categories).map(([k, v]) => `${k}(${v})`).join(", ")
+        }.`,
+      };
+    } catch (e) {
+      console.error("organize_files error", e);
+      return { widget: null, summary: "Erreur lors du tri." };
+    }
+  }
+
   return { widget: null, summary: "Outil inconnu" };
 }
 
