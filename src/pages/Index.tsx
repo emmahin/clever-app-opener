@@ -7,7 +7,7 @@ import { SuggestionPills } from "@/components/chatbot/SuggestionPills";
 import { ChatMessageItem } from "@/components/chatbot/ChatMessage";
 import { HeaderSearch } from "@/components/chatbot/HeaderSearch";
 import { chatService, ChatMessage, ChatAttachment } from "@/services";
-import { Expand, Minimize2, Settings2, Sparkles, MessageSquarePlus, Trash2, SlidersHorizontal, PhoneCall } from "lucide-react";
+import { Expand, Minimize2, Settings2, Sparkles, MessageSquarePlus, Trash2, SlidersHorizontal, PhoneCall, Grid, Activity, FileText } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useSettings } from "@/contexts/SettingsProvider";
 import { VoiceCallMode } from "@/components/chatbot/VoiceCallMode";
@@ -308,6 +308,34 @@ export default function Index() {
           <div className="absolute bottom-0 left-0 right-0 px-3 md:px-6 pb-4 md:pb-6 pt-3 bg-gradient-to-t from-black/80 via-black/40 to-transparent" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
             <div className="max-w-3xl mx-auto">
               <ChatInput onSend={sendMessage} disabled={isLoading} onOpenVoiceCall={() => setVoiceCallOpen(true)} />
+
+              {/* Raccourcis fusionnés (anciennement dans la sidebar) */}
+              <div className="mt-3 flex items-center justify-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => navigate("/dashboard")}
+                  className="h-8 px-3 rounded-full text-xs font-medium bg-white/5 hover:bg-white/10 border border-white/10 text-foreground/80 hover:text-foreground flex items-center gap-1.5 transition-colors"
+                >
+                  <Grid className="w-3.5 h-3.5" />
+                  Dashboard
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate("/analytics")}
+                  className="h-8 px-3 rounded-full text-xs font-medium bg-white/5 hover:bg-white/10 border border-white/10 text-foreground/80 hover:text-foreground flex items-center gap-1.5 transition-colors"
+                >
+                  <Activity className="w-3.5 h-3.5" />
+                  Analytics
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate("/documents")}
+                  className="h-8 px-3 rounded-full text-xs font-medium bg-white/5 hover:bg-white/10 border border-white/10 text-foreground/80 hover:text-foreground flex items-center gap-1.5 transition-colors"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  Trieur de docs
+                </button>
+              </div>
 
               {/* Suggestions */}
               <div className="mt-3 md:mt-4">

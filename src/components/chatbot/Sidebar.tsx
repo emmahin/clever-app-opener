@@ -1,4 +1,4 @@
-import { Grid, Sparkles, Activity, FileText, Settings, MessageCircle, Menu, X } from "lucide-react";
+import { Sparkles, Settings, MessageCircle, Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
@@ -6,10 +6,7 @@ import nexLogo from "@/assets/nex-logo.png";
 
 const navItems = [
   { icon: Sparkles, label: "AI Tools", to: "/" },
-  { icon: FileText, label: "Documents", to: "/documents" },
   { icon: MessageCircle, label: "WhatsApp", to: "/whatsapp" },
-  { icon: Grid, label: "Dashboard", to: "/dashboard" },
-  { icon: Activity, label: "Analytics", to: "/analytics" },
   { icon: Settings, label: "Settings", to: "/settings" },
 ];
 
