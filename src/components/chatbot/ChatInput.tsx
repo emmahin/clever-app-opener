@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Plus, Globe, Sparkles, Code, Mic, X, FileText, Image as ImageIcon, Music, Loader2, AudioLines, Brain, Wand2, Camera, Folder, FileType2 } from "lucide-react";
+import { Plus, Globe, Sparkles, Code, Mic, X, FileText, Image as ImageIcon, Music, Loader2, AudioLines, Brain, Wand2, Camera, Folder, FileType2, FolderTree } from "lucide-react";
 import { voiceService, ChatAttachment } from "@/services";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { processFile } from "@/lib/attachments";
@@ -36,6 +36,7 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
   const [plusOpen, setPlusOpen] = useState(false);
   const ctrlHoldingRef = useRef(false);
   const isRecordingRef = useRef(false);
@@ -360,6 +361,16 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
           className="hidden"
           onChange={(e) => handleFiles(e.target.files)}
         />
+        <input
+          ref={folderInputRef}
+          type="file"
+          // @ts-expect-error - non-standard but supported by Chromium/WebKit
+          webkitdirectory=""
+          directory=""
+          multiple
+          className="hidden"
+          onChange={(e) => handleFiles(e.target.files)}
+        />
 
         {/* Bottom toolbar */}
         <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/50">
@@ -436,14 +447,27 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
 
                     <button
                       onClick={() => { setPlusOpen(false); fileInputRef.current?.click(); }}
-                      className="group flex items-center gap-3 p-2.5 rounded-xl hover:bg-accent transition-all hover:scale-[1.02] text-left col-span-2"
+                      className="group flex items-center gap-3 p-2.5 rounded-xl hover:bg-accent transition-all hover:scale-[1.02] text-left"
                     >
                       <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500/30 to-yellow-500/20 border border-amber-500/30 flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
                         <Folder className="w-4 h-4 text-amber-300" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-xs font-semibold text-foreground">Tous fichiers</div>
-                        <div className="text-[10px] text-muted-foreground">Sélection multiple, tout type</div>
+                        <div className="text-[10px] text-muted-foreground">Tout type</div>
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => { setPlusOpen(false); folderInputRef.current?.click(); }}
+                      className="group flex items-center gap-3 p-2.5 rounded-xl hover:bg-accent transition-all hover:scale-[1.02] text-left"
+                    >
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500/30 to-blue-500/20 border border-indigo-500/30 flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
+                        <FolderTree className="w-4 h-4 text-indigo-300" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-semibold text-foreground">Dossier</div>
+                        <div className="text-[10px] text-muted-foreground">Tout un répertoire</div>
                       </div>
                     </button>
                   </div>
