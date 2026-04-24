@@ -1,4 +1,4 @@
-import { ChatWidget, ChartSpec, NewsItem, Stock, WebSource, GalleryImage, VideoItem } from "@/services";
+import { ChatWidget, ChartSpec, ChartSeries, NewsItem, Stock, WebSource, GalleryImage, VideoItem } from "@/services";
 import { useState } from "react";
 import { ExternalLink, Newspaper, TrendingUp, TrendingDown, BarChart3, Globe, ImageIcon, Images, Video, PlayCircle, LineChart as LineChartIcon } from "lucide-react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -415,7 +415,7 @@ function ChartWidget({ chart }: { chart: ChartSpec }) {
   const xKey = chart.xKey || Object.keys(data[0]).find((k) => typeof data[0][k] === "string") || "x";
 
   // Auto-detect series for line/bar/area if not provided: any numeric key except xKey.
-  const inferredSeries =
+  const inferredSeries: ChartSeries[] =
     chart.series && chart.series.length
       ? chart.series
       : Object.keys(data[0])
