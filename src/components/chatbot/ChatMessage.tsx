@@ -21,7 +21,7 @@ export function ChatMessageItem({ message, isThinking }: ChatMessageProps) {
     !isUser &&
     hasWidgets &&
     message.widgets!.some((w) =>
-      ["image_gallery", "news", "stocks", "image", "web_sources", "videos"].includes(w.type as string),
+      ["image_gallery", "news", "stocks", "image", "web_sources", "videos", "organize_files"].includes(w.type as string),
     );
 
   return (
@@ -50,7 +50,7 @@ export function ChatMessageItem({ message, isThinking }: ChatMessageProps) {
             {isThinking && !hasContent && !hasWidgets && (
               <ThinkingIndicator />
             )}
-            {hasWidgets && <MessageWidgets widgets={message.widgets!} />}
+            {hasWidgets && <MessageWidgets widgets={message.widgets!} messageId={message.id} />}
             {hasContent && (
               <div className={hasWidgets ? "mt-3" : ""}>
                 {settings.typewriter ? (

@@ -15,6 +15,8 @@ import { ProjectsBar } from "@/components/chatbot/ProjectsBar";
 import { useNavigate } from "react-router-dom";
 import { notificationService } from "@/services/notificationService";
 import { scheduleService } from "@/services/scheduleService";
+import { organizeLocally } from "@/lib/localOrganizer";
+import { registerOrganizeFiles } from "@/lib/organizeRegistry";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -72,6 +74,7 @@ export default function Index() {
     content: string,
     attachments?: ChatAttachment[],
     options?: { webSearch?: boolean; deepThink?: boolean; forceTool?: "image" | "code" | null },
+    rawFiles?: File[],
   ) => {
     if (!content.trim() && !attachments?.length) return;
 
@@ -85,6 +88,43 @@ export default function Index() {
       content: content.trim() + attachmentSummary,
       createdAt: Date.now(),
     };
+
+    // ─── Tri 100 % local : interception avant tout appel à l'IA ───
+    // Si l'utilisateur joint au moins 2 fichiers ET demande un tri/organisation,
+    // on traite la requête entièrement côté client. 0 token consommé.
+    const ORGANIZE_RE = /\b(trie(?:r|z)?|tri|organis(?:e|er|ez|é|ée)?|range(?:r|z)?|class(?:e|er|ez|é|ée)?|sort|organize|arrange)\b/i;
+    if (rawFiles && rawFiles.length >= 2 && ORGANIZE_RE.test(content)) {
+      setMessages((prev) => [...prev, userMsg]);
+      // Détecte l'option « par année » dans la consigne.
+      const groupByYear = /\bann[ée]e?s?\b/i.test(content);
+      const paths = rawFiles.map((f) => (f as any).webkitRelativePath || f.name);
+      const result = organizeLocally(paths, { groupByYear, useSubcategories: true });
+      const assistantId = crypto.randomUUID();
+      registerOrganizeFiles(assistantId, rawFiles);
+      const summary =
+        `**Tri local effectué** sur ${result.stats.total} fichiers — *0 token utilisé*.\n\n` +
+        `Vous pouvez télécharger l'arborescence proposée en ZIP via le bouton ci-dessus.`;
+      const assistantMsg: ChatMessage = {
+        id: assistantId,
+        role: "assistant",
+        content: summary,
+        createdAt: Date.now(),
+        widgets: [
+          {
+            type: "organize_files",
+            root_name: result.rootName,
+            total: result.stats.total,
+            categories: result.stats.categories,
+            mapping: result.mapping,
+            explanation: result.explanation,
+            messageId: assistantId,
+          },
+        ],
+      };
+      setMessages((prev) => [...prev, assistantMsg]);
+      return;
+    }
+
     // Construit l'historique à envoyer à l'IA à partir de l'état le plus récent.
     // On retire les messages assistant vides (résultat d'erreurs précédentes) ET
     // on s'assure de ne jamais envoyer 2 messages "user" consécutifs (Gemini bug).

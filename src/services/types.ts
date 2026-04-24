@@ -41,6 +41,9 @@ export type ChatWidget =
       categories: Record<string, number>;
       mapping: { from: string; to: string }[];
       explanation?: string;
+      /** Optionnel : id du message hôte. Si présent, le widget récupère les
+       *  fichiers bruts via `getOrganizeFiles(messageId)` pour générer un ZIP. */
+      messageId?: string;
     };
 
 export interface ChatMessage {
