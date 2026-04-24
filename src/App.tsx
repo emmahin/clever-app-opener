@@ -16,6 +16,7 @@ import Documents from "./pages/Documents.tsx";
 import WhatsApp from "./pages/WhatsApp.tsx";
 import Notifications from "./pages/Notifications.tsx";
 import Auth from "./pages/Auth.tsx";
+import Install from "./pages/Install.tsx";
 import { AuthGuard } from "@/components/AuthGuard";
 
 const queryClient = new QueryClient();
@@ -31,6 +32,7 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/auth" element={<Auth />} />
+            <Route path="/install" element={<Install />} />
             <Route path="/" element={<AuthGuard><Index /></AuthGuard>} />
             <Route path="/dashboard" element={<AuthGuard><Dashboard /></AuthGuard>} />
             <Route path="/analytics" element={<AuthGuard><Analytics /></AuthGuard>} />
