@@ -448,6 +448,55 @@ TOOLS.push({
   },
 });
 
+TOOLS.push({
+  type: "function",
+  function: {
+    name: "make_chart",
+    description:
+      "Crée un graphique inline dans la conversation pour visualiser des données chiffrées. " +
+      "À UTILISER dès que tu as des données comparables (évolution dans le temps, parts d'un total, comparaisons entre catégories, etc.) " +
+      "que l'utilisateur demande explicitement OU qui rendent ta réponse plus claire. " +
+      "Choisis 'kind' selon le besoin : " +
+      "'line' = série temporelle ou évolution continue ; " +
+      "'bar' = comparaisons entre catégories ; " +
+      "'pie' = répartition / parts d'un total (max 6 segments) ; " +
+      "'area' = évolution avec accent sur le volume cumulé. " +
+      "Tu fournis les données toi-même (faits connus, chiffres récents si tu viens d'utiliser web_search). " +
+      "Pour les chiffres récents/incertains, utilise d'abord web_search. " +
+      "Format des données : " +
+      "- line/bar/area : tableau d'objets {<xKey>, <serie1>, <serie2>...}, ex: [{annee: '2020', revenus: 12, depenses: 9}]. xKey indique la clé d'axe X. " +
+      "- pie : tableau d'objets {name, value}, ex: [{name: 'France', value: 40}, {name: 'Allemagne', value: 30}]. " +
+      "Maximum 30 points pour line/area, 12 pour bar, 6 pour pie. Mentionne brièvement la source si applicable.",
+    parameters: {
+      type: "object",
+      properties: {
+        kind: { type: "string", enum: ["line", "bar", "pie", "area"], description: "Type de graphique." },
+        title: { type: "string", description: "Titre court du graphique." },
+        subtitle: { type: "string", description: "Sous-titre/source (optionnel)." },
+        xKey: { type: "string", description: "Pour line/bar/area : nom de la clé d'axe X dans data (ex: 'annee', 'mois')." },
+        yLabel: { type: "string", description: "Étiquette de l'axe Y (optionnel)." },
+        series: {
+          type: "array",
+          description: "Pour line/bar/area : liste des séries à tracer. Si omis, toutes les clés numériques de data (sauf xKey) sont utilisées.",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string", description: "Nom de la série, doit correspondre à une clé dans data." },
+            },
+            required: ["name"],
+          },
+        },
+        data: {
+          type: "array",
+          description: "Données du graphique (voir description du tool pour le format selon kind).",
+          items: { type: "object" },
+        },
+      },
+      required: ["kind", "data"],
+    },
+  },
+});
+
 async function callTool(name: string, args: any): Promise<{ widget: any; summary: string }> {
   const headers = { Authorization: `Bearer ${ANON}` };
 
