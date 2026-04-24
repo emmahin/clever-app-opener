@@ -859,6 +859,40 @@ async function callTool(name: string, args: any): Promise<{ widget: any; summary
     };
   }
 
+  if (name === "make_chart") {
+    try {
+      const kind = String(args.kind || "").trim();
+      if (!["line", "bar", "pie", "area"].includes(kind)) {
+        return { widget: null, summary: `Type de graphique invalide: "${kind}".` };
+      }
+      const data = Array.isArray(args.data) ? args.data : [];
+      if (!data.length) return { widget: null, summary: "Données vides pour le graphique." };
+      // Hard caps to keep UI readable
+      const caps: Record<string, number> = { line: 30, area: 30, bar: 12, pie: 6 };
+      const trimmed = data.slice(0, caps[kind] || 30);
+      const chart: Record<string, unknown> = {
+        kind,
+        data: trimmed,
+      };
+      if (typeof args.title === "string") chart.title = args.title.slice(0, 80);
+      if (typeof args.subtitle === "string") chart.subtitle = args.subtitle.slice(0, 160);
+      if (typeof args.xKey === "string") chart.xKey = args.xKey;
+      if (typeof args.yLabel === "string") chart.yLabel = args.yLabel.slice(0, 40);
+      if (Array.isArray(args.series)) {
+        chart.series = args.series
+          .map((s: any) => (s && typeof s.name === "string" ? { name: s.name, color: typeof s.color === "string" ? s.color : undefined } : null))
+          .filter(Boolean);
+      }
+      return {
+        widget: { type: "chart", chart },
+        summary: `Graphique ${kind} affiché (${trimmed.length} points)${args.title ? ` — "${args.title}"` : ""}.`,
+      };
+    } catch (e) {
+      console.error("make_chart error", e);
+      return { widget: null, summary: "Erreur lors de la création du graphique." };
+    }
+  }
+
   return { widget: null, summary: "Outil inconnu" };
 }
 
