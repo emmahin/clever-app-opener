@@ -8,6 +8,7 @@ import { InsightWidget } from "./widgets/InsightWidget";
 import { ScheduleWidget } from "./widgets/ScheduleWidget";
 import { OpenAppWidget } from "./widgets/OpenAppWidget";
 import { LocalAppLaunchWidget } from "./widgets/LocalAppLaunchWidget";
+import { OrganizeFilesWidget } from "./widgets/OrganizeFilesWidget";
 
 export function MessageWidgets({ widgets }: { widgets: ChatWidget[] }) {
   if (!widgets?.length) return null;
@@ -40,6 +41,16 @@ export function MessageWidgets({ widgets }: { widgets: ChatWidget[] }) {
             target={w.target}
             args={w.args}
             label={w.label}
+          />
+        );
+        if (w.type === "organize_files") return (
+          <OrganizeFilesWidget
+            key={i}
+            root_name={w.root_name}
+            total={w.total}
+            categories={w.categories}
+            mapping={w.mapping}
+            explanation={w.explanation}
           />
         );
         if (w.type === "schedule") return (

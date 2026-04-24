@@ -33,6 +33,14 @@ export type ChatWidget =
       target: string;
       args?: string[];
       label?: string; // nom lisible pour l'UI (ex: "Notepad")
+    }
+  | {
+      type: "organize_files";
+      root_name: string;
+      total: number;
+      categories: Record<string, number>;
+      mapping: { from: string; to: string }[];
+      explanation?: string;
     };
 
 export interface ChatMessage {
