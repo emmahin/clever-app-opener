@@ -106,6 +106,36 @@ def _is_allowed(target: str) -> bool:
     return any(a in (t, base, name_no_ext) for a in ALLOWLIST)
 
 
+def _resolve_windows_shortcut_or_app(target: str) -> Optional[str]:
+    if sys.platform != "win32":
+        return None
+
+    query = target.strip().lower()
+    if not query:
+        return None
+
+    normalized = query.removesuffix(".exe")
+    candidates = {query, normalized}
+
+    start_menu_dirs = [
+        os.path.join(os.environ.get("APPDATA", ""), r"Microsoft\Windows\Start Menu\Programs"),
+        os.path.join(os.environ.get("PROGRAMDATA", ""), r"Microsoft\Windows\Start Menu\Programs"),
+    ]
+
+    for root in start_menu_dirs:
+        if not root or not os.path.isdir(root):
+            continue
+        for dirpath, _, filenames in os.walk(root):
+            for filename in filenames:
+                lower = filename.lower()
+                stem, ext = os.path.splitext(lower)
+                if ext not in {".lnk", ".url", ".exe"}:
+                    continue
+                if lower in candidates or stem in candidates:
+                    return os.path.join(dirpath, filename)
+    return None
+
+
 # ─────────────────── Endpoints ───────────────────
 @app.get("/ping")
 def ping(authorization: Optional[str] = Header(default=None)):
@@ -161,6 +191,11 @@ def launch(body: LaunchBody, authorization: Optional[str] = Header(default=None)
         if resolved:
             subprocess.Popen([resolved, *body.args])
             return JSONResponse({"ok": True, "method": "popen", "target": resolved})
+
+        shortcut = _resolve_windows_shortcut_or_app(target)
+        if shortcut:
+            os.startfile(shortcut)  # type: ignore[attr-defined]
+            return JSONResponse({"ok": True, "method": "start-menu", "target": shortcut})
 
         # 3) Sur Windows, on tente quand même start <name> (gère URI scheme + apps shell).
         if sys.platform == "win32":
