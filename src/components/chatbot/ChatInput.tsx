@@ -15,7 +15,12 @@ export interface SendOptions {
 }
 
 interface ChatInputProps {
-  onSend: (message: string, attachments?: ChatAttachment[], options?: SendOptions) => void;
+  onSend: (
+    message: string,
+    attachments?: ChatAttachment[],
+    options?: SendOptions,
+    rawFiles?: File[],
+  ) => void;
   disabled?: boolean;
   onOpenVoiceCall?: () => void;
 }
@@ -25,6 +30,9 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
   const [value, setValue] = useState("");
   const [isRecording, setIsRecording] = useState(false);
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
+  // Fichiers bruts conservés pour les usages locaux (ex : tri + export ZIP).
+  // Pas envoyés à l'IA pour économiser les tokens.
+  const [rawFiles, setRawFiles] = useState<File[]>([]);
   const [processing, setProcessing] = useState(false);
   const [webSearch, setWebSearch] = useState(false);
   const [deepThink, setDeepThink] = useState(false);
@@ -116,9 +124,11 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
       value.trim() || (attachments.length ? "Analyse les fichiers joints." : ""),
       attachments.length ? attachments : undefined,
       { webSearch, deepThink, forceTool: nextTool },
+      rawFiles.length ? rawFiles : undefined,
     );
     setValue("");
     setAttachments([]);
+    setRawFiles([]);
     setNextTool(null); // one-shot
   };
   useEffect(() => { handleSendRef.current = handleSend; });
@@ -133,13 +143,18 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
   const handleFiles = async (files: FileList | null) => {
     if (!files || !files.length) return;
     setProcessing(true);
+    const arr = Array.from(files);
+    // Conserve TOUJOURS les fichiers bruts (utile pour le tri + ZIP local, sans tokens).
+    setRawFiles((prev) => [...prev, ...arr]);
     const next: ChatAttachment[] = [];
-    for (const file of Array.from(files)) {
+    for (const file of arr) {
       try {
         const att = await processFile(file);
         next.push(att);
       } catch (err: any) {
-        toast.error(err?.message || t("fileError"));
+        // Fichiers non-supportés par processFile (ex : .docx, .xlsx) :
+        // on les garde quand même dans rawFiles pour le tri local.
+        console.warn("processFile skipped:", file.name, err?.message);
       }
     }
     if (next.length) setAttachments((prev) => [...prev, ...next]);
@@ -149,6 +164,8 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
 
   const removeAttachment = (idx: number) => {
     setAttachments((prev) => prev.filter((_, i) => i !== idx));
+    // On retire aussi le fichier brut correspondant au même index si possible.
+    setRawFiles((prev) => prev.filter((_, i) => i !== idx));
   };
 
   const toggleRecording = async () => {
