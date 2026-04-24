@@ -89,6 +89,7 @@ Quand l'utilisateur dit une heure, c'est l'heure LOCALE. Format ISO 8601 avec of
 RÈGLES OUTILS (n'utilise un outil QUE si la demande l'exige) :
 - Données fraîches/web/actu/finance → fetch_news / fetch_stocks / web_search.
 - Image générée / photos d'exemples / vidéo → generate_image / search_images / search_videos.
+- Données chiffrées comparables (évolution, parts, comparaisons, classement) → make_chart, EN PLUS d'une courte explication. Pour des chiffres récents/incertains, fais d'abord web_search puis make_chart avec les données obtenues. Choisis le bon kind (line/bar/pie/area).
 - "Envoie/écris à X" → send_whatsapp_message. "Rappelle-moi…" → create_reminder.
 - Planning : add_schedule_event UNIQUEMENT sur demande EXPLICITE ("ajoute/note/planifie/enregistre dans mon agenda"). Une simple mention ("je vais voir Léa demain") N'EST PAS une demande — n'appelle RIEN. En doute, demande confirmation. list_schedule pour afficher, remove_schedule_event pour annuler.
 - Sinon, réponds directement sans outil.
@@ -448,6 +449,55 @@ TOOLS.push({
   },
 });
 
+TOOLS.push({
+  type: "function",
+  function: {
+    name: "make_chart",
+    description:
+      "Crée un graphique inline dans la conversation pour visualiser des données chiffrées. " +
+      "À UTILISER dès que tu as des données comparables (évolution dans le temps, parts d'un total, comparaisons entre catégories, etc.) " +
+      "que l'utilisateur demande explicitement OU qui rendent ta réponse plus claire. " +
+      "Choisis 'kind' selon le besoin : " +
+      "'line' = série temporelle ou évolution continue ; " +
+      "'bar' = comparaisons entre catégories ; " +
+      "'pie' = répartition / parts d'un total (max 6 segments) ; " +
+      "'area' = évolution avec accent sur le volume cumulé. " +
+      "Tu fournis les données toi-même (faits connus, chiffres récents si tu viens d'utiliser web_search). " +
+      "Pour les chiffres récents/incertains, utilise d'abord web_search. " +
+      "Format des données : " +
+      "- line/bar/area : tableau d'objets {<xKey>, <serie1>, <serie2>...}, ex: [{annee: '2020', revenus: 12, depenses: 9}]. xKey indique la clé d'axe X. " +
+      "- pie : tableau d'objets {name, value}, ex: [{name: 'France', value: 40}, {name: 'Allemagne', value: 30}]. " +
+      "Maximum 30 points pour line/area, 12 pour bar, 6 pour pie. Mentionne brièvement la source si applicable.",
+    parameters: {
+      type: "object",
+      properties: {
+        kind: { type: "string", enum: ["line", "bar", "pie", "area"], description: "Type de graphique." },
+        title: { type: "string", description: "Titre court du graphique." },
+        subtitle: { type: "string", description: "Sous-titre/source (optionnel)." },
+        xKey: { type: "string", description: "Pour line/bar/area : nom de la clé d'axe X dans data (ex: 'annee', 'mois')." },
+        yLabel: { type: "string", description: "Étiquette de l'axe Y (optionnel)." },
+        series: {
+          type: "array",
+          description: "Pour line/bar/area : liste des séries à tracer. Si omis, toutes les clés numériques de data (sauf xKey) sont utilisées.",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string", description: "Nom de la série, doit correspondre à une clé dans data." },
+            },
+            required: ["name"],
+          },
+        },
+        data: {
+          type: "array",
+          description: "Données du graphique (voir description du tool pour le format selon kind).",
+          items: { type: "object" },
+        },
+      },
+      required: ["kind", "data"],
+    },
+  },
+});
+
 async function callTool(name: string, args: any): Promise<{ widget: any; summary: string }> {
   const headers = { Authorization: `Bearer ${ANON}` };
 
@@ -488,7 +538,48 @@ async function callTool(name: string, args: any): Promise<{ widget: any; summary
     try {
       const q = String(args.query || "").trim();
       if (!q) return { widget: null, summary: "Requête vide" };
-      // DuckDuckGo Instant Answer + HTML scrape fallback
+
+      // PRIMARY: Gemini with google_search tool (grounding) — gives fresh results + real sources.
+      try {
+        const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash",
+            messages: [
+              { role: "system", content: "Tu es un moteur de recherche web. Réponds UNIQUEMENT en synthétisant 3-5 faits clés (puces) à partir des résultats web frais, en citant les sources entre crochets [1], [2]…" },
+              { role: "user", content: q },
+            ],
+            tools: [{ google_search: {} }],
+          }),
+        });
+        if (r.ok) {
+          const data = await r.json();
+          const choice = data.choices?.[0];
+          const content: string = choice?.message?.content || "";
+          // Extract grounding sources if available (OpenAI-compat surface from Gemini gateway).
+          const groundingChunks: any[] =
+            choice?.message?.grounding_metadata?.grounding_chunks ||
+            choice?.grounding_metadata?.grounding_chunks ||
+            [];
+          const items = groundingChunks
+            .map((g: any) => g?.web)
+            .filter((w: any) => w?.uri)
+            .slice(0, 6)
+            .map((w: any) => ({ title: String(w.title || w.uri).slice(0, 140), url: String(w.uri), snippet: "" }));
+          if (items.length || content) {
+            const summary = (content || "Pas de synthèse disponible.") +
+              (items.length ? "\n\nSources:\n" + items.map((it, i) => `[${i + 1}] ${it.title} — ${it.url}`).join("\n") : "");
+            return { widget: items.length ? { type: "web_sources", items } : null, summary };
+          }
+        } else {
+          console.warn("google_search via gateway failed:", r.status, await r.text().catch(() => ""));
+        }
+      } catch (e) {
+        console.warn("google_search exception, falling back to DDG:", e);
+      }
+
+      // FALLBACK: DuckDuckGo Instant Answer + HTML scrape
       const ddg = await fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(q)}&format=json&no_html=1&skip_disambig=1`);
       const dj = await ddg.json().catch(() => ({}));
       const items: any[] = [];
@@ -767,6 +858,40 @@ async function callTool(name: string, args: any): Promise<{ widget: any; summary
         `Le widget côté client tente l'ouverture via l'agent Nex sur le PC de l'utilisateur. ` +
         `Si l'agent n'est pas configuré, l'utilisateur sera invité à le faire dans les Paramètres.`,
     };
+  }
+
+  if (name === "make_chart") {
+    try {
+      const kind = String(args.kind || "").trim();
+      if (!["line", "bar", "pie", "area"].includes(kind)) {
+        return { widget: null, summary: `Type de graphique invalide: "${kind}".` };
+      }
+      const data = Array.isArray(args.data) ? args.data : [];
+      if (!data.length) return { widget: null, summary: "Données vides pour le graphique." };
+      // Hard caps to keep UI readable
+      const caps: Record<string, number> = { line: 30, area: 30, bar: 12, pie: 6 };
+      const trimmed = data.slice(0, caps[kind] || 30);
+      const chart: Record<string, unknown> = {
+        kind,
+        data: trimmed,
+      };
+      if (typeof args.title === "string") chart.title = args.title.slice(0, 80);
+      if (typeof args.subtitle === "string") chart.subtitle = args.subtitle.slice(0, 160);
+      if (typeof args.xKey === "string") chart.xKey = args.xKey;
+      if (typeof args.yLabel === "string") chart.yLabel = args.yLabel.slice(0, 40);
+      if (Array.isArray(args.series)) {
+        chart.series = args.series
+          .map((s: any) => (s && typeof s.name === "string" ? { name: s.name, color: typeof s.color === "string" ? s.color : undefined } : null))
+          .filter(Boolean);
+      }
+      return {
+        widget: { type: "chart", chart },
+        summary: `Graphique ${kind} affiché (${trimmed.length} points)${args.title ? ` — "${args.title}"` : ""}.`,
+      };
+    } catch (e) {
+      console.error("make_chart error", e);
+      return { widget: null, summary: "Erreur lors de la création du graphique." };
+    }
   }
 
   return { widget: null, summary: "Outil inconnu" };

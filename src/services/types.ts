@@ -7,6 +7,7 @@ export type ChatWidget =
   | { type: "image_gallery"; query: string; items: GalleryImage[] }
   | { type: "videos"; query?: string; items: VideoItem[] }
   | { type: "web_sources"; items: WebSource[] }
+  | { type: "chart"; chart: ChartSpec }
   | { type: "whatsapp_send"; contact_name: string; body: string }
   | { type: "reminder_created"; title: string; body?: string; when_iso: string }
   | { type: "insight_created"; title: string; body: string }
@@ -85,6 +86,30 @@ export interface VideoItem {
 export interface StockPoint {
   date: string;
   close: number;
+}
+
+export type ChartKind = "line" | "bar" | "pie" | "area";
+
+export interface ChartSeries {
+  name: string;
+  /** Optional explicit color override (HSL string). If omitted, theme palette is used. */
+  color?: string;
+}
+
+/**
+ * Spec for an inline chart rendered in chat.
+ * - For line/bar/area: `data` is an array of objects keyed by `xKey` and one entry per series name.
+ *   Example: { month: "Jan", revenue: 120, costs: 80 }, series=[{name:"revenue"},{name:"costs"}], xKey="month"
+ * - For pie: `data` is an array of `{ name, value }`. xKey/series are ignored.
+ */
+export interface ChartSpec {
+  kind: ChartKind;
+  title?: string;
+  subtitle?: string;
+  xKey?: string;
+  yLabel?: string;
+  series?: ChartSeries[];
+  data: Array<Record<string, string | number>>;
 }
 
 export interface Stock {

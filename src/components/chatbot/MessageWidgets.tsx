@@ -1,7 +1,7 @@
-import { ChatWidget, NewsItem, Stock, WebSource, GalleryImage, VideoItem } from "@/services";
+import { ChatWidget, ChartSpec, ChartSeries, NewsItem, Stock, WebSource, GalleryImage, VideoItem } from "@/services";
 import { useState } from "react";
-import { ExternalLink, Newspaper, TrendingUp, TrendingDown, BarChart3, Globe, ImageIcon, Images, Video, PlayCircle } from "lucide-react";
-import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { ExternalLink, Newspaper, TrendingUp, TrendingDown, BarChart3, Globe, ImageIcon, Images, Video, PlayCircle, LineChart as LineChartIcon } from "lucide-react";
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { WhatsAppSendWidget } from "./WhatsAppSendWidget";
 import { ReminderWidget } from "./widgets/ReminderWidget";
 import { InsightWidget } from "./widgets/InsightWidget";
@@ -20,6 +20,7 @@ export function MessageWidgets({ widgets }: { widgets: ChatWidget[] }) {
         if (w.type === "image_gallery") return <ImageGalleryWidget key={i} query={w.query} items={w.items} />;
         if (w.type === "videos") return <VideosWidget key={i} query={w.query} items={w.items} />;
         if (w.type === "web_sources") return <WebSourcesWidget key={i} items={w.items} />;
+        if (w.type === "chart") return <ChartWidget key={i} chart={w.chart} />;
         if (w.type === "whatsapp_send") return <WhatsAppSendWidget key={i} contact_name={w.contact_name} body={w.body} />;
         if (w.type === "reminder_created") return <ReminderWidget key={i} title={w.title} body={w.body} when_iso={w.when_iso} />;
         if (w.type === "insight_created") return <InsightWidget key={i} title={w.title} body={w.body} />;
@@ -385,6 +386,138 @@ function StocksWidget({ items }: { items: Stock[] }) {
             </a>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+// Theme-aligned palette using HSL semantic tokens (cycles for multi-series).
+const CHART_PALETTE = [
+  "hsl(var(--primary))",
+  "hsl(var(--accent))",
+  "hsl(142, 76%, 60%)",
+  "hsl(38, 92%, 60%)",
+  "hsl(280, 70%, 65%)",
+  "hsl(190, 80%, 55%)",
+  "hsl(0, 75%, 65%)",
+];
+
+function ChartWidget({ chart }: { chart: ChartSpec }) {
+  const data = Array.isArray(chart?.data) ? chart.data : [];
+  if (!data.length) {
+    return (
+      <div className="rounded-xl border border-border/40 bg-white/5 p-3 text-xs text-muted-foreground">
+        Aucune donnée pour le graphique.
+      </div>
+    );
+  }
+
+  const xKey = chart.xKey || Object.keys(data[0]).find((k) => typeof data[0][k] === "string") || "x";
+
+  // Auto-detect series for line/bar/area if not provided: any numeric key except xKey.
+  const inferredSeries: ChartSeries[] =
+    chart.series && chart.series.length
+      ? chart.series
+      : Object.keys(data[0])
+          .filter((k) => k !== xKey && typeof data[0][k] === "number")
+          .map((name) => ({ name }));
+
+  const tooltipStyle = {
+    background: "hsl(var(--popover))",
+    border: "1px solid hsl(var(--border))",
+    borderRadius: "8px",
+    fontSize: "11px",
+    color: "hsl(var(--popover-foreground))",
+  } as const;
+  const axisTick = { fill: "hsl(var(--muted-foreground))", fontSize: 10 };
+  const grid = "hsl(var(--border) / 0.5)";
+
+  return (
+    <div className="rounded-xl border border-border/40 bg-white/5 p-3">
+      <div className="text-xs font-semibold text-muted-foreground mb-1 flex items-center gap-2">
+        <LineChartIcon className="w-3.5 h-3.5 text-primary" />
+        {chart.title?.toUpperCase() || `GRAPHIQUE · ${chart.kind.toUpperCase()}`}
+      </div>
+      {chart.subtitle && <p className="text-[10px] text-muted-foreground/80 mb-2">{chart.subtitle}</p>}
+      <div className="h-64 -mx-1 mt-2">
+        <ResponsiveContainer width="100%" height="100%">
+          {chart.kind === "pie" ? (
+            <PieChart>
+              <Tooltip contentStyle={tooltipStyle} />
+              <Legend wrapperStyle={{ fontSize: 11, color: "hsl(var(--muted-foreground))" }} />
+              <Pie
+                data={data}
+                dataKey="value"
+                nameKey="name"
+                outerRadius={80}
+                innerRadius={30}
+                paddingAngle={2}
+                isAnimationActive={false}
+              >
+                {data.map((_, i) => (
+                  <Cell key={i} fill={CHART_PALETTE[i % CHART_PALETTE.length]} />
+                ))}
+              </Pie>
+            </PieChart>
+          ) : chart.kind === "bar" ? (
+            <BarChart data={data} margin={{ top: 10, right: 16, left: 4, bottom: 4 }}>
+              <CartesianGrid stroke={grid} strokeDasharray="3 3" />
+              <XAxis dataKey={xKey} tick={axisTick} tickLine={false} />
+              <YAxis tick={axisTick} tickLine={false} width={32} label={chart.yLabel ? { value: chart.yLabel, angle: -90, position: "insideLeft", fill: "hsl(var(--muted-foreground))", fontSize: 10 } : undefined} />
+              <Tooltip contentStyle={tooltipStyle} />
+              <Legend wrapperStyle={{ fontSize: 11, color: "hsl(var(--muted-foreground))" }} />
+              {inferredSeries.map((s, i) => (
+                <Bar key={s.name} dataKey={s.name} fill={s.color || CHART_PALETTE[i % CHART_PALETTE.length]} radius={[4, 4, 0, 0]} isAnimationActive={false} />
+              ))}
+            </BarChart>
+          ) : chart.kind === "area" ? (
+            <AreaChart data={data} margin={{ top: 10, right: 16, left: 4, bottom: 4 }}>
+              <CartesianGrid stroke={grid} strokeDasharray="3 3" />
+              <XAxis dataKey={xKey} tick={axisTick} tickLine={false} />
+              <YAxis tick={axisTick} tickLine={false} width={32} />
+              <Tooltip contentStyle={tooltipStyle} />
+              <Legend wrapperStyle={{ fontSize: 11, color: "hsl(var(--muted-foreground))" }} />
+              {inferredSeries.map((s, i) => {
+                const color = s.color || CHART_PALETTE[i % CHART_PALETTE.length];
+                return (
+                  <Area
+                    key={s.name}
+                    type="monotone"
+                    dataKey={s.name}
+                    stroke={color}
+                    fill={color}
+                    fillOpacity={0.25}
+                    strokeWidth={2}
+                    isAnimationActive={false}
+                  />
+                );
+              })}
+            </AreaChart>
+          ) : (
+            <LineChart data={data} margin={{ top: 10, right: 16, left: 4, bottom: 4 }}>
+              <CartesianGrid stroke={grid} strokeDasharray="3 3" />
+              <XAxis dataKey={xKey} tick={axisTick} tickLine={false} />
+              <YAxis tick={axisTick} tickLine={false} width={32} />
+              <Tooltip contentStyle={tooltipStyle} />
+              <Legend wrapperStyle={{ fontSize: 11, color: "hsl(var(--muted-foreground))" }} />
+              {inferredSeries.map((s, i) => {
+                const color = s.color || CHART_PALETTE[i % CHART_PALETTE.length];
+                return (
+                  <Line
+                    key={s.name}
+                    type="monotone"
+                    dataKey={s.name}
+                    stroke={color}
+                    strokeWidth={2}
+                    dot={{ fill: color, r: 2.5 }}
+                    activeDot={{ r: 4 }}
+                    isAnimationActive={false}
+                  />
+                );
+              })}
+            </LineChart>
+          )}
+        </ResponsiveContainer>
       </div>
     </div>
   );
