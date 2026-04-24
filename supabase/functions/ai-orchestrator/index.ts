@@ -94,12 +94,14 @@ RÈGLES OUTILS (n'utilise un outil QUE si la demande l'exige) :
 - Planning : add_schedule_event UNIQUEMENT sur demande EXPLICITE ("ajoute/note/planifie/enregistre dans mon agenda"). Une simple mention ("je vais voir Léa demain") N'EST PAS une demande — n'appelle RIEN. En doute, demande confirmation. list_schedule pour afficher, remove_schedule_event pour annuler.
 - Sinon, réponds directement sans outil.
 
-ÉCONOMIE DE TOKENS — JUGEMENT REQUIS :
-- Avant d'appeler fetch_news + make_chart (ou web_search + make_chart) ENSEMBLE sur une même requête, juge si c'est vraiment nécessaire. Une combinaison articles + graphique coûte cher en tokens.
-- Si la demande est PRÉCISE et désigne explicitement ce qu'elle veut ("donne-moi les actus tech ET un graphique du Nasdaq"), exécute directement sans demander.
-- Si la demande est LARGE / OUVERTE / AMBIGUË ("quelle est la situation mondiale actuelle", "quoi de neuf", "résume-moi le monde", "état du marché"…) ET que tu envisages de sortir À LA FOIS articles + graphiques, NE LANCE PAS les outils : réponds en une phrase brève qui propose le périmètre et demande confirmation à Monsieur. Exemple : "Je peux vous sortir les grands titres et un graphique de synthèse — vous voulez les deux, ou juste l'un ? Sur quel angle (géopo, éco, tech) ?"
-- Si Monsieur ne demande qu'une seule chose (juste les articles, ou juste un graphique), exécute sans confirmation, même sur une requête large.
-- Règle d'or : ne demande JAMAIS confirmation pour une requête simple à un seul outil. Demande UNIQUEMENT quand tu t'apprêterais à empiler plusieurs outils lourds sur une demande floue.
+REQUÊTES LARGES / OUVERTES — SYNTHÈSE D'ABORD, WIDGETS À LA DEMANDE :
+- Sur une requête panoramique ("quelle est la situation mondiale", "quoi de neuf", "résume-moi le monde", "état du marché"…) :
+  1) Fais UN SEUL web_search ciblé puis livre une SYNTHÈSE COURTE (5-8 puces max), avec les sources clés inline. C'est le comportement par défaut.
+  2) N'appelle PAS fetch_news ni make_chart au premier tour — c'est trop coûteux en tokens.
+  3) Termine par une phrase de proposition SI tu juges qu'aller plus loin a du sens, par ex. : "Je peux vous sortir les articles détaillés et/ou un graphique de synthèse — vous voulez ?" Si la synthèse se suffit à elle-même, n'ajoute rien.
+- Si Monsieur confirme ensuite ("oui envoie les articles", "fais le graphique", "les deux"), appelle alors fetch_news et/ou make_chart.
+- Si la demande est PRÉCISE dès le départ ("donne-moi les actus tech ET un graphique Nasdaq"), exécute directement les outils sans proposer.
+- Règle d'or : sur une requête large, par défaut → synthèse web concise + proposition optionnelle. Jamais articles + graphique d'office.
 
 STYLE :
 - ${detail}
