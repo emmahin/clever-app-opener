@@ -537,7 +537,48 @@ async function callTool(name: string, args: any): Promise<{ widget: any; summary
     try {
       const q = String(args.query || "").trim();
       if (!q) return { widget: null, summary: "Requête vide" };
-      // DuckDuckGo Instant Answer + HTML scrape fallback
+
+      // PRIMARY: Gemini with google_search tool (grounding) — gives fresh results + real sources.
+      try {
+        const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash",
+            messages: [
+              { role: "system", content: "Tu es un moteur de recherche web. Réponds UNIQUEMENT en synthétisant 3-5 faits clés (puces) à partir des résultats web frais, en citant les sources entre crochets [1], [2]…" },
+              { role: "user", content: q },
+            ],
+            tools: [{ google_search: {} }],
+          }),
+        });
+        if (r.ok) {
+          const data = await r.json();
+          const choice = data.choices?.[0];
+          const content: string = choice?.message?.content || "";
+          // Extract grounding sources if available (OpenAI-compat surface from Gemini gateway).
+          const groundingChunks: any[] =
+            choice?.message?.grounding_metadata?.grounding_chunks ||
+            choice?.grounding_metadata?.grounding_chunks ||
+            [];
+          const items = groundingChunks
+            .map((g: any) => g?.web)
+            .filter((w: any) => w?.uri)
+            .slice(0, 6)
+            .map((w: any) => ({ title: String(w.title || w.uri).slice(0, 140), url: String(w.uri), snippet: "" }));
+          if (items.length || content) {
+            const summary = (content || "Pas de synthèse disponible.") +
+              (items.length ? "\n\nSources:\n" + items.map((it, i) => `[${i + 1}] ${it.title} — ${it.url}`).join("\n") : "");
+            return { widget: items.length ? { type: "web_sources", items } : null, summary };
+          }
+        } else {
+          console.warn("google_search via gateway failed:", r.status, await r.text().catch(() => ""));
+        }
+      } catch (e) {
+        console.warn("google_search exception, falling back to DDG:", e);
+      }
+
+      // FALLBACK: DuckDuckGo Instant Answer + HTML scrape
       const ddg = await fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(q)}&format=json&no_html=1&skip_disambig=1`);
       const dj = await ddg.json().catch(() => ({}));
       const items: any[] = [];
