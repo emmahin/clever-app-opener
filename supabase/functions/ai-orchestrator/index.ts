@@ -508,6 +508,134 @@ TOOLS.push({
   },
 });
 
+TOOLS.push({
+  type: "function",
+  function: {
+    name: "organize_files",
+    description:
+      "Propose une arborescence de tri pour une liste de fichiers (par leur nom). " +
+      "À UTILISER quand l'utilisateur demande de 'trier', 'organiser', 'ranger', 'classer' des fichiers, " +
+      "OU quand il joint plusieurs fichiers en mentionnant un classement. " +
+      "Tu DOIS lister les noms de fichiers via le paramètre file_names (récupère-les dans la liste " +
+      "'PIÈCES JOINTES' du contexte si elle est fournie ; sinon demande à l'utilisateur). " +
+      "Le tri se fait par extension (Images, Documents, Tableurs, Vidéos, Audio, Code, Archives…) " +
+      "avec sous-catégories thématiques (Factures, Contrats, CV, Photos, Captures…) déduites du nom. " +
+      "Renvoie un widget visuel d'arborescence dans le chat.",
+    parameters: {
+      type: "object",
+      properties: {
+        file_names: {
+          type: "array",
+          items: { type: "string" },
+          description: "Liste des noms de fichiers à trier (avec extension, ex: 'facture-edf-2024.pdf').",
+        },
+        group_by_year: {
+          type: "boolean",
+          description: "Si vrai, regroupe aussi par année détectée dans le nom (ex: 2024).",
+        },
+        use_subcategories: {
+          type: "boolean",
+          description: "Si vrai (défaut), ajoute des sous-dossiers thématiques (Factures, Contrats…).",
+        },
+      },
+      required: ["file_names"],
+    },
+  },
+});
+
+// ─── Moteur de tri local (équivalent serveur de src/lib/localOrganizer.ts) ───
+const ORG_CATEGORIES: { name: string; exts: string[] }[] = [
+  { name: "Images", exts: ["jpg", "jpeg", "png", "gif", "bmp", "webp", "svg", "heic", "tiff", "raw"] },
+  { name: "Vidéos", exts: ["mp4", "mov", "avi", "mkv", "webm", "flv", "wmv", "m4v"] },
+  { name: "Audio", exts: ["mp3", "wav", "flac", "aac", "ogg", "m4a", "wma"] },
+  { name: "Documents", exts: ["pdf", "doc", "docx", "odt", "rtf", "txt", "md", "tex"] },
+  { name: "Tableurs", exts: ["xls", "xlsx", "ods", "csv", "tsv"] },
+  { name: "Présentations", exts: ["ppt", "pptx", "odp", "key"] },
+  { name: "Archives", exts: ["zip", "rar", "7z", "tar", "gz", "bz2", "xz"] },
+  { name: "Code", exts: ["js", "ts", "tsx", "jsx", "py", "java", "c", "cpp", "h", "cs", "go", "rs", "rb", "php", "html", "css", "json", "xml", "yml", "yaml", "sh"] },
+  { name: "Polices", exts: ["ttf", "otf", "woff", "woff2"] },
+  { name: "Executables", exts: ["exe", "msi", "dmg", "apk", "app", "deb", "rpm"] },
+];
+const ORG_KEYWORDS: { sub: string; words: string[] }[] = [
+  { sub: "Factures", words: ["facture", "invoice", "fact_", "fact-"] },
+  { sub: "Contrats", words: ["contrat", "contract", "accord", "agreement"] },
+  { sub: "Devis", words: ["devis", "quote", "estimate"] },
+  { sub: "Reçus", words: ["recu", "reçu", "receipt", "ticket"] },
+  { sub: "Relevés", words: ["releve", "relevé", "statement", "bank"] },
+  { sub: "CV", words: ["cv", "resume", "curriculum"] },
+  { sub: "Captures", words: ["screenshot", "capture", "screen-", "screen_"] },
+  { sub: "Photos", words: ["img_", "img-", "dsc_", "dsc-", "photo", "pict"] },
+  { sub: "Rapports", words: ["rapport", "report"] },
+  { sub: "Notes", words: ["note", "memo"] },
+];
+function orgGetExt(name: string): string {
+  const i = name.lastIndexOf(".");
+  return i >= 0 ? name.slice(i + 1).toLowerCase() : "";
+}
+function orgCategoryFor(ext: string): string {
+  for (const c of ORG_CATEGORIES) if (c.exts.includes(ext)) return c.name;
+  return "Autres";
+}
+function orgSubcategoryFor(name: string): string | null {
+  const lower = name.toLowerCase();
+  for (const k of ORG_KEYWORDS) if (k.words.some((w) => lower.includes(w))) return k.sub;
+  return null;
+}
+function orgYearFromName(name: string): string | null {
+  const m = name.match(/(19|20)\d{2}/);
+  return m ? m[0] : null;
+}
+function organizeFilesServer(
+  fileNames: string[],
+  opts: { groupByYear?: boolean; useSubcategories?: boolean; rootName?: string } = {},
+): {
+  rootName: string;
+  mapping: { from: string; to: string }[];
+  explanation: string;
+  stats: { total: number; categories: Record<string, number> };
+} {
+  const { groupByYear = false, useSubcategories = true, rootName = "Dossier-Reorganise" } = opts;
+  const mapping: { from: string; to: string }[] = [];
+  const categories: Record<string, number> = {};
+  const used = new Set<string>();
+
+  for (const from of fileNames) {
+    const base = from.split("/").pop() || from;
+    const ext = orgGetExt(base);
+    const cat = orgCategoryFor(ext);
+    const segments: string[] = [cat];
+    if (useSubcategories) {
+      const sub = orgSubcategoryFor(base);
+      if (sub) segments.push(sub);
+    }
+    if (groupByYear) {
+      const y = orgYearFromName(base);
+      if (y) segments.push(y);
+    }
+    let to = segments.join("/") + "/" + base;
+    let i = 1;
+    while (used.has(to)) {
+      const dot = base.lastIndexOf(".");
+      const stem = dot > 0 ? base.slice(0, dot) : base;
+      const tail = dot > 0 ? base.slice(dot) : "";
+      to = segments.join("/") + "/" + `${stem} (${i})${tail}`;
+      i++;
+    }
+    used.add(to);
+    mapping.push({ from, to });
+    categories[cat] = (categories[cat] || 0) + 1;
+  }
+
+  const topCats = Object.entries(categories).sort((a, b) => b[1] - a[1])
+    .map(([k, v]) => `${k} (${v})`).join(", ");
+  const explanation =
+    `Tri proposé sur ${fileNames.length} fichier(s). Catégories : ${topCats}.` +
+    (groupByYear ? " Regroupement par année activé." : "") +
+    (useSubcategories ? " Sous-dossiers thématiques activés." : "");
+
+  return { rootName, mapping, explanation, stats: { total: fileNames.length, categories } };
+}
+
 async function callTool(name: string, args: any): Promise<{ widget: any; summary: string }> {
   const headers = { Authorization: `Bearer ${ANON}` };
 
