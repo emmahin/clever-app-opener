@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Plus, Globe, Sparkles, Code, Mic, X, FileText, Image as ImageIcon, Music, Loader2, AudioLines, Brain, Wand2 } from "lucide-react";
+import { Plus, Globe, Sparkles, Code, Mic, X, FileText, Image as ImageIcon, Music, Loader2, AudioLines, Brain, Wand2, Camera, Folder, FileType2 } from "lucide-react";
 import { voiceService, ChatAttachment } from "@/services";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { processFile } from "@/lib/attachments";
@@ -32,6 +32,11 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
   const [toolsOpen, setToolsOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+  const docInputRef = useRef<HTMLInputElement>(null);
+  const audioInputRef = useRef<HTMLInputElement>(null);
+  const [plusOpen, setPlusOpen] = useState(false);
   const ctrlHoldingRef = useRef(false);
   const isRecordingRef = useRef(false);
   useEffect(() => { isRecordingRef.current = isRecording; }, [isRecording]);
