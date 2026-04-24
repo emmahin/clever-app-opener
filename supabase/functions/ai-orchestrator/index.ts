@@ -1257,13 +1257,13 @@ Deno.serve(async (req) => {
             docTexts.push(`\n\n--- Transcription audio: ${a.name || "audio"} ---\n${a.text.slice(0, 8000)}\n--- fin transcription ---`);
           }
         }
+        if (docTexts.length) parts[0].text = String(last.content || "") + docTexts.join("");
         // Liste explicite des noms de fichiers — utile pour l'outil organize_files
         const allNames = atts.map((a: any) => String(a?.name || "")).filter((n: string) => n.length > 0);
         if (allNames.length) {
           parts[0].text = String(parts[0].text || "") +
             `\n\nPIÈCES JOINTES (${allNames.length}) : ${allNames.join(", ")}`;
         }
-        if (docTexts.length) parts[0].text = String(last.content || "") + docTexts.join("");
         messages[lastIdx] = { role: "user", content: parts };
       }
     }
