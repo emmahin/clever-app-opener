@@ -31,6 +31,7 @@ export const APP_CATALOG: AppEntry[] = [
   { id: "internal-whatsapp",  name: "WhatsApp (app)", aliases: ["whatsapp interne", "page whatsapp", "mes messages"], kind: "internal", target: "/whatsapp" },
   { id: "internal-notifs",    name: "Notifications", aliases: ["notifications", "notifs", "alertes"], kind: "internal", target: "/notifications" },
   { id: "internal-settings",  name: "Paramètres",    aliases: ["paramètres", "parametres", "réglages", "settings"], kind: "internal", target: "/settings" },
+  { id: "internal-install",   name: "Installer Nex", aliases: ["installer", "installation", "installer l'app", "installer app", "mettre sur le bureau", "ajouter à l'écran d'accueil", "pwa", "install"], kind: "internal", target: "/install" },
 
   // ── Web apps (toujours fiables) ─────────────────────────────────────────
   { id: "gmail",    name: "Gmail",           aliases: ["gmail", "mail", "email", "boite mail", "boîte mail"], kind: "web", target: "https://mail.google.com" },
