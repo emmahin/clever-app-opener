@@ -26,6 +26,18 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+function extractLocalExecutableRequest(content: string): { target: string; label: string } | null {
+  const text = content.trim();
+  if (!/\b(ouvre|ouvrir|lance|lancer|d[ée]marre|start|open|launch)\b/i.test(text)) return null;
+
+  const pathMatch = text.match(/([a-zA-Z]:\\[^\n"'`]+?\.(?:exe|lnk|url|bat|cmd|msi))\b/i);
+  const target = pathMatch?.[1]?.trim() || text.match(/(?:ouvre|ouvrir|lance|lancer|d[ée]marre|start|open|launch)\s+(?:l['’]application\s+|le\s+programme\s+)?([^\s"'`]+?\.(?:exe|lnk|url|bat|cmd|msi))\b/i)?.[1]?.trim();
+
+  if (!target) return null;
+  const label = target.split(/[\\/]/).pop() || target;
+  return { target, label };
+}
+
 export default function Index() {
   const { lang, t } = useLanguage();
   const { settings } = useSettings();
@@ -88,6 +100,22 @@ export default function Index() {
       content: content.trim() + attachmentSummary,
       createdAt: Date.now(),
     };
+
+    const localExecutable = extractLocalExecutableRequest(content);
+    if (localExecutable) {
+      setMessages((prev) => [...prev, userMsg]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: `Je tente d'ouvrir **${localExecutable.label}** via l'agent local.`,
+          createdAt: Date.now(),
+          widgets: [{ type: "launch_local_app", target: localExecutable.target, label: localExecutable.label }],
+        },
+      ]);
+      return;
+    }
 
     // ─── Tri 100 % local : interception avant tout appel à l'IA ───
     // Si l'utilisateur joint au moins 2 fichiers ET demande un tri/organisation,
