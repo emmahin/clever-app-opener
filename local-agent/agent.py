@@ -236,6 +236,10 @@ def _launch_windows_path(path: str, args: list[str], method: str) -> JSONRespons
     ext = os.path.splitext(path)[1].lower()
     if ext == ".exe":
         subprocess.Popen([path, *args])
+    elif ext in {".bat", ".cmd"}:
+        subprocess.Popen([path, *args], shell=True)
+    elif ext in {".msi"}:
+        subprocess.Popen(["msiexec", "/i", path, *args])
     else:
         os.startfile(path)  # type: ignore[attr-defined]
     return JSONResponse({"ok": True, "method": method, "target": path})
