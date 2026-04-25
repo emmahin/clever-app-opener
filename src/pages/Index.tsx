@@ -6,7 +6,7 @@ import { ChatInput } from "@/components/chatbot/ChatInput";
 import { SuggestionPills } from "@/components/chatbot/SuggestionPills";
 import { ChatMessageItem } from "@/components/chatbot/ChatMessage";
 import { HeaderSearch } from "@/components/chatbot/HeaderSearch";
-import { chatService, ChatMessage, ChatAttachment } from "@/services";
+import { chatService, ChatMessage, ChatAttachment, APP_CATALOG } from "@/services";
 import { Expand, Minimize2, Settings2, Sparkles, MessageSquarePlus, Trash2, SlidersHorizontal, PhoneCall } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useSettings } from "@/contexts/SettingsProvider";
@@ -29,6 +29,27 @@ import {
 function extractLocalExecutableRequest(content: string): { target: string; label: string } | null {
   const text = content.trim();
   if (!/\b(ouvre|ouvrir|lance|lancer|d[ée]marre|start|open|launch)\b/i.test(text)) return null;
+
+  const normalized = text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  const nativeCatalogApp = APP_CATALOG.find(
+    (app) =>
+      app.kind === "deeplink" &&
+      [app.name, ...app.aliases].some((alias) => {
+        const normalizedAlias = alias
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "");
+        return new RegExp(`\\b${normalizedAlias.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(normalized);
+      }),
+  );
+
+  if (nativeCatalogApp) {
+    return { target: nativeCatalogApp.aliases[0] || nativeCatalogApp.name, label: nativeCatalogApp.name };
+  }
 
   const pathMatch = text.match(/([a-zA-Z]:\\[^\n"'`]+?\.(?:exe|lnk|url|bat|cmd|msi))\b/i);
   const target = pathMatch?.[1]?.trim() || text.match(/(?:ouvre|ouvrir|lance|lancer|d[ée]marre|start|open|launch)\s+(?:l['’]application\s+|le\s+programme\s+)?([^\s"'`]+?\.(?:exe|lnk|url|bat|cmd|msi))\b/i)?.[1]?.trim();
