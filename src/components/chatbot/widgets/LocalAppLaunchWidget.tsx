@@ -18,18 +18,29 @@ type Status = "idle" | "launching" | "ok" | "error" | "not-configured";
 export function LocalAppLaunchWidget({ target, args, label }: Props) {
   const [status, setStatus] = useState<Status>("idle");
   const [detail, setDetail] = useState<string>("");
+  const [logs, setLogs] = useState<string[]>([]);
   const triedRef = useRef(false);
 
   const displayName = label || target;
 
+  const addLog = (line: string) => {
+    const stamped = `${new Date().toLocaleTimeString()} · ${line}`;
+    console.debug("[nex:local-app-widget]", { line, target, args, label, status });
+    setLogs((prev) => [...prev.slice(-5), stamped]);
+  };
+
   const launch = async () => {
+    addLog(`Demande d'ouverture reçue: ${displayName}`);
     if (!localAgentService.isConfigured()) {
+      addLog("Agent local non configuré: affichage du panneau de configuration.");
       setStatus("not-configured");
       return;
     }
     setStatus("launching");
     setDetail("");
+    addLog(`Envoi à l'agent local: target=${target}${args?.length ? ` args=${args.join(" ")}` : ""}`);
     const r = await localAgentService.launch(target, args || []);
+    addLog(`Réponse agent: ok=${r.ok} method=${r.method || "n/a"} target=${r.target || "n/a"} detail=${r.detail || "n/a"}`);
     if (r.ok) {
       setStatus("ok");
       setDetail(r.target ? `via ${r.method || "agent"}` : "");
@@ -97,6 +108,19 @@ export function LocalAppLaunchWidget({ target, args, label }: Props) {
         <p className="text-[10px] text-muted-foreground mt-2">
           Demande envoyée à l'agent local{detail ? ` · ${detail}` : ""}. Aucune fenêtre navigateur ne s'affiche : l'application doit s'ouvrir directement sur ton PC.
         </p>
+      )}
+
+      {logs.length > 0 && (
+        <div className="mt-3 rounded-lg border border-border/40 bg-secondary/30 px-3 py-2">
+          <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Logs ouverture app
+          </div>
+          <div className="space-y-1 font-mono text-[10px] leading-relaxed text-muted-foreground">
+            {logs.map((line, index) => (
+              <div key={`${line}-${index}`}>{line}</div>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );

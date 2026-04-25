@@ -98,19 +98,24 @@ export function openAppTarget(opts: {
   navigate?: (path: string) => void;     // injecté depuis React Router
 }): { ok: boolean; method: "navigate" | "tab" | "deeplink"; message: string } {
   const { kind, target, fallbackUrl, navigate } = opts;
+  console.debug("[nex:app-launcher-service] browser open requested", { kind, target, fallbackUrl });
 
   if (kind === "internal") {
     if (navigate) {
+      console.debug("[nex:app-launcher-service] navigating internal route", { target });
       navigate(target);
       return { ok: true, method: "navigate", message: `Navigué vers ${target}.` };
     }
+    console.debug("[nex:app-launcher-service] assigning window.location", { target });
     window.location.href = target;
     return { ok: true, method: "navigate", message: `Navigué vers ${target}.` };
   }
 
   if (kind === "web") {
+    console.debug("[nex:app-launcher-service] opening web tab", { target });
     const w = window.open(target, "_blank", "noopener,noreferrer");
     if (!w) {
+      console.debug("[nex:app-launcher-service] web tab blocked", { target });
       return { ok: false, method: "tab", message: "Le navigateur a bloqué la pop-up. Autorise les pop-ups pour ce site." };
     }
     return { ok: true, method: "tab", message: `Ouvert ${target} dans un nouvel onglet.` };
@@ -119,6 +124,7 @@ export function openAppTarget(opts: {
   // deeplink : on tente UNIQUEMENT le protocole custom.
   // On n'ouvre JAMAIS de fallback web automatique (règle utilisateur).
   try {
+    console.debug("[nex:app-launcher-service] attempting deeplink iframe", { target });
     const iframe = document.createElement("iframe");
     iframe.style.display = "none";
     iframe.src = target;

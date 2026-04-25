@@ -43,11 +43,13 @@ type LocalLaunchIntent =
 function extractLocalExecutableRequest(content: string): LocalLaunchIntent | null {
   const text = content.trim();
   if (!/\b(ouvre|ouvrir|lance|lancer|d[ée]marre|start|open|launch|exécute|execute)\b/i.test(text)) {
+    console.debug("[nex:local-launch-detect] no launch verb", { content });
     return null;
   }
 
   // L'utilisateur demande explicitement un lien web → on n'intercepte pas.
   if (/\b(site|lien|url|page web|web|navigateur|onglet|browser)\b/i.test(text) || /https?:\/\//i.test(text)) {
+    console.debug("[nex:local-launch-detect] explicit web request: bypass local interception", { content });
     return null;
   }
 
@@ -56,12 +58,14 @@ function extractLocalExecutableRequest(content: string): LocalLaunchIntent | nul
   if (pathMatch?.[1]) {
     const target = pathMatch[1].trim();
     const label = target.split(/[\\/]/).pop() || target;
+    console.debug("[nex:local-launch-detect] explicit windows path matched", { content, target, label });
     return { kind: "found", target, label };
   }
   const inlinePath = text.match(/(?:ouvre|ouvrir|lance|lancer|d[ée]marre|start|open|launch|exécute|execute)\s+(?:l['’]application\s+|le\s+programme\s+)?([^\s"'`]+?\.(?:exe|lnk|bat|cmd|msi))\b/i);
   if (inlinePath?.[1]) {
     const target = inlinePath[1].trim();
     const label = target.split(/[\\/]/).pop() || target;
+    console.debug("[nex:local-launch-detect] inline executable matched", { content, target, label });
     return { kind: "found", target, label };
   }
 
@@ -70,7 +74,10 @@ function extractLocalExecutableRequest(content: string): LocalLaunchIntent | nul
     /(?:ouvre|ouvrir|lance|lancer|d[ée]marre|start|open|launch|exécute|execute)\s+(?:l['’]?application\s+|le\s+programme\s+|l['’]?app\s+|the\s+app\s+)?(.+?)(?:\s+(?:stp|svp|please)?\s*[.!?]?$)/i,
   );
   let subject = subjectMatch?.[1]?.trim();
-  if (!subject || subject.length < 2) return null;
+  if (!subject || subject.length < 2) {
+    console.debug("[nex:local-launch-detect] no app subject extracted", { content });
+    return null;
+  }
   // Nettoyage : "moi", articles, ponctuation finale
   subject = subject.replace(/^(moi|me|stp|svp)\s+/i, "").replace(/[.!?,;]+$/g, "").trim();
   if (!subject) return null;
@@ -79,6 +86,7 @@ function extractLocalExecutableRequest(content: string): LocalLaunchIntent | nul
   if (localAgentService.isConfigured()) {
     const cachedApp = localAgentService.findCachedApp(subject);
     if (cachedApp) {
+      console.debug("[nex:local-launch-detect] cached app matched", { content, subject, cachedApp });
       return { kind: "found", target: cachedApp.path, label: cachedApp.name };
     }
   }
@@ -100,6 +108,7 @@ function extractLocalExecutableRequest(content: string): LocalLaunchIntent | nul
       }),
   );
   if (nativeCatalogApp) {
+    console.debug("[nex:local-launch-detect] native catalog matched", { content, subject, nativeCatalogApp });
     return {
       kind: "found",
       target: nativeCatalogApp.aliases[0] || nativeCatalogApp.name,
@@ -108,6 +117,7 @@ function extractLocalExecutableRequest(content: string): LocalLaunchIntent | nul
   }
 
   // 3) Rien trouvé → on signale "introuvable" sans jamais ouvrir de lien web.
+  console.debug("[nex:local-launch-detect] app not found locally", { content, subject });
   return { kind: "not-found", label: subject };
 }
 

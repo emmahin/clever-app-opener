@@ -181,10 +181,19 @@ export const localAgentService: ILocalAgentService = {
 
   async launch(target, args = []) {
     const c = readStorage();
+    console.debug("[nex:local-agent-service] launch requested", {
+      enabled: c.enabled,
+      hasUrl: !!c.url,
+      hasToken: !!c.token,
+      target,
+      args,
+    });
     if (!c.enabled) {
+      console.debug("[nex:local-agent-service] blocked: agent disabled", { target });
       throw new Error("Agent local désactivé dans les paramètres.");
     }
     if (!c.url || !c.token) {
+      console.debug("[nex:local-agent-service] blocked: missing url/token", { target, hasUrl: !!c.url, hasToken: !!c.token });
       throw new Error("Agent local non configuré (URL ou token manquant).");
     }
     const ctrl = new AbortController();
@@ -200,6 +209,12 @@ export const localAgentService: ILocalAgentService = {
         signal: ctrl.signal,
       });
       const data = await resp.json().catch(() => ({} as any));
+      console.debug("[nex:local-agent-service] launch response", {
+        status: resp.status,
+        ok: resp.ok,
+        target,
+        data,
+      });
       if (!resp.ok) {
         const detail = (data && (data.detail || data.message)) || `HTTP ${resp.status}`;
         return { ok: false, detail: String(detail) };
@@ -211,8 +226,10 @@ export const localAgentService: ILocalAgentService = {
       };
     } catch (e: any) {
       if (e?.name === "AbortError") {
+        console.debug("[nex:local-agent-service] launch timeout", { target });
         return { ok: false, detail: "Agent injoignable (timeout)." };
       }
+      console.debug("[nex:local-agent-service] launch network error", { target, message: e?.message });
       return { ok: false, detail: e?.message || "Erreur réseau." };
     } finally {
       clearTimeout(t);

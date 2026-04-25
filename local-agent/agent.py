@@ -429,6 +429,7 @@ def _looks_like_uri_target(target: str) -> bool:
 
 
 def _launch_windows_path(path: str, args: list[str], method: str) -> JSONResponse:
+    print(f"[nex-agent] launch resolved method={method} target={path} args={args}", flush=True)
     ext = os.path.splitext(path)[1].lower()
     if ext == ".exe":
         subprocess.Popen([path, *args])
@@ -464,6 +465,7 @@ class LaunchBody(BaseModel):
 def launch(body: LaunchBody, authorization: Optional[str] = Header(default=None)):
     _check_auth(authorization)
     target = (body.target or "").strip()
+    print(f"[nex-agent] launch request target={target!r} args={body.args}", flush=True)
     if not target:
         raise HTTPException(status_code=400, detail="Target is required")
 
@@ -480,6 +482,7 @@ def launch(body: LaunchBody, authorization: Optional[str] = Header(default=None)
     try:
         # 1) Si c'est un chemin absolu existant → on lance directement.
         if os.path.isabs(target) and os.path.exists(target):
+            print(f"[nex-agent] strategy=absolute-path matched target={target}", flush=True)
             ext = os.path.splitext(target)[1].lower()
             if sys.platform == "win32" and ext == ".url":
                 raise HTTPException(
@@ -498,33 +501,40 @@ def launch(body: LaunchBody, authorization: Optional[str] = Header(default=None)
         # 2) Sinon, on cherche dans le PATH.
         resolved = shutil.which(target)
         if resolved:
+            print(f"[nex-agent] strategy=path-which matched target={resolved}", flush=True)
             subprocess.Popen([resolved, *body.args])
             return JSONResponse({"ok": True, "method": "popen", "target": resolved})
 
         known_path = _resolve_known_windows_path(target)
         if known_path:
+            print(f"[nex-agent] strategy=known-path matched target={known_path}", flush=True)
             return _launch_windows_path(known_path, body.args, "known-path")
 
         # Stratégies inspirées du script utilisateur :
         # alias avec chemins probables → registre App Paths → commande 'where'
         alias_path = _resolve_known_app_alias(target)
         if alias_path:
+            print(f"[nex-agent] strategy=alias-path matched target={alias_path}", flush=True)
             return _launch_windows_path(alias_path, body.args, "alias-path")
 
         registry_path = _resolve_via_registry_app_paths(target)
         if registry_path:
+            print(f"[nex-agent] strategy=registry-app-paths matched target={registry_path}", flush=True)
             return _launch_windows_path(registry_path, body.args, "registry-app-paths")
 
         where_path = _resolve_via_where(target)
         if where_path:
+            print(f"[nex-agent] strategy=where matched target={where_path}", flush=True)
             return _launch_windows_path(where_path, body.args, "where")
 
         shortcut = _resolve_windows_shortcut_or_app(target)
         if shortcut:
+            print(f"[nex-agent] strategy=start-menu matched target={shortcut}", flush=True)
             return _launch_windows_path(shortcut, body.args, "start-menu")
 
         # 3) Sur Windows, on tente start uniquement pour les URI schemes explicites.
         if sys.platform == "win32" and _looks_like_uri_target(target):
+            print(f"[nex-agent] strategy=shell-start-uri matched target={target}", flush=True)
             cmd = f'start "" {shlex.quote(target)}'
             subprocess.Popen(cmd, shell=True)
             return JSONResponse({"ok": True, "method": "shell-start", "target": target})
@@ -536,6 +546,7 @@ def launch(body: LaunchBody, authorization: Optional[str] = Header(default=None)
     except HTTPException:
         raise
     except Exception as e:
+        print(f"[nex-agent] launch error target={target!r} error={e}", flush=True)
         raise HTTPException(status_code=500, detail=f"Échec du lancement : {e}")
 
 
