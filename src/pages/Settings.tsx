@@ -7,7 +7,6 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useNotificationPrefs } from "@/hooks/useNotifications";
 import { NotificationType } from "@/services/notificationService";
-import { ConnectedAccountsSection } from "@/components/chatbot/ConnectedAccountsSection";
 import { LocalAgentSection } from "@/components/chatbot/LocalAgentSection";
 
 export default function Settings() {
@@ -242,15 +241,6 @@ export default function Settings() {
                 <p className="text-xs text-muted-foreground mt-1">Tu reçois une alerte si une valeur de ta watchlist bouge de ce pourcentage.</p>
               </div>
             </div>
-          </Section>
-
-          {/* Comptes connectés */}
-          <Section
-            icon={<Link2 className="w-5 h-5" />}
-            title="Comptes connectés"
-            description="WhatsApp, ChatGPT, Notion… connecte tes services pour qu'ils soient accessibles depuis l'IA."
-          >
-            <ConnectedAccountsSection />
           </Section>
 
           {/* Agent local PC */}
