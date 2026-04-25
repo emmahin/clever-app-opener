@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Sparkles, Mic, Phone, PhoneOff, Plus, Trash2, Calendar, Brain, Loader2 } from "lucide-react";
+import { Sparkles, Mic, Phone, PhoneOff, Plus, Trash2, Calendar, Brain, Loader2, Eraser } from "lucide-react";
 import { Sidebar } from "@/components/chatbot/Sidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { twinMemoryService, type UserMemory, type ScheduleEventDB, type MemoryCategory } from "@/services";
-import { useTwinVoice } from "@/hooks/useTwinVoice";
+import { useTwinVoiceContext } from "@/contexts/TwinVoiceProvider";
 
 const CATEGORY_LABEL: Record<MemoryCategory, string> = {
   habit: "Habitude",
@@ -56,18 +56,22 @@ export default function Twin() {
 
   useEffect(() => { refreshAll(); }, [refreshAll]);
 
-  // ─── Voice loop (Lovable AI + STT navigateur + TTS ElevenLabs/fallback) ───
-  const voice = useTwinVoice({
-    onError: (msg) => toast.error(msg),
-    onMemoryChange: () => { refreshAll(); },
-    getMemoriesContext: () =>
-      memories.slice(0, 30).map((m) => `- [${CATEGORY_LABEL[m.category]}] ${m.content}`).join("\n"),
-    getEventsContext: () =>
-      events.slice(0, 15).map((e) => {
-        const d = new Date(e.start_iso);
-        return `- ${d.toLocaleString("fr-FR")} : ${e.title}${e.location ? ` (${e.location})` : ""}`;
-      }).join("\n"),
-  });
+  // ─── Voice loop (provider global → conversation persiste entre pages) ───
+  const voice = useTwinVoiceContext();
+  // On (re)câble les providers de contexte à chaque fois que mémoires/events changent.
+  useEffect(() => {
+    voice.setContextProviders({
+      onError: (msg: string) => toast.error(msg),
+      onMemoryChange: () => { refreshAll(); },
+      getMemoriesContext: () =>
+        memories.slice(0, 30).map((m) => `- [${CATEGORY_LABEL[m.category]}] ${m.content}`).join("\n"),
+      getEventsContext: () =>
+        events.slice(0, 15).map((e) => {
+          const d = new Date(e.start_iso);
+          return `- ${d.toLocaleString("fr-FR")} : ${e.title}${e.location ? ` (${e.location})` : ""}`;
+        }).join("\n"),
+    } as any);
+  }, [memories, events, refreshAll, voice]);
 
   const isConnected = voice.isCallActive;
   const isSpeaking = voice.status === "speaking";
