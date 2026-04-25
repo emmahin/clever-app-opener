@@ -705,6 +705,7 @@ def _launch_windows_path(path: str, args: list[str], method: str) -> JSONRespons
         subprocess.Popen(["msiexec", "/i", path, *args])
     else:
         os.startfile(path)  # type: ignore[attr-defined]
+    _bring_to_foreground_async(path)
     return JSONResponse({"ok": True, "method": method, "target": path})
 
 
