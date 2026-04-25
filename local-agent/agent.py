@@ -487,13 +487,10 @@ def _resolve_microsoft_store_app(target: str) -> Optional[str]:
     if not hint_terms:
         return None
 
-    # PowerShell : récupère Name + PackageFamilyName de TOUS les paquets installés
-    # (pour le user actuel). Format CSV simple pour parsing facile.
+    # PowerShell : Get-StartApps fournit le vrai AppID lançable par AppsFolder.
     ps_cmd = (
         "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; "
-        "Get-AppxPackage | "
-        "Select-Object -Property Name,PackageFamilyName | "
-        "ForEach-Object { \"$($_.Name)|$($_.PackageFamilyName)\" }"
+        "Get-StartApps | Select-Object Name,AppID | ConvertTo-Json -Compress"
     )
     try:
         result = subprocess.run(
@@ -513,23 +510,30 @@ def _resolve_microsoft_store_app(target: str) -> Optional[str]:
         print(f"[nex-agent] strategy=store-app powershell returned no data rc={result.returncode}", flush=True)
         return None
 
+    try:
+        rows = json.loads(result.stdout)
+        if isinstance(rows, dict):
+            rows = [rows]
+    except Exception as e:
+        print(f"[nex-agent] strategy=store-app json parse error: {e}", flush=True)
+        return None
+
     best: Optional[str] = None
-    for line in result.stdout.splitlines():
-        if "|" not in line:
-            continue
-        name, pfn = line.split("|", 1)
-        haystack = (name + " " + pfn).lower()
+    for row in rows:
+        name = str(row.get("Name") or "").strip()
+        app_id = str(row.get("AppID") or "").strip()
+        haystack = (name + " " + app_id).lower().replace(" ", "")
         if any(term in haystack for term in hint_terms):
             print(
-                f"[nex-agent] strategy=store-app candidate name={name!r} pfn={pfn!r}",
+                f"[nex-agent] strategy=store-app candidate name={name!r} app_id={app_id!r}",
                 flush=True,
             )
-            best = pfn.strip()
+            best = app_id
             break
 
     if not best:
         return None
-    return f"shell:AppsFolder\\{best}!App"
+    return f"shell:AppsFolder\\{best}"
 
 
 def _launch_store_app(shell_target: str) -> JSONResponse:
