@@ -115,7 +115,7 @@ STYLE :
 - ${detail}
 - Pas de titres lourds, pas de répétition des données déjà visibles dans les widgets.
 - Ton fluide, naturel.
-- Réponse OBLIGATOIREMENT en ${name}.${webHint}${forceHint}${userCustom}`;
+- Réponse OBLIGATOIREMENT en ${name}.${webHint}${forceHint}${defaultPersona}${userCustom}`;
 }
 
 const TOOLS = [
