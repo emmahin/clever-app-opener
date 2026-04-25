@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 """
 Diagnostic Nex - trouve pourquoi une app visible avec Get-StartApps
-n'apparaît pas dans l'agent local.
+n'apparait pas dans l'agent local.
 
-Usage recommandé sur ton PC Windows :
+Usage recommande sur ton PC Windows :
     python diagnose_apps.py whatsapp snapchat --url http://127.0.0.1:17345 --token TON_TOKEN
 
-Sans --url/--token, le script teste quand même Windows + PowerShell.
+Sans --url/--token, le script teste quand meme Windows + PowerShell.
 """
 from __future__ import annotations
 
@@ -81,11 +81,11 @@ def print_matches(title: str, rows: list[dict[str, Any]], queries: list[str]) ->
         items = matches[q]
         if items:
             ok = True
-            print(f"  [OK] {q}: {len(items)} résultat(s)")
+            print(f"  [OK] {q}: {len(items)} resultat(s)")
             for item in items[:8]:
                 print(f"     - {item['name']} | {item['id_or_path']}")
         else:
-            print(f"  [X] {q}: aucun résultat")
+            print(f"  [X] {q}: aucun resultat")
     return ok
 
 
@@ -159,7 +159,7 @@ def main() -> int:
             continue
         used_ps.append(exe)
         rows, status = get_start_apps(exe)
-        print(f"\nPowerShell testé: {exe}")
+        print(f"\nPowerShell teste: {exe}")
         print(f"Get-StartApps status: {status}")
         startapps_seen = print_matches("Get-StartApps", rows, queries) or startapps_seen
 
@@ -173,18 +173,18 @@ def main() -> int:
         agent_seen = print_matches("Agent /apps", rows, queries)
     else:
         agent_seen = False
-        print("\n[Agent /apps] ignoré : ajoute --url et --token pour comparer avec l'agent lancé.")
+        print("\n[Agent /apps] ignore : ajoute --url et --token pour comparer avec l'agent lance.")
 
     print("\n=== Verdict ===")
     if (startapps_seen or appsfolder_seen) and not agent_seen and args.url and args.token:
-        print("Windows voit l'app, mais l'agent lancé ne la renvoie pas : tu utilises probablement un ancien agent.py, ou l'agent n'a pas été redémarré.")
+        print("Windows voit l'app, mais l'agent lance ne la renvoie pas : tu utilises probablement un ancien agent.py, ou l'agent n'a pas ete redemarre.")
     elif (startapps_seen or appsfolder_seen) and not args.url:
-        print("Windows voit l'app. Lance maintenant avec --url et --token pour vérifier si l'agent HTTP la renvoie aussi.")
+        print("Windows voit l'app. Lance maintenant avec --url et --token pour verifier si l'agent HTTP la renvoie aussi.")
     elif not startapps_seen and not appsfolder_seen:
-        print("Même Python/PowerShell ne voit pas l'app : le problème vient de la session Windows, du nom exact de l'app, ou des droits utilisateur.")
+        print("Meme Python/PowerShell ne voit pas l'app : le probleme vient de la session Windows, du nom exact de l'app, ou des droits utilisateur.")
     else:
-        print("L'agent voit l'app. Si Nex ne l'affiche pas, le problème est côté cache/interface web, pas côté Windows.")
-    print(f"PowerShell utilisés: {used_ps}")
+        print("L'agent voit l'app. Si Nex ne l'affiche pas, le probleme est cote cache/interface web, pas cote Windows.")
+    print(f"PowerShell utilises: {used_ps}")
     return 0
 
 
