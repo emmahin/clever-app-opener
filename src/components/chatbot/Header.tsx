@@ -1,6 +1,5 @@
-import { User, Plus, LogOut, Settings as SettingsIcon } from "lucide-react";
+import { User, LogOut, Settings as SettingsIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useLanguage } from "@/i18n/LanguageProvider";
 import { NotificationBell } from "./NotificationBell";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -13,11 +12,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 interface HeaderProps {
+  /** Conservé pour compatibilité, mais plus utilisé (le bouton est dans la sidebar). */
   onNewChat?: () => void;
 }
 
-export function Header({ onNewChat }: HeaderProps = {}) {
-  const { t } = useLanguage();
+export function Header(_props: HeaderProps = {}) {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   return (
@@ -26,17 +25,6 @@ export function Header({ onNewChat }: HeaderProps = {}) {
       style={{ background: "linear-gradient(90deg, hsl(0, 0%, 4%, 0.95), hsl(275, 85%, 45%, 0.95))" }}>
       {/* Right actions */}
       <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
-        {onNewChat && (
-          <button
-            onClick={onNewChat}
-            className="h-9 w-9 md:w-auto md:px-3 rounded-lg bg-white/15 hover:bg-white/25 flex items-center justify-center md:gap-2 text-white text-sm font-medium transition-colors border border-white/20"
-            title={t("newChatTitle")}
-            aria-label={t("newChat")}
-          >
-            <Plus className="w-4 h-4" />
-            <span className="hidden md:inline">{t("newChat")}</span>
-          </button>
-        )}
         <NotificationBell />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
