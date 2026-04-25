@@ -796,6 +796,16 @@ def _list_windows_apps() -> list[dict]:
     for d in desktops:
         candidates += _scan_dir_for_apps(d, {".lnk", ".exe"}, max_depth=2)
 
+    # 2-bis) Barre des tâches (apps épinglées) + Quick Launch
+    appdata = os.environ.get("APPDATA", "")
+    taskbar_dirs = [
+        os.path.join(appdata, r"Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar"),
+        os.path.join(appdata, r"Microsoft\Internet Explorer\Quick Launch\User Pinned\StartMenu"),
+        os.path.join(appdata, r"Microsoft\Internet Explorer\Quick Launch"),
+    ]
+    for d in taskbar_dirs:
+        candidates += _scan_dir_for_apps(d, {".lnk"}, max_depth=2)
+
     # 3) Dossiers d'install courants (.exe)
     install_roots = [
         os.environ.get("PROGRAMFILES", ""),
