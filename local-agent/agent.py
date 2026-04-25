@@ -110,17 +110,16 @@ def _resolve_windows_shortcut_or_app(target: str) -> Optional[str]:
     if sys.platform != "win32":
         return None
 
-    query = target.strip().lower()
-    if not query:
+    candidates = _windows_query_candidates(target)
+    if not candidates:
         return None
-
-    normalized = query.removesuffix(".exe")
-    candidates = {query, normalized}
 
     start_menu_dirs = [
         os.path.join(os.environ.get("APPDATA", ""), r"Microsoft\Windows\Start Menu\Programs"),
         os.path.join(os.environ.get("PROGRAMDATA", ""), r"Microsoft\Windows\Start Menu\Programs"),
     ]
+
+    fuzzy_match: Optional[str] = None
 
     for root in start_menu_dirs:
         if not root or not os.path.isdir(root):
@@ -131,9 +130,13 @@ def _resolve_windows_shortcut_or_app(target: str) -> Optional[str]:
                 stem, ext = os.path.splitext(lower)
                 if ext not in {".lnk", ".url", ".exe"}:
                     continue
-                if lower in candidates or stem in candidates:
-                    return os.path.join(dirpath, filename)
-    return None
+                path = os.path.join(dirpath, filename)
+                exact, fuzzy = _matches_windows_entry(filename, candidates | {stem, lower})
+                if exact:
+                    return path
+                if fuzzy and fuzzy_match is None:
+                    fuzzy_match = path
+    return fuzzy_match
 
 
 WINDOWS_APP_ALIASES = {
