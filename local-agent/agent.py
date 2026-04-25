@@ -108,6 +108,22 @@ def _is_allowed(target: str) -> bool:
     return any(a in (t, base, name_no_ext) for a in ALLOWLIST)
 
 
+def _windows_powershell_exe() -> str:
+    """Retourne Windows PowerShell 64-bit quand possible (important pour Get-StartApps)."""
+    if sys.platform != "win32":
+        return "powershell"
+    windir = os.environ.get("WINDIR", r"C:\Windows")
+    candidates = [
+        os.path.join(windir, "Sysnative", "WindowsPowerShell", "v1.0", "powershell.exe"),
+        os.path.join(windir, "System32", "WindowsPowerShell", "v1.0", "powershell.exe"),
+        "powershell",
+    ]
+    for p in candidates:
+        if p == "powershell" or os.path.exists(p):
+            return p
+    return "powershell"
+
+
 def _resolve_windows_shortcut_or_app(target: str) -> Optional[str]:
     if sys.platform != "win32":
         return None
