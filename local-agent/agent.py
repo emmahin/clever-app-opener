@@ -824,6 +824,9 @@ def _list_windows_apps() -> list[dict]:
     for d in game_roots:
         candidates += _scan_dir_for_apps(d, {".exe"}, max_depth=4)
 
+    # 6) Apps Microsoft Store / UWP (WhatsApp, Snapchat, Instagram, Netflix…)
+    candidates += _list_microsoft_store_apps()
+
     # Dédup par nom normalisé (préfère le .lnk si dispo)
     by_key: dict[str, dict] = {}
     for entry in candidates:
@@ -834,8 +837,9 @@ def _list_windows_apps() -> list[dict]:
         if prev is None:
             by_key[key] = entry
             continue
-        # Préférence : .lnk > .exe (raccourcis sont plus propres à lancer)
-        if prev["source"] != "lnk" and entry["source"] == "lnk":
+        # Préférence : store > lnk > exe (les apps Store n'ont pas de .exe lançable)
+        priority = {"store": 3, "lnk": 2, "exe": 1}
+        if priority.get(entry["source"], 0) > priority.get(prev["source"], 0):
             by_key[key] = entry
 
     apps = list(by_key.values())
