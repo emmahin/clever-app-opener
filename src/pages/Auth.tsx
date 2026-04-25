@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Sparkles, Mail, Lock, Loader2, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
-type Mode = "signin" | "forgot";
+type Mode = "signin" | "signup" | "forgot";
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -33,6 +33,14 @@ export default function Auth() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         toast.success("Connecté");
+      } else if (mode === "signup") {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { emailRedirectTo: `${window.location.origin}/` },
+        });
+        if (error) throw error;
+        toast.success("Compte créé — connexion en cours…");
       } else {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
           redirectTo: `${window.location.origin}/auth`,
@@ -64,14 +72,37 @@ export default function Auth() {
             <h2 className="text-lg font-semibold">
               {mode === "forgot"
                 ? "Réinitialiser le mot de passe"
+                : mode === "signup"
+                ? "Créer un compte"
                 : "Se connecter"}
             </h2>
             <p className="text-xs text-muted-foreground mt-1">
               {mode === "forgot"
                 ? "Reçois un lien par e-mail pour choisir un nouveau mot de passe."
+                : mode === "signup"
+                ? "Inscris-toi en quelques secondes."
                 : "Connecte-toi à ton compte."}
             </p>
           </div>
+
+          {mode !== "forgot" && (
+            <div className="mb-4 grid grid-cols-2 gap-1 p-1 rounded-lg bg-secondary/40 border border-border/60">
+              <button
+                type="button"
+                onClick={() => setMode("signin")}
+                className={`py-1.5 text-xs rounded-md transition-colors ${mode === "signin" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                Connexion
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode("signup")}
+                className={`py-1.5 text-xs rounded-md transition-colors ${mode === "signup" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                Inscription
+              </button>
+            </div>
+          )}
 
           <form onSubmit={onSubmit} className="space-y-4">
             <div>
@@ -99,7 +130,7 @@ export default function Auth() {
                     type={showPassword ? "text" : "password"}
                     required
                     minLength={6}
-                    autoComplete="current-password"
+                    autoComplete={mode === "signup" ? "new-password" : "current-password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full pl-10 pr-10 py-2.5 rounded-lg bg-secondary/40 border border-border/60 text-sm focus:outline-none focus:border-primary"
@@ -125,6 +156,8 @@ export default function Auth() {
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
               {mode === "signin"
                 ? "Se connecter"
+                : mode === "signup"
+                ? "Créer mon compte"
                 : "Envoyer l'e-mail"}
             </button>
           </form>
