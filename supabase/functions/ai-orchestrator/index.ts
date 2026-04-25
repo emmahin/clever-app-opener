@@ -91,6 +91,8 @@ RÈGLES OUTILS (n'utilise un outil QUE si la demande l'exige) :
 - Image générée / photos d'exemples / vidéo → generate_image / search_images / search_videos.
 - Données chiffrées comparables (évolution, parts, comparaisons, classement) → make_chart, EN PLUS d'une courte explication. Pour des chiffres récents/incertains, fais d'abord web_search puis make_chart avec les données obtenues. Choisis le bon kind (line/bar/pie/area).
 - "Envoie/écris à X" → send_whatsapp_message. "Rappelle-moi…" → create_reminder.
+- "Envoie/écris à X" → send_whatsapp_message. "Rappelle-moi…" → create_reminder.
+- "Ouvre/Lance WhatsApp" (ou Snapchat, Spotify, Discord, Steam, Notepad, etc.) → TOUJOURS launch_local_app avec target='whatsapp' (ou le nom simple, sans extension). N'utilise JAMAIS open_app pour WhatsApp : la page interne /whatsapp est juste un gestionnaire de contacts, PAS l'app WhatsApp. "Ouvre WhatsApp" = lance l'application sur le PC.
 - Planning : add_schedule_event UNIQUEMENT sur demande EXPLICITE ("ajoute/note/planifie/enregistre dans mon agenda"). Une simple mention ("je vais voir Léa demain") N'EST PAS une demande — n'appelle RIEN. En doute, demande confirmation. list_schedule pour afficher, remove_schedule_event pour annuler.
 - Sinon, réponds directement sans outil.
 
@@ -357,7 +359,10 @@ const APP_CATALOG_SERVER: Array<{
   { id: "internal-analytics", name: "Analytics",     aliases: ["analytics", "stats", "statistiques", "analyses"], kind: "internal", target: "/analytics" },
   { id: "internal-documents", name: "Documents",     aliases: ["documents", "docs", "fichiers"], kind: "internal", target: "/documents" },
   { id: "internal-video",     name: "Éditeur vidéo", aliases: ["video", "vidéo", "editeur video", "éditeur vidéo", "montage"], kind: "internal", target: "/video" },
-  { id: "internal-whatsapp",  name: "WhatsApp (app)", aliases: ["whatsapp interne", "page whatsapp", "mes messages"], kind: "internal", target: "/whatsapp" },
+  // NB: la page interne /whatsapp est un gestionnaire de contacts, PAS l'app WhatsApp.
+  // On ne lui donne AUCUN alias contenant "whatsapp" ni "message" pour éviter toute confusion :
+  // "ouvre whatsapp" doit toujours partir vers launch_local_app (l'app PC), pas vers cette page.
+  { id: "internal-whatsapp",  name: "Contacts WhatsApp", aliases: ["mes contacts whatsapp", "gestionnaire contacts whatsapp"], kind: "internal", target: "/whatsapp" },
   { id: "internal-notifs",    name: "Notifications", aliases: ["notifications", "notifs", "alertes"], kind: "internal", target: "/notifications" },
   { id: "internal-settings",  name: "Paramètres",    aliases: ["paramètres", "parametres", "réglages", "settings"], kind: "internal", target: "/settings" },
   { id: "gmail",    name: "Gmail",           aliases: ["gmail", "mail", "email"], kind: "web", target: "https://mail.google.com" },
@@ -407,7 +412,7 @@ TOOLS.push({
     name: "open_app",
     description:
       "Ouvre une application/page pour l'utilisateur. Trois cas :\n" +
-      "1) Page interne de l'app (Dashboard, Analytics, Documents, Vidéo, WhatsApp, Notifications, Paramètres) → s'ouvre AUTOMATIQUEMENT.\n" +
+      "1) Page interne de l'app (Dashboard, Analytics, Documents, Vidéo, Notifications, Paramètres) → s'ouvre AUTOMATIQUEMENT. ATTENTION : 'WhatsApp' n'est PAS une page interne — pour 'ouvre WhatsApp' utilise launch_local_app.\n" +
       "2) Site/web app connue (Gmail, YouTube, GitHub, Notion, Spotify Web, etc.) → bouton de confirmation dans le chat.\n" +
       "3) URL libre (https://...) si l'utilisateur précise un site précis non listé.\n" +
       "Utilise app_name pour une app du catalogue (ex: 'Gmail', 'YouTube', 'Spotify'). " +
