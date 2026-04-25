@@ -33,6 +33,7 @@ import shutil
 import subprocess
 import sys
 from typing import Optional
+from glob import glob
 
 from fastapi import FastAPI, Header, HTTPException, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -327,6 +328,152 @@ def launch(body: LaunchBody, authorization: Optional[str] = Header(default=None)
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Échec du lancement : {e}")
+
+
+# ─────────────────── /apps : scan complet du PC ───────────────────
+def _scan_dir_for_apps(root: str, exts: set[str], max_depth: int = 4) -> list[dict]:
+    """Scan récursif (profondeur limitée) à la recherche d'exécutables / raccourcis."""
+    found: list[dict] = []
+    if not root or not os.path.isdir(root):
+        return found
+    root = os.path.abspath(root)
+    base_depth = root.rstrip(os.sep).count(os.sep)
+    try:
+        for dirpath, dirnames, filenames in os.walk(root):
+            depth = dirpath.count(os.sep) - base_depth
+            if depth > max_depth:
+                dirnames[:] = []
+                continue
+            # Évite des dossiers bruyants/inutiles
+            dirnames[:] = [
+                d for d in dirnames
+                if not d.startswith(".")
+                and d.lower() not in {
+                    "node_modules", "$recycle.bin", "windowsapps",
+                    "installer", "uninstall", "uninstallers",
+                    "cache", "logs", "crashpad", "temp", "tmp",
+                    "drivers", "system32", "syswow64", "winsxs",
+                }
+            ]
+            for filename in filenames:
+                ext = os.path.splitext(filename)[1].lower()
+                if ext not in exts:
+                    continue
+                stem = os.path.splitext(filename)[0]
+                # Skip uninstallers / helpers évidents
+                low = stem.lower()
+                if any(k in low for k in ("uninstall", "unins", "setup", "installer", "crashhandler", "crashpad", "updater")):
+                    continue
+                full = os.path.join(dirpath, filename)
+                found.append({
+                    "name": stem,
+                    "path": full,
+                    "source": ext.lstrip("."),
+                })
+    except Exception:
+        pass
+    return found
+
+
+def _list_windows_apps() -> list[dict]:
+    candidates: list[dict] = []
+
+    # 1) Menus Démarrer (raccourcis .lnk) — la source la plus fiable
+    start_menu_dirs = [
+        os.path.join(os.environ.get("APPDATA", ""), r"Microsoft\Windows\Start Menu\Programs"),
+        os.path.join(os.environ.get("PROGRAMDATA", ""), r"Microsoft\Windows\Start Menu\Programs"),
+    ]
+    for d in start_menu_dirs:
+        candidates += _scan_dir_for_apps(d, {".lnk"}, max_depth=6)
+
+    # 2) Bureaux (raccourcis posés par l'utilisateur)
+    desktops = [
+        os.path.join(os.environ.get("USERPROFILE", ""), "Desktop"),
+        os.path.join(os.environ.get("PUBLIC", ""), "Desktop"),
+        os.path.join(os.environ.get("ONEDRIVE", ""), "Desktop"),
+    ]
+    for d in desktops:
+        candidates += _scan_dir_for_apps(d, {".lnk", ".exe"}, max_depth=2)
+
+    # 3) Dossiers d'install courants (.exe)
+    install_roots = [
+        os.environ.get("PROGRAMFILES", ""),
+        os.environ.get("PROGRAMFILES(X86)", ""),
+        os.path.join(os.environ.get("LOCALAPPDATA", ""), "Programs"),
+        os.path.join(os.environ.get("LOCALAPPDATA", ""), "Microsoft", "WindowsApps"),
+    ]
+    for d in install_roots:
+        candidates += _scan_dir_for_apps(d, {".exe"}, max_depth=4)
+
+    # 4) Dossiers Téléchargements (.exe / installateurs portables)
+    downloads = [
+        os.path.join(os.environ.get("USERPROFILE", ""), "Downloads"),
+        os.path.join(os.environ.get("USERPROFILE", ""), "Téléchargements"),
+    ]
+    for d in downloads:
+        candidates += _scan_dir_for_apps(d, {".exe"}, max_depth=2)
+
+    # 5) Bibliothèques de jeux (Steam / Epic / Riot)
+    game_roots = [
+        r"C:\Program Files (x86)\Steam\steamapps\common",
+        r"C:\Program Files\Epic Games",
+        r"C:\Riot Games",
+        r"C:\XboxGames",
+    ]
+    for d in game_roots:
+        candidates += _scan_dir_for_apps(d, {".exe"}, max_depth=4)
+
+    # Dédup par nom normalisé (préfère le .lnk si dispo)
+    by_key: dict[str, dict] = {}
+    for entry in candidates:
+        key = _normalize_app_name(entry["name"])
+        if not key or len(key) < 2:
+            continue
+        prev = by_key.get(key)
+        if prev is None:
+            by_key[key] = entry
+            continue
+        # Préférence : .lnk > .exe (raccourcis sont plus propres à lancer)
+        if prev["source"] != "lnk" and entry["source"] == "lnk":
+            by_key[key] = entry
+
+    apps = list(by_key.values())
+    apps.sort(key=lambda e: e["name"].lower())
+    return apps
+
+
+@app.get("/apps")
+def list_apps(authorization: Optional[str] = Header(default=None)):
+    """Renvoie la liste des applications détectées sur le PC."""
+    _check_auth(authorization)
+    if sys.platform != "win32":
+        # Stub minimal pour macOS/Linux : on liste /Applications ou /usr/share/applications
+        apps: list[dict] = []
+        if sys.platform == "darwin":
+            for root in ["/Applications", os.path.expanduser("~/Applications")]:
+                if os.path.isdir(root):
+                    for name in os.listdir(root):
+                        if name.endswith(".app"):
+                            apps.append({
+                                "name": os.path.splitext(name)[0],
+                                "path": os.path.join(root, name),
+                                "source": "app",
+                            })
+        else:
+            for root in ["/usr/share/applications", os.path.expanduser("~/.local/share/applications")]:
+                if os.path.isdir(root):
+                    for name in os.listdir(root):
+                        if name.endswith(".desktop"):
+                            apps.append({
+                                "name": os.path.splitext(name)[0],
+                                "path": os.path.join(root, name),
+                                "source": "desktop",
+                            })
+        apps.sort(key=lambda e: e["name"].lower())
+        return {"ok": True, "platform": sys.platform, "count": len(apps), "apps": apps}
+
+    apps = _list_windows_apps()
+    return {"ok": True, "platform": sys.platform, "count": len(apps), "apps": apps}
 
 
 if __name__ == "__main__":
