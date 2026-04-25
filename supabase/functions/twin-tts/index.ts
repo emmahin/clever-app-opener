@@ -49,7 +49,16 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         text,
         model_id: mid,
-        voice_settings: { stability: 0.45, similarity_boost: 0.8, style: 0.3, use_speaker_boost: true, speed: 1.0 },
+        // Réglages "plus humain" : moins de stability = plus d'expressivité,
+        // style élevé = intonations émotionnelles, speed légèrement ralentie
+        // pour un débit plus posé / naturel.
+        voice_settings: {
+          stability: 0.3,
+          similarity_boost: 0.85,
+          style: 0.6,
+          use_speaker_boost: true,
+          speed: 0.95,
+        },
       }),
     });
 
