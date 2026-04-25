@@ -22,5 +22,6 @@ export type {
   LaunchResult,
   DetectedApp,
   ListAppsResult,
+  CachedApps,
 } from "./localAgentService";
 export * from "./types";
