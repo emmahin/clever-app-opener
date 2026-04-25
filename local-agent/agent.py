@@ -488,6 +488,7 @@ def _resolve_microsoft_store_app(target: str) -> Optional[str]:
     # PowerShell : récupère Name + PackageFamilyName de TOUS les paquets installés
     # (pour le user actuel). Format CSV simple pour parsing facile.
     ps_cmd = (
+        "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; "
         "Get-AppxPackage | "
         "Select-Object -Property Name,PackageFamilyName | "
         "ForEach-Object { \"$($_.Name)|$($_.PackageFamilyName)\" }"
@@ -497,6 +498,8 @@ def _resolve_microsoft_store_app(target: str) -> Optional[str]:
             ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_cmd],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=8,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
