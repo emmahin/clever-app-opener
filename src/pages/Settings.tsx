@@ -2,7 +2,7 @@ import { Sidebar } from "@/components/chatbot/Sidebar";
 import { Header } from "@/components/chatbot/Header";
 import { useSettings, DetailLevel } from "@/contexts/SettingsProvider";
 import { useLanguage, LANGS, Lang } from "@/i18n/LanguageProvider";
-import { Settings as SettingsIcon, Globe, Sparkles, MessageSquare, Trash2, RotateCcw, Check, Bell, Link2, Monitor } from "lucide-react";
+import { Settings as SettingsIcon, Globe, Sparkles, MessageSquare, Trash2, RotateCcw, Check, Bell, Monitor } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useNotificationPrefs } from "@/hooks/useNotifications";
