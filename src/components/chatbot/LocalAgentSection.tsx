@@ -87,8 +87,25 @@ export function LocalAgentSection() {
     return apps.filter((a) => a.name.toLowerCase().includes(q));
   }, [apps, filter]);
 
+  const scanButtonContent = scanning ? (
+    <>
+      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+      <span>Scan en cours…</span>
+    </>
+  ) : apps ? (
+    <>
+      <RefreshCw className="w-3.5 h-3.5" />
+      <span>Re-scanner</span>
+    </>
+  ) : (
+    <>
+      <Search className="w-3.5 h-3.5" />
+      <span>Scanner mes applications</span>
+    </>
+  );
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-5" translate="no">
       <div className="rounded-lg bg-secondary/40 border border-border/60 p-3">
         <p className="text-xs text-muted-foreground leading-relaxed">
           Permet à l'IA d'<strong className="text-foreground">ouvrir n'importe quelle application
@@ -202,13 +219,7 @@ export function LocalAgentSection() {
             disabled={!cfg.url || !cfg.token || scanning}
             className="px-3 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity flex items-center gap-2"
           >
-            {scanning ? (
-              <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Scan en cours…</>
-            ) : apps ? (
-              <><RefreshCw className="w-3.5 h-3.5" /> Re-scanner</>
-            ) : (
-              <><Search className="w-3.5 h-3.5" /> Scanner mes applications</>
-            )}
+            {scanButtonContent}
           </button>
         </div>
 
