@@ -552,6 +552,64 @@ def _resolve_microsoft_store_app(target: str) -> Optional[str]:
     return f"shell:AppsFolder\\{best}"
 
 
+def _list_shell_appsfolder_apps() -> list[dict]:
+    """Fallback COM : lit directement le dossier virtuel shell:AppsFolder."""
+    if sys.platform != "win32":
+        return []
+    ps_cmd = (
+        "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; "
+        "$shell = New-Object -ComObject Shell.Application; "
+        "$folder = $shell.Namespace('shell:AppsFolder'); "
+        "if ($null -eq $folder) { @() | ConvertTo-Json -Compress; exit } "
+        "$folder.Items() | ForEach-Object { "
+        "[PSCustomObject]@{ Name = $_.Name; AppID = $_.Path } "
+        "} | ConvertTo-Json -Compress"
+    )
+    try:
+        result = subprocess.run(
+            [_windows_powershell_exe(), "-NoProfile", "-NonInteractive", "-Command", ps_cmd],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=12,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+    except Exception as e:
+        print(f"[nex-agent] scan appsfolder powershell error: {e}", flush=True)
+        return []
+
+    if result.returncode != 0 or not result.stdout:
+        print(
+            f"[nex-agent] scan appsfolder returned no data rc={result.returncode} stderr={result.stderr[:200] if result.stderr else ''}",
+            flush=True,
+        )
+        return []
+
+    try:
+        rows = json.loads(result.stdout)
+        if isinstance(rows, dict):
+            rows = [rows]
+    except Exception as e:
+        print(f"[nex-agent] scan appsfolder json parse error: {e}", flush=True)
+        return []
+
+    found: list[dict] = []
+    seen: set[str] = set()
+    for row in rows:
+        name = str(row.get("Name") or "").strip()
+        app_id = str(row.get("AppID") or "").strip()
+        if not name or not app_id:
+            continue
+        path = app_id if app_id.lower().startswith("shell:appsfolder\\") else f"shell:AppsFolder\\{app_id}"
+        if path in seen:
+            continue
+        seen.add(path)
+        found.append({"name": name, "path": path, "source": "store"})
+    print(f"[nex-agent] scan appsfolder found={len(found)}", flush=True)
+    return found
+
+
 def _launch_store_app(shell_target: str) -> JSONResponse:
     print(f"[nex-agent] launch store app target={shell_target!r}", flush=True)
     # explorer.exe est le seul moyen fiable de résoudre shell:AppsFolder
