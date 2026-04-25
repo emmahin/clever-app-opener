@@ -10,6 +10,8 @@ import {
   computeFinalCredits,
   debitCredits,
   refundCredits,
+  isAdmin,
+  logAdminFree,
 } from "../_shared/credits.ts";
 
 const SYSTEM_PROMPT = `Tu es un assistant IA polyvalent, intégré dans une application bureautique Windows.
@@ -41,8 +43,11 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    const admin = await isAdmin(userId);
     const estimate = estimateCreditsForRequest({ messages });
-    const debit = await debitCredits(userId, estimate.credits, {
+    const debit = admin
+      ? { ok: true as const }
+      : await debitCredits(userId, estimate.credits, {
       model: "google/gemini-3-flash-preview",
       action: "chat",
       inputTokens: estimate.inputTokens,
@@ -130,6 +135,14 @@ Deno.serve(async (req) => {
           }
         }
         const realOutputTokens = Math.ceil(produced.length / 4);
+        if (admin) {
+          await logAdminFree(userId, {
+            model: "google/gemini-3-flash-preview", action: "chat",
+            inputTokens: estimate.inputTokens, outputTokens: realOutputTokens,
+            metadata: { multiplier: estimate.multiplier },
+          });
+          return;
+        }
         const finalCredits = computeFinalCredits({
           realInputTokens: estimate.inputTokens,
           realOutputTokens,

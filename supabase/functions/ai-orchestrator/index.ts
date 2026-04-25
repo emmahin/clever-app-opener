@@ -14,6 +14,8 @@ import {
   computeFinalCredits,
   debitCredits,
   refundCredits,
+  isAdmin,
+  logAdminFree,
 } from "../_shared/credits.ts";
 
 const LANG_NAMES: Record<string, string> = {
@@ -1270,7 +1272,10 @@ Deno.serve(async (req) => {
     const estimate = estimateCreditsForRequest({
       messages, attachments, webSearch, deepThink, forceTool,
     });
-    const debit = await debitCredits(userId, estimate.credits, {
+    const admin = await isAdmin(userId);
+    const debit = admin
+      ? { ok: true as const }
+      : await debitCredits(userId, estimate.credits, {
       model: deepThink ? "google/gemini-3.1-pro-preview" : "google/gemini-3-flash-preview",
       action: "chat",
       inputTokens: estimate.inputTokens,
@@ -1469,6 +1474,16 @@ Deno.serve(async (req) => {
           // Ajustement crédits a posteriori : compare estimation vs coût réel.
           try {
             const realOutputTokens = Math.ceil(producedText.length / 4);
+            if (admin) {
+              await logAdminFree(userId, {
+                model: deepThink ? "google/gemini-3.1-pro-preview" : "google/gemini-3-flash-preview",
+                action: "chat",
+                inputTokens: estimate.inputTokens,
+                outputTokens: realOutputTokens,
+                metadata: { multiplier: estimate.multiplier, action_tokens: estimate.actionTokens },
+              });
+              return;
+            }
             const finalCredits = computeFinalCredits({
               realInputTokens: estimate.inputTokens,
               realOutputTokens,
