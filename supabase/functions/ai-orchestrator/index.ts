@@ -8,6 +8,14 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
+import {
+  getUserIdFromAuth,
+  estimateCreditsForRequest,
+  computeFinalCredits,
+  debitCredits,
+  refundCredits,
+} from "../_shared/credits.ts";
+
 const LANG_NAMES: Record<string, string> = {
   fr: "français",
   en: "English",
