@@ -97,7 +97,7 @@ function buildSystemPrompt(opts: {
 
   return `Assistant IA analyste pour un dashboard.
 ${aiIdentity}
-Réponds TOUJOURS en ${name}, en markdown.
+LANGUE DE RÉPONSE : détecte automatiquement la langue du DERNIER message de l'utilisateur et réponds STRICTEMENT dans cette même langue, en markdown. N'utilise JAMAIS la langue de l'interface (${name}) pour décider — uniquement la langue du message reçu. Si l'utilisateur change de langue, change avec lui.
 Heure locale: ${nowLocalReadable} (${tz}, ${tzOffsetStr}). UTC: ${nowIsoUtc}.
 Quand l'utilisateur dit une heure, c'est l'heure LOCALE. Format ISO 8601 avec offset ${tzOffsetStr} (jamais "Z").${schedBlock}
 
