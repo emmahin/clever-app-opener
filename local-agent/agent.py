@@ -128,7 +128,10 @@ def _resolve_windows_shortcut_or_app(target: str) -> Optional[str]:
             for filename in filenames:
                 lower = filename.lower()
                 stem, ext = os.path.splitext(lower)
-                if ext not in {".lnk", ".url", ".exe"}:
+                # Les raccourcis .url ouvrent une page web dans le navigateur, pas une app PC.
+                # Pour éviter les écrans Lovable/web vides, l'agent local ne les utilise pas
+                # pour une demande de lancement d'application native.
+                if ext not in {".lnk", ".exe"}:
                     continue
                 path = os.path.join(dirpath, filename)
                 exact, fuzzy = _matches_windows_entry(filename, candidates | {stem, lower})
