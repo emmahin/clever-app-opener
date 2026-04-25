@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import os
 import re
+import json
 import shlex
 import shutil
 import subprocess
@@ -440,6 +441,7 @@ _STORE_PFN_HINTS: dict[str, list[str]] = {
     # fragments larges pour matcher différentes versions/éditeurs.
     "whatsapp": ["whatsapp", "5319275a.whatsappdesktop"],
     "snapchat": ["snapchat"],
+    "snappchat": ["snapchat"],
     "instagram": ["instagram"],
     "netflix": ["netflix"],
     "xbox": ["xbox", "xboxapp", "gamingapp"],
