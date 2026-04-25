@@ -47,6 +47,84 @@ export type Database = {
         }
         Relationships: []
       }
+      credit_pricing: {
+        Row: {
+          action: string
+          active: boolean
+          credits_per_1k_input: number
+          credits_per_1k_output: number
+          fixed_cost: number
+          id: string
+          model: string
+          unit_label: string | null
+          updated_at: string
+        }
+        Insert: {
+          action?: string
+          active?: boolean
+          credits_per_1k_input?: number
+          credits_per_1k_output?: number
+          fixed_cost?: number
+          id?: string
+          model: string
+          unit_label?: string | null
+          updated_at?: string
+        }
+        Update: {
+          action?: string
+          active?: boolean
+          credits_per_1k_input?: number
+          credits_per_1k_output?: number
+          fixed_cost?: number
+          id?: string
+          model?: string
+          unit_label?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      credit_transactions: {
+        Row: {
+          action: string | null
+          amount: number
+          balance_after: number
+          created_at: string
+          id: string
+          input_tokens: number | null
+          kind: string
+          metadata: Json
+          model: string | null
+          output_tokens: number | null
+          user_id: string
+        }
+        Insert: {
+          action?: string | null
+          amount: number
+          balance_after: number
+          created_at?: string
+          id?: string
+          input_tokens?: number | null
+          kind: string
+          metadata?: Json
+          model?: string | null
+          output_tokens?: number | null
+          user_id: string
+        }
+        Update: {
+          action?: string | null
+          amount?: number
+          balance_after?: number
+          created_at?: string
+          id?: string
+          input_tokens?: number | null
+          kind?: string
+          metadata?: Json
+          model?: string | null
+          output_tokens?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -68,6 +146,39 @@ export type Database = {
           email?: string | null
           id?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      user_credits: {
+        Row: {
+          created_at: string
+          purchased_credits: number
+          subscription_credits: number
+          subscription_renews_at: string | null
+          subscription_tier: string
+          total_consumed: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          purchased_credits?: number
+          subscription_credits?: number
+          subscription_renews_at?: string | null
+          subscription_tier?: string
+          total_consumed?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          purchased_credits?: number
+          subscription_credits?: number
+          subscription_renews_at?: string | null
+          subscription_tier?: string
+          total_consumed?: number
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -109,7 +220,28 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      add_credits: {
+        Args: {
+          _amount: number
+          _bucket?: string
+          _kind: string
+          _metadata?: Json
+          _user_id: string
+        }
+        Returns: Json
+      }
+      consume_credits: {
+        Args: {
+          _action?: string
+          _amount: number
+          _input_tokens?: number
+          _metadata?: Json
+          _model?: string
+          _output_tokens?: number
+          _user_id: string
+        }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never
