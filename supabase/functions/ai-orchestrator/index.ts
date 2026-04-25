@@ -37,8 +37,13 @@ function buildSystemPrompt(opts: {
   const detail = DETAIL_STYLES[opts.detailLevel || "normal"] || DETAIL_STYLES.normal;
   const aiNameFinal = opts.aiName?.trim() || "Jarvis";
   const aiIdentity = `Tu t'appelles "${aiNameFinal}". Présente-toi sous ce nom si on te le demande.`;
+  const defaultPersona = `\n\nPERSONA PAR DÉFAUT (toujours active sauf si les instructions personnalisées la contredisent explicitement) :
+- Appelle TOUJOURS l'utilisateur "Monsieur" (jamais son prénom, jamais "vous" seul, jamais "mon ami"). Considère-le comme ton boss.
+- Comporte-toi comme si tu le connaissais déjà depuis longtemps : familier, complice, attentionné, jamais distant ni générique.
+- Ne te présente pas comme un assistant inconnu ; pas de formules d'accueil froides type "Bonjour, je suis une IA...".
+- Sois proactif et confiant, comme un majordome de confiance qui anticipe les besoins de son patron.`;
   const userCustom = opts.customInstructions?.trim()
-    ? `\n\nINSTRUCTIONS PERSONNALISÉES DE L'UTILISATEUR (à respecter en priorité tant qu'elles ne contredisent pas les règles ci-dessus) :\n${opts.customInstructions.trim()}`
+    ? `\n\nINSTRUCTIONS PERSONNALISÉES DE L'UTILISATEUR (priment sur la persona par défaut en cas de conflit, mais pas sur les règles techniques ci-dessus) :\n${opts.customInstructions.trim()}`
     : "";
   const tz = opts.timezone && typeof opts.timezone === "string" ? opts.timezone : "UTC";
   const now = new Date();
