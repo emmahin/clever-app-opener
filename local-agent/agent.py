@@ -534,6 +534,70 @@ def _launch_store_app(shell_target: str) -> JSONResponse:
     return JSONResponse({"ok": True, "method": "store-app", "target": shell_target})
 
 
+def _list_microsoft_store_apps() -> list[dict]:
+    """Liste les apps UWP/MSIX installées (Microsoft Store et sideload).
+
+    Retourne des entrées prêtes pour /apps avec un `path` directement utilisable
+    par /launch (shell:AppsFolder\\<PFN>!<AppId>).
+    """
+    if sys.platform != "win32":
+        return []
+
+    # On veut le PackageFamilyName + le DisplayName lisible + l'AppId du tile.
+    # Get-StartApps donne directement (Name, AppID) pour toutes les tuiles
+    # visibles dans le menu Démarrer, y compris les apps Store et Win32.
+    # On le filtre ensuite pour ne garder que les AppId au format "<PFN>!<id>".
+    ps_cmd = (
+        "Get-StartApps | "
+        "ForEach-Object { \"$($_.Name)|$($_.AppID)\" }"
+    )
+    try:
+        result = subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_cmd],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+    except Exception as e:
+        print(f"[nex-agent] scan store-apps powershell error: {e}", flush=True)
+        return []
+
+    if result.returncode != 0 or not result.stdout:
+        print(
+            f"[nex-agent] scan store-apps returned no data rc={result.returncode}",
+            flush=True,
+        )
+        return []
+
+    found: list[dict] = []
+    seen: set[str] = set()
+    for line in result.stdout.splitlines():
+        line = line.strip()
+        if "|" not in line:
+            continue
+        name, app_id = line.split("|", 1)
+        name = name.strip()
+        app_id = app_id.strip()
+        if not name or not app_id:
+            continue
+        # Ne garder que les AppId UWP (contiennent '!'). Les autres sont des
+        # raccourcis Win32 déjà couverts par le scan .lnk.
+        if "!" not in app_id:
+            continue
+        # Filtre des apps système peu intéressantes
+        low = name.lower()
+        if low in {"get help", "get started", "tips", "feedback hub"}:
+            continue
+        path = f"shell:AppsFolder\\{app_id}"
+        if path in seen:
+            continue
+        seen.add(path)
+        found.append({"name": name, "path": path, "source": "store"})
+    print(f"[nex-agent] scan store-apps found={len(found)}", flush=True)
+    return found
+
+
 def _launch_windows_path(path: str, args: list[str], method: str) -> JSONResponse:
     print(f"[nex-agent] launch resolved method={method} target={path} args={args}", flush=True)
     ext = os.path.splitext(path)[1].lower()
