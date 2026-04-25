@@ -651,6 +651,11 @@ def launch(body: LaunchBody, authorization: Optional[str] = Header(default=None)
 
     try:
         # 1) Si c'est un chemin absolu existant → on lance directement.
+        # 1-bis) Cas spécial : path Microsoft Store (shell:AppsFolder\<PFN>!App)
+        if sys.platform == "win32" and target.lower().startswith("shell:appsfolder\\"):
+            print(f"[nex-agent] strategy=store-app-direct target={target}", flush=True)
+            return _launch_store_app(target)
+
         if os.path.isabs(target) and os.path.exists(target):
             print(f"[nex-agent] strategy=absolute-path matched target={target}", flush=True)
             ext = os.path.splitext(target)[1].lower()
