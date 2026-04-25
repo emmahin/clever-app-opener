@@ -412,7 +412,7 @@ TOOLS.push({
     name: "open_app",
     description:
       "Ouvre une application/page pour l'utilisateur. Trois cas :\n" +
-      "1) Page interne de l'app (Dashboard, Analytics, Documents, Vidéo, WhatsApp, Notifications, Paramètres) → s'ouvre AUTOMATIQUEMENT.\n" +
+      "1) Page interne de l'app (Dashboard, Analytics, Documents, Vidéo, Notifications, Paramètres) → s'ouvre AUTOMATIQUEMENT. ATTENTION : 'WhatsApp' n'est PAS une page interne — pour 'ouvre WhatsApp' utilise launch_local_app.\n" +
       "2) Site/web app connue (Gmail, YouTube, GitHub, Notion, Spotify Web, etc.) → bouton de confirmation dans le chat.\n" +
       "3) URL libre (https://...) si l'utilisateur précise un site précis non listé.\n" +
       "Utilise app_name pour une app du catalogue (ex: 'Gmail', 'YouTube', 'Spotify'). " +
