@@ -188,8 +188,13 @@ def _windows_query_candidates(target: str) -> set[str]:
 def _matches_windows_entry(filename: str, candidates: set[str]) -> tuple[bool, bool]:
     entry = _normalize_app_name(filename)
     normalized_candidates = {_normalize_app_name(c) for c in candidates}
-    exact = entry in normalized_candidates
-    fuzzy = any(len(c) >= 4 and (c in entry or entry in c) for c in normalized_candidates)
+    compact_entry = re.sub(r"\s+", "", entry)
+    compact_candidates = {re.sub(r"\s+", "", c) for c in normalized_candidates}
+    exact = entry in normalized_candidates or compact_entry in compact_candidates
+    fuzzy = any(
+        len(c) >= 4 and (c in entry or entry in c or re.sub(r"\s+", "", c) in compact_entry or compact_entry in re.sub(r"\s+", "", c))
+        for c in normalized_candidates
+    )
     return exact, fuzzy
 
 
