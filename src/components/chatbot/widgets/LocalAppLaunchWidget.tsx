@@ -1,4 +1,4 @@
-import { Monitor, Loader2, Check, AlertTriangle, ExternalLink } from "lucide-react";
+import { Monitor, Loader2, Check, AlertTriangle, ExternalLink, Play } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { localAgentService } from "@/services";
 
@@ -62,6 +62,17 @@ export function LocalAppLaunchWidget({ target, args, label }: Props) {
         <StatusBadge status={status} onRetry={launch} />
       </div>
 
+      {status !== "launching" && status !== "not-configured" && (
+        <button
+          type="button"
+          onClick={launch}
+          className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90"
+        >
+          <Play className="h-3.5 w-3.5" />
+          Ouvrir maintenant
+        </button>
+      )}
+
       {status === "error" && detail && (
         <p className="text-[11px] text-destructive/80 mt-2 leading-relaxed">
           ⚠️ {detail}
@@ -83,8 +94,8 @@ export function LocalAppLaunchWidget({ target, args, label }: Props) {
       )}
 
       {status === "ok" && (
-        <p className="text-[10px] text-emerald-400/80 mt-2">
-          Lancé sur ton PC{detail ? ` · ${detail}` : ""}.
+        <p className="text-[10px] text-muted-foreground mt-2">
+          Demande envoyée à l'agent local{detail ? ` · ${detail}` : ""}. Aucune fenêtre navigateur ne s'affiche : l'application doit s'ouvrir directement sur ton PC.
         </p>
       )}
     </div>
