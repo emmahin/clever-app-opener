@@ -136,6 +136,105 @@ def _resolve_windows_shortcut_or_app(target: str) -> Optional[str]:
     return None
 
 
+WINDOWS_APP_ALIASES = {
+    "chrome": ["google chrome", "chrome.exe"],
+    "edge": ["microsoft edge", "msedge", "msedge.exe"],
+    "firefox": ["mozilla firefox", "firefox.exe"],
+    "brave": ["brave browser", "brave.exe"],
+    "vscode": ["visual studio code", "code", "code.exe"],
+    "vs code": ["visual studio code", "code", "code.exe"],
+    "word": ["microsoft word", "winword", "winword.exe"],
+    "excel": ["microsoft excel", "excel.exe"],
+    "powerpoint": ["microsoft powerpoint", "powerpnt", "powerpnt.exe"],
+    "outlook": ["microsoft outlook", "outlook.exe"],
+    "teams": ["microsoft teams", "teams.exe", "ms-teams"],
+    "discord": ["discord.exe"],
+    "steam": ["steam.exe"],
+    "spotify": ["spotify.exe", "spotify"],
+    "whatsapp": ["whatsapp.exe", "whatsapp"],
+    "telegram": ["telegram desktop", "telegram.exe"],
+    "notion": ["notion.exe"],
+    "obsidian": ["obsidian.exe"],
+}
+
+
+def _normalize_app_name(value: str) -> str:
+    value = os.path.basename(value.strip().lower())
+    stem, ext = os.path.splitext(value)
+    value = stem if ext in {".exe", ".lnk", ".url"} else value
+    value = re.sub(r"[._\-]+", " ", value)
+    return re.sub(r"\s+", " ", value).strip()
+
+
+def _windows_query_candidates(target: str) -> set[str]:
+    raw = target.strip().lower()
+    base = os.path.basename(raw)
+    stem, _ = os.path.splitext(base)
+    candidates = {raw, base, stem, raw.removesuffix(".exe"), _normalize_app_name(raw)}
+    for value in list(candidates):
+        normalized = _normalize_app_name(value)
+        candidates.add(normalized)
+        candidates.update(WINDOWS_APP_ALIASES.get(normalized, []))
+    return {c for c in candidates if c}
+
+
+def _matches_windows_entry(filename: str, candidates: set[str]) -> tuple[bool, bool]:
+    entry = _normalize_app_name(filename)
+    normalized_candidates = {_normalize_app_name(c) for c in candidates}
+    exact = entry in normalized_candidates
+    fuzzy = any(len(c) >= 4 and (c in entry or entry in c) for c in normalized_candidates)
+    return exact, fuzzy
+
+
+def _resolve_known_windows_path(target: str) -> Optional[str]:
+    if sys.platform != "win32":
+        return None
+
+    candidates = _windows_query_candidates(target)
+    roots = [
+        os.environ.get("PROGRAMFILES", ""),
+        os.environ.get("PROGRAMFILES(X86)", ""),
+        os.environ.get("LOCALAPPDATA", ""),
+    ]
+    known_paths = {
+        "chrome": [r"Google\Chrome\Application\chrome.exe"],
+        "google chrome": [r"Google\Chrome\Application\chrome.exe"],
+        "edge": [r"Microsoft\Edge\Application\msedge.exe"],
+        "microsoft edge": [r"Microsoft\Edge\Application\msedge.exe"],
+        "msedge": [r"Microsoft\Edge\Application\msedge.exe"],
+        "firefox": [r"Mozilla Firefox\firefox.exe"],
+        "brave": [r"BraveSoftware\Brave-Browser\Application\brave.exe"],
+        "steam": [r"Steam\steam.exe"],
+        "code": [r"Microsoft VS Code\Code.exe", r"Programs\Microsoft VS Code\Code.exe"],
+        "visual studio code": [r"Microsoft VS Code\Code.exe", r"Programs\Microsoft VS Code\Code.exe"],
+    }
+
+    for candidate in candidates:
+        for relative in known_paths.get(_normalize_app_name(candidate), []):
+            for root in roots:
+                if not root:
+                    continue
+                path = os.path.join(root, relative)
+                if os.path.exists(path):
+                    return path
+    return None
+
+
+def _looks_like_uri_target(target: str) -> bool:
+    if re.match(r"^[a-zA-Z]:[\\/]", target):
+        return False
+    return bool(re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*:", target))
+
+
+def _launch_windows_path(path: str, args: list[str], method: str) -> JSONResponse:
+    ext = os.path.splitext(path)[1].lower()
+    if ext == ".exe":
+        subprocess.Popen([path, *args])
+    else:
+        os.startfile(path)  # type: ignore[attr-defined]
+    return JSONResponse({"ok": True, "method": method, "target": path})
+
+
 # ─────────────────── Endpoints ───────────────────
 @app.get("/ping")
 def ping(authorization: Optional[str] = Header(default=None)):
@@ -144,7 +243,7 @@ def ping(authorization: Optional[str] = Header(default=None)):
     return {
         "ok": True,
         "agent": "nex-local-agent",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "platform": sys.platform,
         "allowlist_active": bool(ALLOWLIST),
     }
