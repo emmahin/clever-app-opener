@@ -128,7 +128,10 @@ def _resolve_windows_shortcut_or_app(target: str) -> Optional[str]:
             for filename in filenames:
                 lower = filename.lower()
                 stem, ext = os.path.splitext(lower)
-                if ext not in {".lnk", ".url", ".exe"}:
+                # Les raccourcis .url ouvrent une page web dans le navigateur, pas une app PC.
+                # Pour éviter les écrans Lovable/web vides, l'agent local ne les utilise pas
+                # pour une demande de lancement d'application native.
+                if ext not in {".lnk", ".exe"}:
                     continue
                 path = os.path.join(dirpath, filename)
                 exact, fuzzy = _matches_windows_entry(filename, candidates | {stem, lower})
@@ -233,6 +236,10 @@ def _launch_windows_path(path: str, args: list[str], method: str) -> JSONRespons
     ext = os.path.splitext(path)[1].lower()
     if ext == ".exe":
         subprocess.Popen([path, *args])
+    elif ext in {".bat", ".cmd"}:
+        subprocess.Popen([path, *args], shell=True)
+    elif ext in {".msi"}:
+        subprocess.Popen(["msiexec", "/i", path, *args])
     else:
         os.startfile(path)  # type: ignore[attr-defined]
     return JSONResponse({"ok": True, "method": method, "target": path})
@@ -277,6 +284,12 @@ def launch(body: LaunchBody, authorization: Optional[str] = Header(default=None)
     try:
         # 1) Si c'est un chemin absolu existant → on lance directement.
         if os.path.isabs(target) and os.path.exists(target):
+            ext = os.path.splitext(target)[1].lower()
+            if sys.platform == "win32" and ext == ".url":
+                raise HTTPException(
+                    status_code=400,
+                    detail="Ce raccourci .url ouvre une page web. Donne le nom de l'application ou le chemin du .exe/.lnk.",
+                )
             if sys.platform == "win32":
                 return _launch_windows_path(target, body.args, "path")
             elif sys.platform == "darwin":
