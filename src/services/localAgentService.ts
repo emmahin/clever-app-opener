@@ -29,12 +29,26 @@ export interface LaunchResult {
   detail?: string;
 }
 
+export interface DetectedApp {
+  name: string;
+  path: string;
+  source: string; // "lnk" | "exe" | "app" | "desktop" | ...
+}
+
+export interface ListAppsResult {
+  ok: boolean;
+  platform: string;
+  count: number;
+  apps: DetectedApp[];
+}
+
 export interface ILocalAgentService {
   loadConfig(): LocalAgentConfig;
   saveConfig(cfg: LocalAgentConfig): void;
   isConfigured(): boolean;
   ping(): Promise<LocalAgentPing>;
   launch(target: string, args?: string[]): Promise<LaunchResult>;
+  listApps(): Promise<ListAppsResult>;
 }
 
 const DEFAULT_CONFIG: LocalAgentConfig = {
@@ -154,6 +168,40 @@ export const localAgentService: ILocalAgentService = {
         return { ok: false, detail: "Agent injoignable (timeout)." };
       }
       return { ok: false, detail: e?.message || "Erreur réseau." };
+    } finally {
+      clearTimeout(t);
+    }
+  },
+
+  async listApps() {
+    const c = readStorage();
+    if (!c.url || !c.token) {
+      throw new Error("Agent local non configuré (URL ou token manquant).");
+    }
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 30000);
+    try {
+      const resp = await fetch(`${normalizeUrl(c.url)}/apps`, {
+        headers: { Authorization: `Bearer ${c.token}` },
+        signal: ctrl.signal,
+      });
+      if (resp.status === 404) {
+        throw new Error(
+          "Ton agent local est trop ancien (endpoint /apps absent). Re-télécharge l'agent et relance-le.",
+        );
+      }
+      if (resp.status === 401 || resp.status === 403) {
+        throw new Error("Token rejeté par l'agent (401/403).");
+      }
+      if (!resp.ok) {
+        throw new Error(`Agent a répondu ${resp.status}.`);
+      }
+      return (await resp.json()) as ListAppsResult;
+    } catch (e: any) {
+      if (e?.name === "AbortError") {
+        throw new Error("Scan trop long (timeout). Réessaie ou réduis tes dossiers.");
+      }
+      throw new Error(e?.message || "Impossible de lister les applications.");
     } finally {
       clearTimeout(t);
     }
