@@ -7,6 +7,7 @@
  */
 
 const STORAGE_KEY = "nex.localAgent.config.v1";
+const APPS_CACHE_KEY = "nex.localAgent.apps.v1";
 
 export interface LocalAgentConfig {
   url: string;     // ex: http://127.0.0.1:17345
@@ -42,6 +43,12 @@ export interface ListAppsResult {
   apps: DetectedApp[];
 }
 
+export interface CachedApps {
+  scannedAt: number;
+  platform: string;
+  apps: DetectedApp[];
+}
+
 export interface ILocalAgentService {
   loadConfig(): LocalAgentConfig;
   saveConfig(cfg: LocalAgentConfig): void;
@@ -49,6 +56,8 @@ export interface ILocalAgentService {
   ping(): Promise<LocalAgentPing>;
   launch(target: string, args?: string[]): Promise<LaunchResult>;
   listApps(): Promise<ListAppsResult>;
+  getCachedApps(): CachedApps | null;
+  findCachedApp(query: string): DetectedApp | null;
 }
 
 const DEFAULT_CONFIG: LocalAgentConfig = {
@@ -76,6 +85,39 @@ function writeStorage(cfg: LocalAgentConfig): void {
   } catch {
     /* quota / private mode */
   }
+}
+
+function readAppsCache(): CachedApps | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(APPS_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed?.apps || !Array.isArray(parsed.apps)) return null;
+    return parsed as CachedApps;
+  } catch {
+    return null;
+  }
+}
+
+function writeAppsCache(data: CachedApps): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(APPS_CACHE_KEY, JSON.stringify(data));
+  } catch {
+    /* quota */
+  }
+}
+
+function normalizeAppName(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\.(exe|lnk|url|bat|cmd|msi|app|desktop)$/i, "")
+    .replace(/[._\-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function normalizeUrl(url: string): string {
@@ -196,7 +238,14 @@ export const localAgentService: ILocalAgentService = {
       if (!resp.ok) {
         throw new Error(`Agent a répondu ${resp.status}.`);
       }
-      return (await resp.json()) as ListAppsResult;
+      const data = (await resp.json()) as ListAppsResult;
+      // Mise en cache pour résolution offline ultérieure.
+      writeAppsCache({
+        scannedAt: Date.now(),
+        platform: data.platform,
+        apps: data.apps || [],
+      });
+      return data;
     } catch (e: any) {
       if (e?.name === "AbortError") {
         throw new Error("Scan trop long (timeout). Réessaie ou réduis tes dossiers.");
@@ -205,5 +254,37 @@ export const localAgentService: ILocalAgentService = {
     } finally {
       clearTimeout(t);
     }
+  },
+
+  getCachedApps() {
+    return readAppsCache();
+  },
+
+  findCachedApp(query: string) {
+    const cache = readAppsCache();
+    if (!cache || cache.apps.length === 0) return null;
+    const q = normalizeAppName(query);
+    if (!q || q.length < 2) return null;
+
+    // 1) Match exact sur nom normalisé
+    for (const app of cache.apps) {
+      if (normalizeAppName(app.name) === q) return app;
+    }
+    // 2) Match "le nom contient toute la query" (préfère .lnk)
+    const contains = cache.apps
+      .filter((a) => normalizeAppName(a.name).includes(q))
+      .sort((a, b) => {
+        if (a.source === "lnk" && b.source !== "lnk") return -1;
+        if (b.source === "lnk" && a.source !== "lnk") return 1;
+        return normalizeAppName(a.name).length - normalizeAppName(b.name).length;
+      });
+    if (contains.length > 0) return contains[0];
+
+    // 3) Match "query contient le nom" (utile quand on tape "spotify musique")
+    for (const app of cache.apps) {
+      const n = normalizeAppName(app.name);
+      if (n.length >= 3 && q.includes(n)) return app;
+    }
+    return null;
   },
 };
