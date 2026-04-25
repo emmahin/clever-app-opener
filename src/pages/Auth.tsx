@@ -34,13 +34,20 @@ export default function Auth() {
         if (error) throw error;
         toast.success("Connecté");
       } else if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: { emailRedirectTo: `${window.location.origin}/` },
         });
         if (error) throw error;
-        toast.success("Compte créé — connexion en cours…");
+        // Si confirmation email activée, pas de session immédiate
+        if (!data.session) {
+          toast.success("Compte créé ! Vérifie ta boîte mail pour confirmer ton adresse.");
+          setMode("signin");
+          setPassword("");
+        } else {
+          toast.success("Compte créé — connexion en cours…");
+        }
       } else {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
           redirectTo: `${window.location.origin}/auth`,
@@ -50,7 +57,17 @@ export default function Auth() {
         setMode("signin");
       }
     } catch (err: any) {
-      toast.error(err?.message ?? "Erreur");
+      const msg = err?.message ?? "Erreur";
+      // Messages plus clairs pour les cas fréquents
+      if (/email not confirmed/i.test(msg)) {
+        toast.error("E-mail non confirmé. Vérifie ta boîte mail (et les spams).");
+      } else if (/invalid login/i.test(msg)) {
+        toast.error("E-mail ou mot de passe incorrect.");
+      } else if (/already registered|already exists/i.test(msg)) {
+        toast.error("Cet e-mail est déjà utilisé. Essaie de te connecter.");
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setLoading(false);
     }
