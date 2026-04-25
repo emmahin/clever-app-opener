@@ -164,6 +164,196 @@ WINDOWS_APP_ALIASES = {
     "obsidian": ["obsidian.exe"],
 }
 
+# Chemins probables pour les apps connues (style script utilisateur).
+# Chaque entrée = liste de chemins (les variables d'env sont expansées).
+# Les motifs avec * sont résolus via glob.
+WINDOWS_KNOWN_APP_PATHS: dict[str, list[str]] = {
+    "spotify": [
+        r"%APPDATA%\Spotify\Spotify.exe",
+        r"%LOCALAPPDATA%\Microsoft\WindowsApps\Spotify.exe",
+        r"C:\Program Files\WindowsApps\SpotifyAB.SpotifyMusic_*\Spotify.exe",
+    ],
+    "discord": [
+        r"%LOCALAPPDATA%\Discord\app-*\Discord.exe",
+        r"%LOCALAPPDATA%\Discord\Update.exe",
+    ],
+    "vlc": [
+        r"%PROGRAMFILES%\VideoLAN\VLC\vlc.exe",
+        r"%PROGRAMFILES(X86)%\VideoLAN\VLC\vlc.exe",
+    ],
+    "obs": [
+        r"%PROGRAMFILES%\obs-studio\bin\64bit\obs64.exe",
+    ],
+    "firefox": [
+        r"%PROGRAMFILES%\Mozilla Firefox\firefox.exe",
+        r"%PROGRAMFILES(X86)%\Mozilla Firefox\firefox.exe",
+    ],
+    "chrome": [
+        r"%PROGRAMFILES%\Google\Chrome\Application\chrome.exe",
+        r"%PROGRAMFILES(X86)%\Google\Chrome\Application\chrome.exe",
+    ],
+    "edge": [
+        r"%PROGRAMFILES(X86)%\Microsoft\Edge\Application\msedge.exe",
+        r"%PROGRAMFILES%\Microsoft\Edge\Application\msedge.exe",
+    ],
+    "brave": [
+        r"%PROGRAMFILES%\BraveSoftware\Brave-Browser\Application\brave.exe",
+        r"%PROGRAMFILES(X86)%\BraveSoftware\Brave-Browser\Application\brave.exe",
+    ],
+    "steam": [
+        r"%PROGRAMFILES(X86)%\Steam\steam.exe",
+        r"%PROGRAMFILES%\Steam\steam.exe",
+    ],
+    "epic": [
+        r"%PROGRAMFILES%\Epic Games\Launcher\Engine\Binaries\Win64\EpicGamesLauncher.exe",
+        r"%PROGRAMFILES(X86)%\Epic Games\Launcher\Engine\Binaries\Win64\EpicGamesLauncher.exe",
+    ],
+    "epic games": [
+        r"%PROGRAMFILES%\Epic Games\Launcher\Engine\Binaries\Win64\EpicGamesLauncher.exe",
+        r"%PROGRAMFILES(X86)%\Epic Games\Launcher\Engine\Binaries\Win64\EpicGamesLauncher.exe",
+    ],
+    "epic games launcher": [
+        r"%PROGRAMFILES%\Epic Games\Launcher\Engine\Binaries\Win64\EpicGamesLauncher.exe",
+        r"%PROGRAMFILES(X86)%\Epic Games\Launcher\Engine\Binaries\Win64\EpicGamesLauncher.exe",
+    ],
+    "gog": [
+        r"%PROGRAMFILES(X86)%\GOG Galaxy\GalaxyClient.exe",
+        r"%PROGRAMFILES%\GOG Galaxy\GalaxyClient.exe",
+    ],
+    "ea": [
+        r"%PROGRAMFILES%\Electronic Arts\EA Desktop\EA Desktop\EADesktop.exe",
+        r"%PROGRAMFILES%\EA\EA App\EADesktop.exe",
+        r"%PROGRAMFILES(X86)%\Origin\Origin.exe",
+    ],
+    "ubisoft": [
+        r"%PROGRAMFILES(X86)%\Ubisoft\Ubisoft Game Launcher\UbisoftConnect.exe",
+        r"%PROGRAMFILES%\Ubisoft\Ubisoft Game Launcher\UbisoftConnect.exe",
+    ],
+    "battlenet": [
+        r"%PROGRAMFILES(X86)%\Battle.net\Battle.net Launcher.exe",
+        r"%PROGRAMFILES%\Battle.net\Battle.net Launcher.exe",
+    ],
+    "battle.net": [
+        r"%PROGRAMFILES(X86)%\Battle.net\Battle.net Launcher.exe",
+    ],
+    "riot": [
+        r"C:\Riot Games\Riot Client\RiotClientServices.exe",
+    ],
+    "notepad": [r"%WINDIR%\System32\notepad.exe"],
+    "calc": [r"%WINDIR%\System32\calc.exe"],
+    "calculator": [r"%WINDIR%\System32\calc.exe"],
+    "calculatrice": [r"%WINDIR%\System32\calc.exe"],
+    "paint": [r"%WINDIR%\System32\mspaint.exe"],
+    "explorer": [r"%WINDIR%\explorer.exe"],
+    "cmd": [r"%WINDIR%\System32\cmd.exe"],
+}
+
+
+def _resolve_known_app_alias(target: str) -> Optional[str]:
+    """Cherche un chemin connu pour cible (alias style script utilisateur)."""
+    if sys.platform != "win32":
+        return None
+    candidates = _windows_query_candidates(target)
+    # On essaye d'abord des correspondances exactes sur clé d'alias,
+    # puis on tente une correspondance "le mot-clé est contenu dans la cible".
+    keys_to_try: list[str] = []
+    for c in candidates:
+        nc = _normalize_app_name(c)
+        if nc and nc in WINDOWS_KNOWN_APP_PATHS:
+            keys_to_try.append(nc)
+    for key in WINDOWS_KNOWN_APP_PATHS.keys():
+        if any(key in _normalize_app_name(c) for c in candidates):
+            if key not in keys_to_try:
+                keys_to_try.append(key)
+
+    for key in keys_to_try:
+        for raw_path in WINDOWS_KNOWN_APP_PATHS[key]:
+            expanded = os.path.expandvars(raw_path)
+            if "*" in expanded:
+                matches = sorted(glob(expanded), reverse=True)
+                for m in matches:
+                    if os.path.exists(m):
+                        return m
+            elif os.path.exists(expanded):
+                return expanded
+    return None
+
+
+def _resolve_via_registry_app_paths(target: str) -> Optional[str]:
+    """Lit HKLM/HKCU\\...\\App Paths\\<name>.exe — le registre Windows officiel
+    dans lequel la plupart des installateurs déclarent leur exécutable.
+    """
+    if sys.platform != "win32":
+        return None
+    try:
+        import winreg  # type: ignore
+    except Exception:
+        return None
+
+    candidates = _windows_query_candidates(target)
+    names: list[str] = []
+    for c in candidates:
+        base = os.path.basename(c)
+        if not base:
+            continue
+        if not base.lower().endswith(".exe"):
+            base = base + ".exe"
+        if base not in names:
+            names.append(base)
+
+    sub = r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths"
+    for hive in (winreg.HKEY_CURRENT_USER, winreg.HKEY_LOCAL_MACHINE):
+        try:
+            root = winreg.OpenKey(hive, sub)
+        except OSError:
+            continue
+        try:
+            for name in names:
+                try:
+                    k = winreg.OpenKey(root, name)
+                except OSError:
+                    continue
+                try:
+                    path, _ = winreg.QueryValueEx(k, None)
+                    if path and os.path.exists(path):
+                        return path
+                except OSError:
+                    pass
+                finally:
+                    winreg.CloseKey(k)
+        finally:
+            winreg.CloseKey(root)
+    return None
+
+
+def _resolve_via_where(target: str) -> Optional[str]:
+    """Utilise la commande Windows 'where' (équivalent de 'which')."""
+    if sys.platform != "win32":
+        return None
+    candidates = _windows_query_candidates(target)
+    tried: set[str] = set()
+    for c in candidates:
+        base = os.path.basename(c).strip()
+        if not base:
+            continue
+        if not base.lower().endswith(".exe"):
+            base = base + ".exe"
+        if base in tried:
+            continue
+        tried.add(base)
+        try:
+            res = subprocess.run(
+                ["where", base],
+                capture_output=True, text=True, timeout=2,
+            )
+        except Exception:
+            continue
+        if res.returncode == 0 and res.stdout.strip():
+            first = res.stdout.strip().splitlines()[0].strip()
+            if first and os.path.exists(first):
+                return first
+    return None
+
 
 def _normalize_app_name(value: str) -> str:
     value = os.path.basename(value.strip().lower())
@@ -314,6 +504,20 @@ def launch(body: LaunchBody, authorization: Optional[str] = Header(default=None)
         known_path = _resolve_known_windows_path(target)
         if known_path:
             return _launch_windows_path(known_path, body.args, "known-path")
+
+        # Stratégies inspirées du script utilisateur :
+        # alias avec chemins probables → registre App Paths → commande 'where'
+        alias_path = _resolve_known_app_alias(target)
+        if alias_path:
+            return _launch_windows_path(alias_path, body.args, "alias-path")
+
+        registry_path = _resolve_via_registry_app_paths(target)
+        if registry_path:
+            return _launch_windows_path(registry_path, body.args, "registry-app-paths")
+
+        where_path = _resolve_via_where(target)
+        if where_path:
+            return _launch_windows_path(where_path, body.args, "where")
 
         shortcut = _resolve_windows_shortcut_or_app(target)
         if shortcut:
