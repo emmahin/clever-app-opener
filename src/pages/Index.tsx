@@ -15,6 +15,7 @@ import { useProjects } from "@/contexts/ProjectsProvider";
 import { useNavigate } from "react-router-dom";
 import { notificationService } from "@/services/notificationService";
 import { scheduleService } from "@/services/scheduleService";
+import { toast } from "sonner";
 import { organizeLocally } from "@/lib/localOrganizer";
 import { registerOrganizeFiles } from "@/lib/organizeRegistry";
 import {
@@ -364,6 +365,21 @@ export default function Index() {
       },
       onError: (err) => {
         setIsLoading(false);
+        const code = (err as any)?.code;
+        if (code === "insufficient_credits") {
+          toast.error(err.message, {
+            action: {
+              label: "Recharger",
+              onClick: () => navigate("/billing"),
+            },
+            duration: 8000,
+          });
+          // Retire le message assistant vide, et on ne pollue pas avec une bulle d'erreur :
+          // on redirige automatiquement après un court délai.
+          setMessages((prev) => prev.filter((m) => m.id !== assistantId));
+          setTimeout(() => navigate("/billing"), 1500);
+          return;
+        }
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantId
