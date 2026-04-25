@@ -799,6 +799,15 @@ def launch(body: LaunchBody, authorization: Optional[str] = Header(default=None)
 
         shortcut = _resolve_windows_shortcut_or_app(target)
         if shortcut:
+            # On essaie d'abord les apps Microsoft Store : pour des cibles type
+            # "whatsapp" / "snapchat" / "instagram" / "netflix", elles ne vivent
+            # PAS sous .exe et le fuzzy start-menu ramènerait n'importe quel
+            # raccourci ressemblant (ex: "Administrative Tools"). Le scan Store
+            # via Get-StartApps est beaucoup plus fiable pour ces noms.
+            store_target = _resolve_microsoft_store_app(target)
+            if store_target:
+                print(f"[nex-agent] strategy=store-app-before-startmenu matched target={store_target}", flush=True)
+                return _launch_store_app(store_target)
             print(f"[nex-agent] strategy=start-menu matched target={shortcut}", flush=True)
             return _launch_windows_path(shortcut, body.args, "start-menu")
 
