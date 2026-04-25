@@ -620,7 +620,7 @@ def ping(authorization: Optional[str] = Header(default=None)):
     return {
         "ok": True,
         "agent": "nex-local-agent",
-        "version": "1.1.0",
+        "version": "1.2.0",
         "platform": sys.platform,
         "allowlist_active": bool(ALLOWLIST),
     }
