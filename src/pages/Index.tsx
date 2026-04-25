@@ -5,13 +5,13 @@ import { ChatOrb } from "@/components/chatbot/ChatOrb";
 import { ChatInput } from "@/components/chatbot/ChatInput";
 import { SuggestionPills } from "@/components/chatbot/SuggestionPills";
 import { ChatMessageItem } from "@/components/chatbot/ChatMessage";
-import { HeaderSearch } from "@/components/chatbot/HeaderSearch";
 import { chatService, ChatMessage, ChatAttachment, APP_CATALOG, localAgentService } from "@/services";
 import { Expand, Minimize2, Settings2, Sparkles, MessageSquarePlus, Trash2, SlidersHorizontal, PhoneCall } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useSettings } from "@/contexts/SettingsProvider";
 import { VoiceCallMode } from "@/components/chatbot/VoiceCallMode";
 import { ProjectsBar } from "@/components/chatbot/ProjectsBar";
+import { useProjects } from "@/contexts/ProjectsProvider";
 import { useNavigate } from "react-router-dom";
 import { notificationService } from "@/services/notificationService";
 import { scheduleService } from "@/services/scheduleService";
@@ -125,6 +125,7 @@ export default function Index() {
   const { lang, t } = useLanguage();
   const { settings } = useSettings();
   const navigate = useNavigate();
+  const { get: getProject } = useProjects();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [voiceCallOpen, setVoiceCallOpen] = useState(false);
@@ -155,6 +156,32 @@ export default function Index() {
 
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   useEffect(() => scrollToBottom(), [messages]);
+
+  // Sidebar → recharge un chat depuis l'historique
+  useEffect(() => {
+    const onLoad = (e: Event) => {
+      const detail = (e as CustomEvent<{ id: string }>).detail;
+      if (!detail?.id) return;
+      const proj = getProject(detail.id);
+      const data = proj?.data as { messages?: ChatMessage[] } | undefined;
+      if (data?.messages) {
+        abortRef.current?.abort();
+        setIsLoading(false);
+        setMessages(data.messages);
+      }
+    };
+    const onNew = () => {
+      abortRef.current?.abort();
+      setIsLoading(false);
+      setMessages([]);
+    };
+    window.addEventListener("nex:loadChat", onLoad as EventListener);
+    window.addEventListener("nex:newChat", onNew as EventListener);
+    return () => {
+      window.removeEventListener("nex:loadChat", onLoad as EventListener);
+      window.removeEventListener("nex:newChat", onNew as EventListener);
+    };
+  }, [getProject]);
 
   const jumpToMessage = (id: string) => {
     const el = document.getElementById(`msg-${id}`);
@@ -384,16 +411,9 @@ export default function Index() {
       <Sidebar />
       <Header
         onNewChat={handleNewChat}
-        searchSlot={
-          <HeaderSearch
-            messages={messages}
-            onJumpToMessage={jumpToMessage}
-            onSuggestion={(text) => sendMessage(text)}
-          />
-        }
       />
 
-      <main className="ml-0 md:ml-[72px] pt-14 min-h-screen flex">
+      <main className="ml-0 md:ml-[280px] pt-14 min-h-screen flex">
         {/* Main chat area */}
         <div className="flex-1 flex flex-col relative">
           {/* Floating title + actions (no background bar) */}
@@ -411,6 +431,7 @@ export default function Index() {
               <ProjectsBar
                 category="ai-tools"
                 getSnapshot={() => ({ messages })}
+                hideSearch
                 onLoad={(p) => {
                   const data = p.data as { messages?: ChatMessage[] };
                   if (data?.messages) setMessages(data.messages);

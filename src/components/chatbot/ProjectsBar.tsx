@@ -11,9 +11,11 @@ interface ProjectsBarProps {
   /** Appelé quand l'utilisateur charge un projet sauvegardé */
   onLoad?: (project: SavedProject) => void;
   className?: string;
+  /** Cache le champ de recherche (utile quand l'historique est affiché ailleurs, ex: sidebar) */
+  hideSearch?: boolean;
 }
 
-export function ProjectsBar({ category, getSnapshot, onLoad, className }: ProjectsBarProps) {
+export function ProjectsBar({ category, getSnapshot, onLoad, className, hideSearch }: ProjectsBarProps) {
   const { list, save, remove } = useProjects();
   const items = list(category);
 
@@ -93,6 +95,7 @@ export function ProjectsBar({ category, getSnapshot, onLoad, className }: Projec
       )}
 
       {/* Search field */}
+      {!hideSearch && (
       <div className="relative">
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 focus-within:bg-white/10 backdrop-blur-md border border-white/10 transition-colors">
           <Search className="w-4 h-4 text-muted-foreground" />
@@ -155,6 +158,7 @@ export function ProjectsBar({ category, getSnapshot, onLoad, className }: Projec
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }

@@ -422,7 +422,7 @@ export default function WhatsAppPage() {
     <div className="min-h-screen text-foreground overflow-hidden" style={pageBg}>
       <AppSidebar />
 
-      <main className="ml-0 md:ml-[72px] px-2 md:px-4 py-2 md:py-4 h-screen pt-14 md:pt-4">
+      <main className="ml-0 md:ml-[280px] px-2 md:px-4 py-2 md:py-4 h-screen pt-14 md:pt-4">
         <div className={`h-full max-w-[1600px] mx-auto rounded-2xl overflow-hidden shadow-[0_20px_80px_-20px_rgba(168,85,247,0.4)] flex ${PANEL_BG} border ${BORDER}`}>
           {/* LEFT */}
           <aside className={`w-[400px] flex flex-col border-r ${BORDER}`}>

@@ -1,5 +1,4 @@
 import { User, Plus, LogOut, Settings as SettingsIcon } from "lucide-react";
-import { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { NotificationBell } from "./NotificationBell";
@@ -15,21 +14,16 @@ import {
 
 interface HeaderProps {
   onNewChat?: () => void;
-  searchSlot?: ReactNode;
 }
 
-export function Header({ onNewChat, searchSlot }: HeaderProps = {}) {
+export function Header({ onNewChat }: HeaderProps = {}) {
   const { t } = useLanguage();
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   return (
     <header
-      className="fixed top-0 left-0 md:left-[72px] right-0 h-14 flex items-center justify-between pl-14 pr-3 md:px-6 gap-2 z-40"
+      className="fixed top-0 left-0 md:left-[280px] right-0 h-14 flex items-center justify-end pl-14 pr-3 md:px-6 gap-2 z-40"
       style={{ background: "linear-gradient(90deg, hsl(0, 0%, 4%, 0.95), hsl(275, 85%, 45%, 0.95))" }}>
-      {/* Search slot (caché sur mobile pour libérer la barre — ⌘K reste accessible) */}
-      <div className="hidden md:block min-w-0 flex-shrink">{searchSlot}</div>
-      <div className="md:hidden flex-1 min-w-0" />
-
       {/* Right actions */}
       <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
         {onNewChat && (

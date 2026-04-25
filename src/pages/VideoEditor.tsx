@@ -487,7 +487,7 @@ export default function VideoEditor() {
         category="video"
         getSnapshot={() => ({ savedAt: Date.now(), preset })}
       />
-      <main className="ml-0 md:ml-[72px] pt-14 min-h-screen flex flex-col">
+      <main className="ml-0 md:ml-[280px] pt-14 min-h-screen flex flex-col">
         {/* Top bar */}
         <div className="px-3 md:px-6 py-3 flex items-center justify-between border-b border-border/40 flex-wrap gap-3">
           <div className="flex items-center gap-3">
