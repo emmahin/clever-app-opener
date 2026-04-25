@@ -413,7 +413,7 @@ export default function Index() {
         onNewChat={handleNewChat}
       />
 
-      <main className="ml-0 md:ml-[280px] pt-14 min-h-screen flex">
+      <main className="ml-0 md:[margin-left:var(--sidebar-w,280px)] md:transition-[margin-left] md:duration-300 pt-14 min-h-screen flex">
         {/* Main chat area */}
         <div className="flex-1 flex flex-col relative">
           {/* Floating title + actions (no background bar) */}

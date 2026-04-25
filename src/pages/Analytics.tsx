@@ -8,7 +8,7 @@ export default function Analytics() {
     <div className="min-h-screen bg-background text-foreground">
       <Sidebar />
       <Header />
-      <main className="ml-0 md:ml-[280px] pt-14 min-h-screen">
+      <main className="ml-0 md:[margin-left:var(--sidebar-w,280px)] md:transition-[margin-left] md:duration-300 pt-14 min-h-screen">
         <div className="px-3 md:px-6 py-4">
           <h1 className="text-2xl font-semibold flex items-center gap-2">
             <Activity className="w-6 h-6 text-primary" />
