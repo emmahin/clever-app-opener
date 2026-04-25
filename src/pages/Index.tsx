@@ -6,7 +6,7 @@ import { ChatInput } from "@/components/chatbot/ChatInput";
 import { SuggestionPills } from "@/components/chatbot/SuggestionPills";
 import { ChatMessageItem } from "@/components/chatbot/ChatMessage";
 import { HeaderSearch } from "@/components/chatbot/HeaderSearch";
-import { chatService, ChatMessage, ChatAttachment, APP_CATALOG } from "@/services";
+import { chatService, ChatMessage, ChatAttachment, APP_CATALOG, localAgentService } from "@/services";
 import { Expand, Minimize2, Settings2, Sparkles, MessageSquarePlus, Trash2, SlidersHorizontal, PhoneCall } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useSettings } from "@/contexts/SettingsProvider";
@@ -26,15 +26,68 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-function extractLocalExecutableRequest(content: string): { target: string; label: string } | null {
-  const text = content.trim();
-  if (!/\b(ouvre|ouvrir|lance|lancer|d[ée]marre|start|open|launch)\b/i.test(text)) return null;
+type LocalLaunchIntent =
+  | { kind: "found"; target: string; label: string }
+  | { kind: "not-found"; label: string };
 
-  const normalized = text
+/**
+ * Détecte une demande "ouvre / lance <app>" et tente de la résoudre :
+ *   1. Chemin .exe/.lnk explicite dans la phrase → on prend tel quel.
+ *   2. Cache d'apps scannées (Settings → Agent local) → on résout en chemin absolu.
+ *   3. Catalogue natif (Spotify, Discord, VS Code…) → on délègue à l'agent par nom.
+ *   4. Sinon → "not-found", JAMAIS de fallback web.
+ *
+ * Règle utilisateur : aucune redirection web automatique.
+ * On laisse passer à l'IA UNIQUEMENT si la phrase mentionne explicitement un site/lien.
+ */
+function extractLocalExecutableRequest(content: string): LocalLaunchIntent | null {
+  const text = content.trim();
+  if (!/\b(ouvre|ouvrir|lance|lancer|d[ée]marre|start|open|launch|exécute|execute)\b/i.test(text)) {
+    return null;
+  }
+
+  // L'utilisateur demande explicitement un lien web → on n'intercepte pas.
+  if (/\b(site|lien|url|page web|web|navigateur|onglet|browser)\b/i.test(text) || /https?:\/\//i.test(text)) {
+    return null;
+  }
+
+  // 1) Chemin Windows complet (.exe/.lnk/.bat/.cmd/.msi)
+  const pathMatch = text.match(/([a-zA-Z]:\\[^\n"'`]+?\.(?:exe|lnk|bat|cmd|msi))\b/i);
+  if (pathMatch?.[1]) {
+    const target = pathMatch[1].trim();
+    const label = target.split(/[\\/]/).pop() || target;
+    return { kind: "found", target, label };
+  }
+  const inlinePath = text.match(/(?:ouvre|ouvrir|lance|lancer|d[ée]marre|start|open|launch|exécute|execute)\s+(?:l['’]application\s+|le\s+programme\s+)?([^\s"'`]+?\.(?:exe|lnk|bat|cmd|msi))\b/i);
+  if (inlinePath?.[1]) {
+    const target = inlinePath[1].trim();
+    const label = target.split(/[\\/]/).pop() || target;
+    return { kind: "found", target, label };
+  }
+
+  // 2) Extraction du nom de l'app après le verbe
+  const subjectMatch = text.match(
+    /(?:ouvre|ouvrir|lance|lancer|d[ée]marre|start|open|launch|exécute|execute)\s+(?:l['’]?application\s+|le\s+programme\s+|l['’]?app\s+|the\s+app\s+)?(.+?)(?:\s+(?:stp|svp|please)?\s*[.!?]?$)/i,
+  );
+  let subject = subjectMatch?.[1]?.trim();
+  if (!subject || subject.length < 2) return null;
+  // Nettoyage : "moi", articles, ponctuation finale
+  subject = subject.replace(/^(moi|me|stp|svp)\s+/i, "").replace(/[.!?,;]+$/g, "").trim();
+  if (!subject) return null;
+
+  // 2a) Recherche dans le cache des apps scannées (= chemin absolu fiable)
+  if (localAgentService.isConfigured()) {
+    const cachedApp = localAgentService.findCachedApp(subject);
+    if (cachedApp) {
+      return { kind: "found", target: cachedApp.path, label: cachedApp.name };
+    }
+  }
+
+  // 2b) Catalogue natif (deeplinks installés par défaut)
+  const normalized = subject
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
-
   const nativeCatalogApp = APP_CATALOG.find(
     (app) =>
       app.kind === "deeplink" &&
@@ -46,17 +99,16 @@ function extractLocalExecutableRequest(content: string): { target: string; label
         return new RegExp(`\\b${normalizedAlias.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(normalized);
       }),
   );
-
   if (nativeCatalogApp) {
-    return { target: nativeCatalogApp.aliases[0] || nativeCatalogApp.name, label: nativeCatalogApp.name };
+    return {
+      kind: "found",
+      target: nativeCatalogApp.aliases[0] || nativeCatalogApp.name,
+      label: nativeCatalogApp.name,
+    };
   }
 
-  const pathMatch = text.match(/([a-zA-Z]:\\[^\n"'`]+?\.(?:exe|lnk|url|bat|cmd|msi))\b/i);
-  const target = pathMatch?.[1]?.trim() || text.match(/(?:ouvre|ouvrir|lance|lancer|d[ée]marre|start|open|launch)\s+(?:l['’]application\s+|le\s+programme\s+)?([^\s"'`]+?\.(?:exe|lnk|url|bat|cmd|msi))\b/i)?.[1]?.trim();
-
-  if (!target) return null;
-  const label = target.split(/[\\/]/).pop() || target;
-  return { target, label };
+  // 3) Rien trouvé → on signale "introuvable" sans jamais ouvrir de lien web.
+  return { kind: "not-found", label: subject };
 }
 
 export default function Index() {
@@ -125,16 +177,38 @@ export default function Index() {
     const localExecutable = extractLocalExecutableRequest(content);
     if (localExecutable) {
       setMessages((prev) => [...prev, userMsg]);
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: `Je tente d'ouvrir **${localExecutable.label}** via l'agent local.`,
-          createdAt: Date.now(),
-          widgets: [{ type: "launch_local_app", target: localExecutable.target, label: localExecutable.label }],
-        },
-      ]);
+      if (localExecutable.kind === "found") {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content: `Je tente d'ouvrir **${localExecutable.label}** via l'agent local.`,
+            createdAt: Date.now(),
+            widgets: [{ type: "launch_local_app", target: localExecutable.target, label: localExecutable.label }],
+          },
+        ]);
+      } else {
+        // Aucune app trouvée : on AFFICHE un message clair, sans jamais rediriger vers le web.
+        const cached = localAgentService.getCachedApps();
+        const hint = !localAgentService.isConfigured()
+          ? "L'agent local n'est pas configuré. Va dans **Paramètres → Agent local PC** pour l'activer."
+          : !cached
+            ? "Aucune liste d'applications n'a encore été scannée. Va dans **Paramètres → Agent local PC** et clique sur **Scanner mes applications**."
+            : `Cette application n'apparaît pas dans tes ${cached.apps.length} apps détectées. Re-scanne ou précise le chemin complet du \`.exe\`/\`.lnk\`.`;
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content:
+              `❌ Je n'ai trouvé aucune application correspondant à **${localExecutable.label}** sur ton PC.\n\n` +
+              hint +
+              `\n\n*Je n'ouvre jamais de lien web automatiquement — précise « ouvre le site … » si c'est ce que tu veux.*`,
+            createdAt: Date.now(),
+          },
+        ]);
+      }
       return;
     }
 
