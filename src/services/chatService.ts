@@ -1,4 +1,5 @@
 import { ChatMessage, ChatWidget } from "./types";
+import { supabase } from "@/integrations/supabase/client";
 
 export type ChatAttachment =
   | { kind: "image"; name: string; mime: string; dataUrl: string }
@@ -32,18 +33,36 @@ const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-orchestra
 export const webChatService: IChatService = {
   async streamChat({ messages, onDelta, onWidgets, onDone, onError, signal, lang, detailLevel, customInstructions, aiName, attachments, webSearch, deepThink, forceTool, schedule }) {
     try {
+      // Récupère le JWT utilisateur (nécessaire pour identifier le user côté serveur — débit crédits).
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
       const resp = await fetch(CHAT_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ messages, lang, detailLevel, customInstructions, aiName, attachments, webSearch, deepThink, forceTool, schedule }),
         signal,
       });
 
       if (resp.status === 429) return onError(new Error("Trop de requêtes — réessayez dans un instant."));
-      if (resp.status === 402) return onError(new Error("Crédits IA épuisés — ajoutez des crédits dans votre workspace."));
+      if (resp.status === 402) {
+        let msg = "Crédits insuffisants pour cette requête.";
+        try {
+          const j = await resp.json();
+          if (j?.code === "insufficient_credits") {
+            msg = `Crédits insuffisants (solde ${j.balance ?? 0}, requis ${j.required ?? "?"}). Rechargez votre compte.`;
+          } else if (j?.error) {
+            msg = j.error;
+          }
+        } catch { /* ignore */ }
+        const err = new Error(msg);
+        (err as any).code = "insufficient_credits";
+        return onError(err);
+      }
+      if (resp.status === 401) return onError(new Error("Session expirée — reconnectez-vous."));
       if (!resp.ok || !resp.body) return onError(new Error("Échec de la connexion à l'IA."));
 
       const reader = resp.body.getReader();
