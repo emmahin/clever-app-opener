@@ -534,6 +534,70 @@ def _launch_store_app(shell_target: str) -> JSONResponse:
     return JSONResponse({"ok": True, "method": "store-app", "target": shell_target})
 
 
+def _list_microsoft_store_apps() -> list[dict]:
+    """Liste les apps UWP/MSIX installées (Microsoft Store et sideload).
+
+    Retourne des entrées prêtes pour /apps avec un `path` directement utilisable
+    par /launch (shell:AppsFolder\\<PFN>!<AppId>).
+    """
+    if sys.platform != "win32":
+        return []
+
+    # On veut le PackageFamilyName + le DisplayName lisible + l'AppId du tile.
+    # Get-StartApps donne directement (Name, AppID) pour toutes les tuiles
+    # visibles dans le menu Démarrer, y compris les apps Store et Win32.
+    # On le filtre ensuite pour ne garder que les AppId au format "<PFN>!<id>".
+    ps_cmd = (
+        "Get-StartApps | "
+        "ForEach-Object { \"$($_.Name)|$($_.AppID)\" }"
+    )
+    try:
+        result = subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_cmd],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+    except Exception as e:
+        print(f"[nex-agent] scan store-apps powershell error: {e}", flush=True)
+        return []
+
+    if result.returncode != 0 or not result.stdout:
+        print(
+            f"[nex-agent] scan store-apps returned no data rc={result.returncode}",
+            flush=True,
+        )
+        return []
+
+    found: list[dict] = []
+    seen: set[str] = set()
+    for line in result.stdout.splitlines():
+        line = line.strip()
+        if "|" not in line:
+            continue
+        name, app_id = line.split("|", 1)
+        name = name.strip()
+        app_id = app_id.strip()
+        if not name or not app_id:
+            continue
+        # Ne garder que les AppId UWP (contiennent '!'). Les autres sont des
+        # raccourcis Win32 déjà couverts par le scan .lnk.
+        if "!" not in app_id:
+            continue
+        # Filtre des apps système peu intéressantes
+        low = name.lower()
+        if low in {"get help", "get started", "tips", "feedback hub"}:
+            continue
+        path = f"shell:AppsFolder\\{app_id}"
+        if path in seen:
+            continue
+        seen.add(path)
+        found.append({"name": name, "path": path, "source": "store"})
+    print(f"[nex-agent] scan store-apps found={len(found)}", flush=True)
+    return found
+
+
 def _launch_windows_path(path: str, args: list[str], method: str) -> JSONResponse:
     print(f"[nex-agent] launch resolved method={method} target={path} args={args}", flush=True)
     ext = os.path.splitext(path)[1].lower()
@@ -556,7 +620,7 @@ def ping(authorization: Optional[str] = Header(default=None)):
     return {
         "ok": True,
         "agent": "nex-local-agent",
-        "version": "1.1.0",
+        "version": "1.2.0",
         "platform": sys.platform,
         "allowlist_active": bool(ALLOWLIST),
     }
@@ -587,6 +651,11 @@ def launch(body: LaunchBody, authorization: Optional[str] = Header(default=None)
 
     try:
         # 1) Si c'est un chemin absolu existant → on lance directement.
+        # 1-bis) Cas spécial : path Microsoft Store (shell:AppsFolder\<PFN>!App)
+        if sys.platform == "win32" and target.lower().startswith("shell:appsfolder\\"):
+            print(f"[nex-agent] strategy=store-app-direct target={target}", flush=True)
+            return _launch_store_app(target)
+
         if os.path.isabs(target) and os.path.exists(target):
             print(f"[nex-agent] strategy=absolute-path matched target={target}", flush=True)
             ext = os.path.splitext(target)[1].lower()
@@ -755,6 +824,9 @@ def _list_windows_apps() -> list[dict]:
     for d in game_roots:
         candidates += _scan_dir_for_apps(d, {".exe"}, max_depth=4)
 
+    # 6) Apps Microsoft Store / UWP (WhatsApp, Snapchat, Instagram, Netflix…)
+    candidates += _list_microsoft_store_apps()
+
     # Dédup par nom normalisé (préfère le .lnk si dispo)
     by_key: dict[str, dict] = {}
     for entry in candidates:
@@ -765,8 +837,9 @@ def _list_windows_apps() -> list[dict]:
         if prev is None:
             by_key[key] = entry
             continue
-        # Préférence : .lnk > .exe (raccourcis sont plus propres à lancer)
-        if prev["source"] != "lnk" and entry["source"] == "lnk":
+        # Préférence : store > lnk > exe (les apps Store n'ont pas de .exe lançable)
+        priority = {"store": 3, "lnk": 2, "exe": 1}
+        if priority.get(entry["source"], 0) > priority.get(prev["source"], 0):
             by_key[key] = entry
 
     apps = list(by_key.values())
