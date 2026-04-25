@@ -284,6 +284,12 @@ def launch(body: LaunchBody, authorization: Optional[str] = Header(default=None)
     try:
         # 1) Si c'est un chemin absolu existant → on lance directement.
         if os.path.isabs(target) and os.path.exists(target):
+            ext = os.path.splitext(target)[1].lower()
+            if sys.platform == "win32" and ext == ".url":
+                raise HTTPException(
+                    status_code=400,
+                    detail="Ce raccourci .url ouvre une page web. Donne le nom de l'application ou le chemin du .exe/.lnk.",
+                )
             if sys.platform == "win32":
                 return _launch_windows_path(target, body.args, "path")
             elif sys.platform == "darwin":
