@@ -24,4 +24,14 @@ export type {
   ListAppsResult,
   CachedApps,
 } from "./localAgentService";
+export { twinMemoryService } from "./twinMemoryService";
+export type {
+  ITwinMemoryService,
+  UserMemory,
+  MemoryCategory,
+  ConversationSummary,
+  ScheduleEventDB,
+} from "./twinMemoryService";
+export { twinVoiceService } from "./twinVoiceService";
+export type { ITwinVoiceService } from "./twinVoiceService";
 export * from "./types";

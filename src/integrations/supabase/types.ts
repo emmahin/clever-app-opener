@@ -47,6 +47,42 @@ export type Database = {
         }
         Relationships: []
       }
+      conversation_summaries: {
+        Row: {
+          created_at: string
+          emotional_tone: string | null
+          id: string
+          patterns: Json
+          period: string
+          period_end: string
+          period_start: string
+          summary: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          emotional_tone?: string | null
+          id?: string
+          patterns?: Json
+          period?: string
+          period_end: string
+          period_start: string
+          summary: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          emotional_tone?: string | null
+          id?: string
+          patterns?: Json
+          period?: string
+          period_end?: string
+          period_start?: string
+          summary?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       credit_pricing: {
         Row: {
           action: string
@@ -149,6 +185,51 @@ export type Database = {
         }
         Relationships: []
       }
+      schedule_events: {
+        Row: {
+          created_at: string
+          end_iso: string | null
+          external_id: string | null
+          external_provider: string | null
+          id: string
+          location: string | null
+          notes: string | null
+          source: string
+          start_iso: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          end_iso?: string | null
+          external_id?: string | null
+          external_provider?: string | null
+          id?: string
+          location?: string | null
+          notes?: string | null
+          source?: string
+          start_iso: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          end_iso?: string | null
+          external_id?: string | null
+          external_provider?: string | null
+          id?: string
+          location?: string | null
+          notes?: string | null
+          source?: string
+          start_iso?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_credits: {
         Row: {
           created_at: string
@@ -177,6 +258,45 @@ export type Database = {
           subscription_renews_at?: string | null
           subscription_tier?: string
           total_consumed?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_memories: {
+        Row: {
+          category: string
+          content: string
+          created_at: string
+          id: string
+          importance: number
+          last_referenced_at: string | null
+          metadata: Json
+          source: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string
+          content: string
+          created_at?: string
+          id?: string
+          importance?: number
+          last_referenced_at?: string | null
+          metadata?: Json
+          source?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          content?: string
+          created_at?: string
+          id?: string
+          importance?: number
+          last_referenced_at?: string | null
+          metadata?: Json
+          source?: string
           updated_at?: string
           user_id?: string
         }
