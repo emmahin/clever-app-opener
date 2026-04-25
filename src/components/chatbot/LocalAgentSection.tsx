@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
-import { localAgentService, type LocalAgentConfig } from "@/services";
-import { Loader2, Check, AlertTriangle, Eye, EyeOff, Download } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { localAgentService, type LocalAgentConfig, type DetectedApp } from "@/services";
+import { Loader2, Check, AlertTriangle, Eye, EyeOff, Download, Search, RefreshCw, Play } from "lucide-react";
 import { toast } from "sonner";
 
 type TestState =
@@ -13,6 +13,10 @@ export function LocalAgentSection() {
   const [cfg, setCfg] = useState<LocalAgentConfig>(() => localAgentService.loadConfig());
   const [showToken, setShowToken] = useState(false);
   const [test, setTest] = useState<TestState>({ kind: "idle" });
+  const [apps, setApps] = useState<DetectedApp[] | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const [filter, setFilter] = useState("");
 
   useEffect(() => {
     localAgentService.saveConfig(cfg);
@@ -52,6 +56,36 @@ export function LocalAgentSection() {
       })
       .catch((e) => toast.error(e.message));
   };
+
+  const scanApps = async () => {
+    localAgentService.saveConfig(cfg);
+    setScanning(true);
+    setScanError(null);
+    try {
+      const res = await localAgentService.listApps();
+      setApps(res.apps);
+      toast.success(`${res.count} application(s) détectée(s)`);
+    } catch (e: any) {
+      const msg = e?.message || "Échec du scan";
+      setScanError(msg);
+      toast.error(msg);
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  const launchApp = async (app: DetectedApp) => {
+    const r = await localAgentService.launch(app.path);
+    if (r.ok) toast.success(`Lancé : ${app.name}`);
+    else toast.error(r.detail || "Échec du lancement");
+  };
+
+  const filteredApps = useMemo(() => {
+    if (!apps) return [];
+    const q = filter.trim().toLowerCase();
+    if (!q) return apps;
+    return apps.filter((a) => a.name.toLowerCase().includes(q));
+  }, [apps, filter]);
 
   return (
     <div className="space-y-5">
@@ -150,6 +184,96 @@ export function LocalAgentSection() {
             <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
             <span className="truncate">{test.message}</span>
           </div>
+        )}
+      </div>
+
+      {/* Scan des applications installées */}
+      <div className="rounded-lg bg-secondary/30 border border-border/40 p-3 space-y-3">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="min-w-0">
+            <div className="text-sm font-medium">Applications détectées</div>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Scan du Menu Démarrer, Bureau, Program Files, LocalAppData, Téléchargements et bibliothèques de jeux.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={scanApps}
+            disabled={!cfg.url || !cfg.token || scanning}
+            className="px-3 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity flex items-center gap-2"
+          >
+            {scanning ? (
+              <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Scan en cours…</>
+            ) : apps ? (
+              <><RefreshCw className="w-3.5 h-3.5" /> Re-scanner</>
+            ) : (
+              <><Search className="w-3.5 h-3.5" /> Scanner mes applications</>
+            )}
+          </button>
+        </div>
+
+        {scanError && (
+          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-destructive/15 text-destructive text-xs">
+            <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+            <span className="truncate">{scanError}</span>
+          </div>
+        )}
+
+        {apps && apps.length > 0 && (
+          <>
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                placeholder={`Filtrer parmi ${apps.length} apps…`}
+                className="w-full pl-8 pr-3 py-1.5 rounded-md bg-background/60 border border-border/60 text-xs focus:outline-none focus:border-primary"
+              />
+            </div>
+            <div className="max-h-72 overflow-y-auto rounded-md border border-border/40 divide-y divide-border/30">
+              {filteredApps.slice(0, 300).map((app) => (
+                <div
+                  key={app.path}
+                  className="flex items-center gap-3 px-3 py-2 hover:bg-secondary/40 transition-colors"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-medium truncate">{app.name}</div>
+                    <div className="text-[10px] text-muted-foreground truncate font-mono">
+                      {app.path}
+                    </div>
+                  </div>
+                  <span className="text-[9px] uppercase tracking-wide text-muted-foreground bg-secondary/60 px-1.5 py-0.5 rounded">
+                    {app.source}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => launchApp(app)}
+                    className="p-1.5 rounded-md bg-primary/15 text-primary hover:bg-primary/25 transition-colors"
+                    aria-label={`Lancer ${app.name}`}
+                  >
+                    <Play className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+              {filteredApps.length > 300 && (
+                <div className="px-3 py-2 text-[11px] text-muted-foreground">
+                  … {filteredApps.length - 300} résultat(s) supplémentaire(s) — affine le filtre.
+                </div>
+              )}
+              {filteredApps.length === 0 && (
+                <div className="px-3 py-4 text-xs text-muted-foreground text-center">
+                  Aucun résultat pour « {filter} ».
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {apps && apps.length === 0 && (
+          <p className="text-xs text-muted-foreground">
+            Aucune application détectée. Vérifie que l'agent tourne bien sur ton PC Windows.
+          </p>
         )}
       </div>
 
