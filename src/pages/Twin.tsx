@@ -142,9 +142,11 @@ export default function Twin() {
                 <p className="text-sm text-white/60">Votre assistant de développement personnel à voix haute</p>
               </div>
             </div>
-            <Button variant="ghost" size="icon" onClick={() => { setAgentInput(agentId); setShowSettings(true); }} className="text-white/70 hover:text-white">
-              <SettingsIcon className="w-5 h-5" />
-            </Button>
+            {!voice.supported && (
+              <span className="text-xs text-amber-300 bg-amber-500/10 border border-amber-400/30 rounded-lg px-2.5 py-1">
+                Reconnaissance vocale non supportée — utilisez Chrome/Edge/Safari
+              </span>
+            )}
           </div>
 
           {/* Voice call card */}
@@ -160,7 +162,7 @@ export default function Twin() {
                       : "bg-gradient-to-br from-purple-700/40 to-pink-700/40 border border-white/10")
                   }
                 >
-                  {conversation.isSpeaking ? (
+                  {isSpeaking ? (
                     <div className="flex items-end gap-1 h-12">
                       <div className="w-1.5 bg-white rounded-full animate-pulse" style={{ height: "60%", animationDelay: "0ms" }} />
                       <div className="w-1.5 bg-white rounded-full animate-pulse" style={{ height: "100%", animationDelay: "150ms" }} />
@@ -183,7 +185,7 @@ export default function Twin() {
               <div className="text-center">
                 <p className="text-white font-medium">
                   {isConnected
-                    ? conversation.isSpeaking ? "Votre double parle…" : "À l'écoute…"
+                    ? isSpeaking ? "Votre double parle…" : isThinking ? "Réflexion…" : "À l'écoute…"
                     : "Prêt à discuter"}
                 </p>
                 <p className="text-white/55 text-sm mt-1">
@@ -195,36 +197,37 @@ export default function Twin() {
 
               {!isConnected ? (
                 <Button
-                  onClick={startCall}
-                  disabled={isConnecting}
+                  onClick={voice.startCall}
+                  disabled={!voice.supported}
                   size="lg"
                   className="rounded-full px-8 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white shadow-lg shadow-purple-500/30"
                 >
-                  {isConnecting ? (
-                    <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Connexion…</>
-                  ) : (
-                    <><Phone className="w-5 h-5 mr-2" /> Appeler mon double</>
-                  )}
+                  <Phone className="w-5 h-5 mr-2" /> Appeler mon double
                 </Button>
               ) : (
-                <Button onClick={endCall} size="lg" variant="destructive" className="rounded-full px-8">
+                <Button onClick={voice.endCall} size="lg" variant="destructive" className="rounded-full px-8">
                   <PhoneOff className="w-5 h-5 mr-2" /> Raccrocher
                 </Button>
               )}
             </div>
 
             {/* Live transcript */}
-            {transcript.length > 0 && (
+            {(voice.transcript.length > 0 || voice.interim) && (
               <div className="mt-6 border-t border-white/10 pt-5">
                 <div className="text-xs uppercase tracking-wider text-white/45 font-semibold mb-2">Transcription</div>
                 <ScrollArea className="h-48 pr-2">
                   <div className="space-y-2">
-                    {transcript.map((l) => (
+                    {voice.transcript.map((l) => (
                       <div key={l.id} className={"text-sm " + (l.role === "user" ? "text-white" : "text-purple-200")}>
                         <span className="font-semibold mr-2">{l.role === "user" ? "Vous :" : "Double :"}</span>
                         {l.text}
                       </div>
                     ))}
+                    {voice.interim && (
+                      <div className="text-sm text-white/50 italic">
+                        <span className="font-semibold mr-2">Vous :</span>{voice.interim}…
+                      </div>
+                    )}
                   </div>
                 </ScrollArea>
               </div>
@@ -367,38 +370,6 @@ export default function Twin() {
           </Tabs>
         </div>
       </main>
-
-      {/* Settings dialog */}
-      <Dialog open={showSettings} onOpenChange={setShowSettings}>
-        <DialogContent className="bg-zinc-900 border-white/10 text-white">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><SettingsIcon className="w-5 h-5" /> Configuration ElevenLabs</DialogTitle>
-            <DialogDescription className="text-white/60">
-              Pour discuter à voix haute avec votre double, créez un agent sur{" "}
-              <a href="https://elevenlabs.io/app/conversational-ai" target="_blank" rel="noreferrer" className="text-purple-400 underline">elevenlabs.io</a>
-              {" "}et collez son Agent ID ici.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <Label htmlFor="agent-id" className="text-white/80">Agent ID</Label>
-            <Input
-              id="agent-id"
-              value={agentInput}
-              onChange={(e) => setAgentInput(e.target.value)}
-              placeholder="agent_xxxxxxxxxxxxxxxxxxxx"
-              className="bg-white/10 border-white/15 text-white placeholder:text-white/40"
-            />
-            <p className="text-xs text-white/50">
-              L'agent doit être configuré avec : voix française, prompt système qui décrit son rôle de coach personnel,
-              et les outils <code className="text-purple-300">remember_fact</code> + <code className="text-purple-300">add_schedule_event</code> si vous voulez qu'il enregistre habitudes et rendez-vous.
-            </p>
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="ghost" onClick={() => setShowSettings(false)} className="text-white/70 hover:text-white">Annuler</Button>
-              <Button onClick={saveAgentId} className="bg-purple-500 hover:bg-purple-600 text-white">Enregistrer</Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
