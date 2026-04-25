@@ -1,7 +1,8 @@
-import { User, LogOut, Settings as SettingsIcon, Coins } from "lucide-react";
+import { User, LogOut, Settings as SettingsIcon, Coins, Shield, Infinity as InfinityIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { NotificationBell } from "./NotificationBell";
 import { useAuth } from "@/hooks/useAuth";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,6 +19,7 @@ interface HeaderProps {
 
 export function Header(_props: HeaderProps = {}) {
   const { user, signOut } = useAuth();
+  const { isAdmin } = useIsAdmin();
   const navigate = useNavigate();
   return (
     <header
@@ -25,14 +27,37 @@ export function Header(_props: HeaderProps = {}) {
       style={{ background: "linear-gradient(90deg, hsl(0, 0%, 4%, 0.95), hsl(275, 85%, 45%, 0.95))" }}>
       {/* Right actions */}
       <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
-        <button
-          onClick={() => navigate("/billing")}
-          title="Crédits & abonnement"
-          aria-label="Crédits & abonnement"
-          className="w-9 h-9 rounded-lg bg-white/20 flex items-center justify-center text-white hover:bg-white/25 transition-colors"
-        >
-          <Coins className="w-5 h-5" />
-        </button>
+        {isAdmin ? (
+          <button
+            onClick={() => navigate("/billing")}
+            title="Admin — crédits illimités"
+            aria-label="Admin — crédits illimités"
+            className="h-9 px-3 rounded-lg flex items-center gap-1.5 text-white text-xs font-semibold transition-colors"
+            style={{ background: "linear-gradient(135deg, hsl(45, 95%, 55%), hsl(35, 95%, 50%))" }}
+          >
+            <InfinityIcon className="w-4 h-4" />
+            <span>Admin</span>
+          </button>
+        ) : (
+          <button
+            onClick={() => navigate("/billing")}
+            title="Crédits & abonnement"
+            aria-label="Crédits & abonnement"
+            className="w-9 h-9 rounded-lg bg-white/20 flex items-center justify-center text-white hover:bg-white/25 transition-colors"
+          >
+            <Coins className="w-5 h-5" />
+          </button>
+        )}
+        {isAdmin && (
+          <button
+            onClick={() => navigate("/admin/users")}
+            title="Administration"
+            aria-label="Administration"
+            className="w-9 h-9 rounded-lg bg-white/20 flex items-center justify-center text-white hover:bg-white/25 transition-colors"
+          >
+            <Shield className="w-5 h-5" />
+          </button>
+        )}
         <NotificationBell />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
