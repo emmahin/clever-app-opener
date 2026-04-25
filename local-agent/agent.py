@@ -825,6 +825,22 @@ def launch(body: LaunchBody, authorization: Optional[str] = Header(default=None)
     if not target:
         raise HTTPException(status_code=400, detail="Target is required")
 
+    # Si l'IA (ou l'utilisateur) passe un NOM SIMPLE avec ".exe" (ex: "whatsapp.exe"),
+    # on le retire pour permettre la résolution Microsoft Store / Start Menu.
+    # On NE touche PAS aux chemins absolus (ex: "C:\\path\\app.exe") ni aux
+    # cibles type "shell:AppsFolder\..." ni aux URI ("mailto:", "spotify:").
+    if (
+        sys.platform == "win32"
+        and target.lower().endswith(".exe")
+        and not os.path.isabs(target)
+        and "\\" not in target
+        and "/" not in target
+        and ":" not in target
+    ):
+        stripped = target[:-4]
+        print(f"[nex-agent] target normalized: {target!r} -> {stripped!r}", flush=True)
+        target = stripped
+
     if not _is_allowed(target):
         raise HTTPException(
             status_code=403,
