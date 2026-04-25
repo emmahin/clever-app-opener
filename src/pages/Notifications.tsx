@@ -113,7 +113,7 @@ export default function Notifications() {
     >
       <Sidebar />
       <Header />
-      <main className="ml-0 md:ml-[72px] pt-14 min-h-screen">
+      <main className="ml-0 md:ml-[280px] pt-14 min-h-screen">
         <div className="max-w-3xl mx-auto px-3 md:px-6 py-6 md:py-8 space-y-5">
           {/* Title */}
           <div className="flex items-start justify-between gap-4">
