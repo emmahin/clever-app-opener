@@ -26,14 +26,22 @@ export function MessageWidgets({ widgets, messageId }: { widgets: ChatWidget[]; 
         if (w.type === "reminder_created") return <ReminderWidget key={i} title={w.title} body={w.body} when_iso={w.when_iso} />;
         if (w.type === "insight_created") return <InsightWidget key={i} title={w.title} body={w.body} />;
         if (w.type === "open_app") return (
-          <OpenAppWidget
-            key={i}
-            app_name={w.app_name}
-            kind={w.kind}
-            target={w.target}
-            fallback_url={w.fallback_url}
-            auto_opened={w.auto_opened}
-          />
+          w.kind === "deeplink" ? (
+            <LocalAppLaunchWidget
+              key={i}
+              target={w.app_name || w.target}
+              label={w.app_name}
+            />
+          ) : (
+            <OpenAppWidget
+              key={i}
+              app_name={w.app_name}
+              kind={w.kind}
+              target={w.target}
+              fallback_url={w.fallback_url}
+              auto_opened={w.auto_opened}
+            />
+          )
         );
         if (w.type === "launch_local_app") return (
           <LocalAppLaunchWidget
