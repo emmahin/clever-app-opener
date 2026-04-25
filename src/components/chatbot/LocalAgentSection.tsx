@@ -231,20 +231,25 @@ export function LocalAgentSection() {
                 className="w-full pl-8 pr-3 py-1.5 rounded-md bg-background/60 border border-border/60 text-xs focus:outline-none focus:border-primary"
               />
             </div>
-            <div className="max-h-72 overflow-y-auto rounded-md border border-border/40 divide-y divide-border/30">
+            <div
+              className="max-h-72 overflow-y-auto rounded-md border border-border/40 divide-y divide-border/30"
+              translate="no"
+            >
               {filteredApps.slice(0, 300).map((app) => (
                 <div
                   key={app.path}
                   className="flex items-center gap-3 px-3 py-2 hover:bg-secondary/40 transition-colors"
                 >
                   <div className="flex-1 min-w-0">
-                    <div className="text-xs font-medium truncate">{app.name}</div>
+                    <div className="text-xs font-medium truncate">
+                      <span>{app.name}</span>
+                    </div>
                     <div className="text-[10px] text-muted-foreground truncate font-mono">
-                      {app.path}
+                      <span>{app.path}</span>
                     </div>
                   </div>
                   <span className="text-[9px] uppercase tracking-wide text-muted-foreground bg-secondary/60 px-1.5 py-0.5 rounded">
-                    {app.source}
+                    <span>{app.source}</span>
                   </span>
                   <button
                     type="button"
@@ -258,12 +263,12 @@ export function LocalAgentSection() {
               ))}
               {filteredApps.length > 300 && (
                 <div className="px-3 py-2 text-[11px] text-muted-foreground">
-                  … {filteredApps.length - 300} résultat(s) supplémentaire(s) — affine le filtre.
+                  <span>… {filteredApps.length - 300} résultat(s) supplémentaire(s) — affine le filtre.</span>
                 </div>
               )}
               {filteredApps.length === 0 && (
                 <div className="px-3 py-4 text-xs text-muted-foreground text-center">
-                  Aucun résultat pour « {filter} ».
+                  <span>Aucun résultat pour « {filter} ».</span>
                 </div>
               )}
             </div>
