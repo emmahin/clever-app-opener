@@ -13,7 +13,6 @@ import { ProjectsProvider } from "@/contexts/ProjectsProvider";
 import Settings from "./pages/Settings.tsx";
 import VideoEditor from "./pages/VideoEditor.tsx";
 import Documents from "./pages/Documents.tsx";
-import WhatsApp from "./pages/WhatsApp.tsx";
 import Notifications from "./pages/Notifications.tsx";
 import Auth from "./pages/Auth.tsx";
 import Install from "./pages/Install.tsx";
@@ -39,9 +38,7 @@ const App = () => (
             <Route path="/dashboard" element={<AuthGuard><Dashboard /></AuthGuard>} />
             <Route path="/analytics" element={<AuthGuard><Analytics /></AuthGuard>} />
             <Route path="/settings" element={<AuthGuard><Settings /></AuthGuard>} />
-            <Route path="/video" element={<AuthGuard><VideoEditor /></AuthGuard>} />
             <Route path="/documents" element={<AuthGuard><Documents /></AuthGuard>} />
-            <Route path="/whatsapp" element={<AuthGuard><WhatsApp /></AuthGuard>} />
             <Route path="/notifications" element={<AuthGuard><Notifications /></AuthGuard>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
