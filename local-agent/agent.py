@@ -505,6 +505,20 @@ def launch(body: LaunchBody, authorization: Optional[str] = Header(default=None)
         if known_path:
             return _launch_windows_path(known_path, body.args, "known-path")
 
+        # Stratégies inspirées du script utilisateur :
+        # alias avec chemins probables → registre App Paths → commande 'where'
+        alias_path = _resolve_known_app_alias(target)
+        if alias_path:
+            return _launch_windows_path(alias_path, body.args, "alias-path")
+
+        registry_path = _resolve_via_registry_app_paths(target)
+        if registry_path:
+            return _launch_windows_path(registry_path, body.args, "registry-app-paths")
+
+        where_path = _resolve_via_where(target)
+        if where_path:
+            return _launch_windows_path(where_path, body.args, "where")
+
         shortcut = _resolve_windows_shortcut_or_app(target)
         if shortcut:
             return _launch_windows_path(shortcut, body.args, "start-menu")
