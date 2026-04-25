@@ -428,6 +428,112 @@ def _looks_like_uri_target(target: str) -> bool:
     return bool(re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*:", target))
 
 
+# ─────────────────── Stratégie Microsoft Store / UWP ───────────────────
+# Beaucoup d'apps installées depuis le Store (WhatsApp, Snapchat, Instagram,
+# Netflix, Xbox, TikTok, Telegram, …) n'ont pas de .exe accessible : elles
+# vivent sous C:\Program Files\WindowsApps\* (protégé). On les lance via
+# explorer.exe shell:AppsFolder\<PackageFamilyName>!App
+
+_STORE_PFN_HINTS: dict[str, list[str]] = {
+    # Mots-clés (déjà normalisés en minuscules sans extension) -> sous-chaînes
+    # à chercher dans la sortie PowerShell `Get-AppxPackage`. On garde des
+    # fragments larges pour matcher différentes versions/éditeurs.
+    "whatsapp": ["whatsapp", "5319275a.whatsappdesktop"],
+    "snapchat": ["snapchat"],
+    "instagram": ["instagram"],
+    "netflix": ["netflix"],
+    "xbox": ["xbox", "xboxapp", "gamingapp"],
+    "tiktok": ["tiktok"],
+    "telegram": ["telegram"],
+    "messenger": ["messenger", "facebookmessenger"],
+    "facebook": ["facebook"],
+    "twitter": ["twitter", "x.com"],
+    "x": ["x.com", "twitter"],
+    "spotify": ["spotifymusic", "spotifyab"],
+    "amazon prime video": ["primevideo"],
+    "prime video": ["primevideo"],
+    "youtube": ["youtube"],
+    "linkedin": ["linkedin"],
+    "messages": ["messages"],
+    "photos": ["photos", "windows.photos"],
+    "calculator": ["windowscalculator"],
+    "calculatrice": ["windowscalculator"],
+    "store": ["windowsstore", "microsoftstore"],
+    "microsoft store": ["windowsstore", "microsoftstore"],
+    "paint": ["paint"],
+    "settings": ["windows.immersivecontrolpanel"],
+    "paramètres": ["windows.immersivecontrolpanel"],
+}
+
+
+def _resolve_microsoft_store_app(target: str) -> Optional[str]:
+    """Renvoie une chaîne `shell:AppsFolder\\<PFN>!App` si l'app Store est trouvée."""
+    if sys.platform != "win32":
+        return None
+
+    candidates = _windows_query_candidates(target)
+    hint_terms: set[str] = set()
+    for c in candidates:
+        nc = _normalize_app_name(c)
+        # Termes explicitement déclarés
+        for terms in _STORE_PFN_HINTS.get(nc, []):
+            hint_terms.add(terms.lower())
+        # Sinon on tente le candidat lui-même comme sous-chaîne (≥4 caractères)
+        if len(nc) >= 4:
+            hint_terms.add(nc.replace(" ", ""))
+
+    if not hint_terms:
+        return None
+
+    # PowerShell : récupère Name + PackageFamilyName de TOUS les paquets installés
+    # (pour le user actuel). Format CSV simple pour parsing facile.
+    ps_cmd = (
+        "Get-AppxPackage | "
+        "Select-Object -Property Name,PackageFamilyName | "
+        "ForEach-Object { \"$($_.Name)|$($_.PackageFamilyName)\" }"
+    )
+    try:
+        result = subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_cmd],
+            capture_output=True,
+            text=True,
+            timeout=8,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+    except Exception as e:
+        print(f"[nex-agent] strategy=store-app powershell error: {e}", flush=True)
+        return None
+
+    if result.returncode != 0 or not result.stdout:
+        print(f"[nex-agent] strategy=store-app powershell returned no data rc={result.returncode}", flush=True)
+        return None
+
+    best: Optional[str] = None
+    for line in result.stdout.splitlines():
+        if "|" not in line:
+            continue
+        name, pfn = line.split("|", 1)
+        haystack = (name + " " + pfn).lower()
+        if any(term in haystack for term in hint_terms):
+            print(
+                f"[nex-agent] strategy=store-app candidate name={name!r} pfn={pfn!r}",
+                flush=True,
+            )
+            best = pfn.strip()
+            break
+
+    if not best:
+        return None
+    return f"shell:AppsFolder\\{best}!App"
+
+
+def _launch_store_app(shell_target: str) -> JSONResponse:
+    print(f"[nex-agent] launch store app target={shell_target!r}", flush=True)
+    # explorer.exe est le seul moyen fiable de résoudre shell:AppsFolder
+    subprocess.Popen(["explorer.exe", shell_target])
+    return JSONResponse({"ok": True, "method": "store-app", "target": shell_target})
+
+
 def _launch_windows_path(path: str, args: list[str], method: str) -> JSONResponse:
     print(f"[nex-agent] launch resolved method={method} target={path} args={args}", flush=True)
     ext = os.path.splitext(path)[1].lower()
@@ -531,6 +637,12 @@ def launch(body: LaunchBody, authorization: Optional[str] = Header(default=None)
         if shortcut:
             print(f"[nex-agent] strategy=start-menu matched target={shortcut}", flush=True)
             return _launch_windows_path(shortcut, body.args, "start-menu")
+
+        # Apps Microsoft Store (WhatsApp, Snapchat, Instagram, Netflix, Xbox…)
+        store_target = _resolve_microsoft_store_app(target)
+        if store_target:
+            print(f"[nex-agent] strategy=store-app matched target={store_target}", flush=True)
+            return _launch_store_app(store_target)
 
         # 3) Sur Windows, on tente start uniquement pour les URI schemes explicites.
         if sys.platform == "win32" and _looks_like_uri_target(target):
