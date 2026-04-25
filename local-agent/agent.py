@@ -622,6 +622,95 @@ def _list_shell_appsfolder_apps() -> list[dict]:
     return found
 
 
+def _bring_to_foreground_async(hint: str) -> None:
+    """Tente de ramener au premier plan la fenêtre de l'app qu'on vient de lancer.
+
+    Windows bloque souvent SetForegroundWindow quand le focus appartient à un
+    autre process (ici le navigateur). On contourne via un petit script
+    PowerShell qui:
+      1) attend ~1.5 s que la fenêtre apparaisse,
+      2) trouve la dernière fenêtre top-level créée par un process dont le
+         nom (ou MainWindowTitle) contient un mot-clé du hint,
+      3) appelle ShowWindow(SW_RESTORE) + SetForegroundWindow via WinAPI.
+
+    Tout est best-effort : si ça échoue, on ne bloque pas la réponse HTTP.
+    """
+    if sys.platform != "win32":
+        return
+    # Extrait un mot-clé "propre" depuis le hint (path, shell:AppsFolder, etc.)
+    base = hint
+    try:
+        if "\\" in base:
+            base = base.rsplit("\\", 1)[-1]
+        if "/" in base:
+            base = base.rsplit("/", 1)[-1]
+        if "!" in base:
+            base = base.split("!", 1)[0]
+        if "_" in base and base.lower().startswith(tuple("0123456789abcdef")):
+            # Cas PFN type "5319275A.WhatsAppDesktop_cv1g..." → garder partie centrale
+            parts = base.split("_", 1)[0]
+            if "." in parts:
+                parts = parts.split(".", 1)[-1]
+            base = parts
+        base = os.path.splitext(base)[0]
+    except Exception:
+        pass
+    keyword = base.strip().lower()
+    if not keyword or len(keyword) < 2:
+        return
+
+    ps = (
+        "Add-Type @\"\n"
+        "using System;\n"
+        "using System.Runtime.InteropServices;\n"
+        "public static class Nex {\n"
+        "  [DllImport(\"user32.dll\")] public static extern bool SetForegroundWindow(IntPtr h);\n"
+        "  [DllImport(\"user32.dll\")] public static extern bool ShowWindow(IntPtr h, int n);\n"
+        "  [DllImport(\"user32.dll\")] public static extern bool IsWindowVisible(IntPtr h);\n"
+        "  [DllImport(\"user32.dll\")] public static extern IntPtr GetForegroundWindow();\n"
+        "  [DllImport(\"user32.dll\")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);\n"
+        "  [DllImport(\"kernel32.dll\")] public static extern uint GetCurrentThreadId();\n"
+        "  [DllImport(\"user32.dll\")] public static extern bool AttachThreadInput(uint a, uint b, bool c);\n"
+        "}\n"
+        "\"@\n"
+        f"$kw = '{keyword}'\n"
+        "$deadline = (Get-Date).AddSeconds(8)\n"
+        "$target = $null\n"
+        "while ((Get-Date) -lt $deadline -and -not $target) {\n"
+        "  Start-Sleep -Milliseconds 350\n"
+        "  $procs = Get-Process | Where-Object {\n"
+        "    $_.MainWindowHandle -ne 0 -and (\n"
+        "      ($_.ProcessName -and $_.ProcessName.ToLower().Contains($kw)) -or\n"
+        "      ($_.MainWindowTitle -and $_.MainWindowTitle.ToLower().Contains($kw))\n"
+        "    )\n"
+        "  } | Sort-Object StartTime -Descending\n"
+        "  if ($procs) { $target = $procs[0] }\n"
+        "}\n"
+        "if ($target) {\n"
+        "  $h = $target.MainWindowHandle\n"
+        "  $fg = [Nex]::GetForegroundWindow()\n"
+        "  $tid = [Nex]::GetCurrentThreadId()\n"
+        "  $pidOut = 0\n"
+        "  $fgTid = [Nex]::GetWindowThreadProcessId($fg, [ref]$pidOut)\n"
+        "  [Nex]::AttachThreadInput($fgTid, $tid, $true) | Out-Null\n"
+        "  [Nex]::ShowWindow($h, 9) | Out-Null   # SW_RESTORE\n"
+        "  [Nex]::SetForegroundWindow($h) | Out-Null\n"
+        "  [Nex]::AttachThreadInput($fgTid, $tid, $false) | Out-Null\n"
+        "  Write-Output 'ok'\n"
+        "} else { Write-Output 'no-window' }\n"
+    )
+    try:
+        subprocess.Popen(
+            [_windows_powershell_exe(), "-NoProfile", "-NonInteractive", "-Command", ps],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+        print(f"[nex-agent] foreground hint scheduled keyword={keyword!r}", flush=True)
+    except Exception as e:
+        print(f"[nex-agent] foreground hint error: {e}", flush=True)
+
+
 def _launch_store_app(shell_target: str) -> JSONResponse:
     print(f"[nex-agent] launch store app target={shell_target!r}", flush=True)
     # explorer.exe est le seul moyen fiable de résoudre shell:AppsFolder
