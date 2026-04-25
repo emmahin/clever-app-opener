@@ -1,5 +1,6 @@
+# -*- coding: utf-8 -*-
 """
-Diagnostic Nex — trouve pourquoi une app visible avec Get-StartApps
+Diagnostic Nex - trouve pourquoi une app visible avec Get-StartApps
 n'apparaît pas dans l'agent local.
 
 Usage recommandé sur ton PC Windows :
@@ -80,11 +81,11 @@ def print_matches(title: str, rows: list[dict[str, Any]], queries: list[str]) ->
         items = matches[q]
         if items:
             ok = True
-            print(f"  ✅ {q}: {len(items)} résultat(s)")
+            print(f"  [OK] {q}: {len(items)} résultat(s)")
             for item in items[:8]:
                 print(f"     - {item['name']} | {item['id_or_path']}")
         else:
-            print(f"  ❌ {q}: aucun résultat")
+            print(f"  [X] {q}: aucun résultat")
     return ok
 
 
