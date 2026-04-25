@@ -20,5 +20,7 @@ export type {
   LocalAgentConfig,
   LocalAgentPing,
   LaunchResult,
+  DetectedApp,
+  ListAppsResult,
 } from "./localAgentService";
 export * from "./types";
