@@ -359,7 +359,10 @@ const APP_CATALOG_SERVER: Array<{
   { id: "internal-analytics", name: "Analytics",     aliases: ["analytics", "stats", "statistiques", "analyses"], kind: "internal", target: "/analytics" },
   { id: "internal-documents", name: "Documents",     aliases: ["documents", "docs", "fichiers"], kind: "internal", target: "/documents" },
   { id: "internal-video",     name: "Éditeur vidéo", aliases: ["video", "vidéo", "editeur video", "éditeur vidéo", "montage"], kind: "internal", target: "/video" },
-  { id: "internal-whatsapp",  name: "WhatsApp (app)", aliases: ["whatsapp interne", "page whatsapp", "mes messages"], kind: "internal", target: "/whatsapp" },
+  // NB: la page interne /whatsapp est un gestionnaire de contacts, PAS l'app WhatsApp.
+  // On ne lui donne AUCUN alias contenant "whatsapp" ni "message" pour éviter toute confusion :
+  // "ouvre whatsapp" doit toujours partir vers launch_local_app (l'app PC), pas vers cette page.
+  { id: "internal-whatsapp",  name: "Contacts WhatsApp", aliases: ["mes contacts whatsapp", "gestionnaire contacts whatsapp"], kind: "internal", target: "/whatsapp" },
   { id: "internal-notifs",    name: "Notifications", aliases: ["notifications", "notifs", "alertes"], kind: "internal", target: "/notifications" },
   { id: "internal-settings",  name: "Paramètres",    aliases: ["paramètres", "parametres", "réglages", "settings"], kind: "internal", target: "/settings" },
   { id: "gmail",    name: "Gmail",           aliases: ["gmail", "mail", "email"], kind: "web", target: "https://mail.google.com" },
