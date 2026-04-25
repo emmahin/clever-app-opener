@@ -548,6 +548,18 @@ def _resolve_microsoft_store_app(target: str) -> Optional[str]:
             break
 
     if not best:
+        for entry in _list_shell_appsfolder_apps():
+            name = str(entry.get("name") or "")
+            path = str(entry.get("path") or "")
+            haystack = (name + " " + path).lower().replace(" ", "")
+            if any(term in haystack for term in hint_terms):
+                print(
+                    f"[nex-agent] strategy=appsfolder candidate name={name!r} path={path!r}",
+                    flush=True,
+                )
+                return path
+
+    if not best:
         return None
     return f"shell:AppsFolder\\{best}"
 
