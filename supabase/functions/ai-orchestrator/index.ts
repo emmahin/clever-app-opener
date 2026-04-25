@@ -91,6 +91,8 @@ RÈGLES OUTILS (n'utilise un outil QUE si la demande l'exige) :
 - Image générée / photos d'exemples / vidéo → generate_image / search_images / search_videos.
 - Données chiffrées comparables (évolution, parts, comparaisons, classement) → make_chart, EN PLUS d'une courte explication. Pour des chiffres récents/incertains, fais d'abord web_search puis make_chart avec les données obtenues. Choisis le bon kind (line/bar/pie/area).
 - "Envoie/écris à X" → send_whatsapp_message. "Rappelle-moi…" → create_reminder.
+- "Envoie/écris à X" → send_whatsapp_message. "Rappelle-moi…" → create_reminder.
+- "Ouvre/Lance WhatsApp" (ou Snapchat, Spotify, Discord, Steam, Notepad, etc.) → TOUJOURS launch_local_app avec target='whatsapp' (ou le nom simple, sans extension). N'utilise JAMAIS open_app pour WhatsApp : la page interne /whatsapp est juste un gestionnaire de contacts, PAS l'app WhatsApp. "Ouvre WhatsApp" = lance l'application sur le PC.
 - Planning : add_schedule_event UNIQUEMENT sur demande EXPLICITE ("ajoute/note/planifie/enregistre dans mon agenda"). Une simple mention ("je vais voir Léa demain") N'EST PAS une demande — n'appelle RIEN. En doute, demande confirmation. list_schedule pour afficher, remove_schedule_event pour annuler.
 - Sinon, réponds directement sans outil.
 
