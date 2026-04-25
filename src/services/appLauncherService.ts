@@ -116,7 +116,8 @@ export function openAppTarget(opts: {
     return { ok: true, method: "tab", message: `Ouvert ${target} dans un nouvel onglet.` };
   }
 
-  // deeplink : on tente le protocole custom puis on ouvre le fallback web après un court délai.
+  // deeplink : on tente UNIQUEMENT le protocole custom.
+  // On n'ouvre JAMAIS de fallback web automatique (règle utilisateur).
   try {
     const iframe = document.createElement("iframe");
     iframe.style.display = "none";
@@ -126,17 +127,10 @@ export function openAppTarget(opts: {
   } catch {
     /* ignore */
   }
-  if (fallbackUrl) {
-    setTimeout(() => {
-      window.open(fallbackUrl, "_blank", "noopener,noreferrer");
-    }, 1200);
-  }
   return {
     ok: true,
     method: "deeplink",
-    message: fallbackUrl
-      ? `Tentative d'ouverture de l'app native (si installée). Sinon, ouverture de la version web dans un onglet.`
-      : `Tentative d'ouverture du protocole ${target}. Si rien ne se passe, l'app n'est probablement pas installée.`,
+    message: `Tentative d'ouverture de ${target}. Si rien ne se passe, l'app n'est pas installée — pas de fallback web automatique.`,
   };
 }
 

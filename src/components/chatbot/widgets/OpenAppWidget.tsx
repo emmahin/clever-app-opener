@@ -1,5 +1,5 @@
 import { ExternalLink, AppWindow, Globe, Monitor, Check } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { openAppTarget } from "@/services";
 
@@ -11,20 +11,10 @@ interface Props {
   auto_opened: boolean;
 }
 
-export function OpenAppWidget({ app_name, kind, target, fallback_url, auto_opened }: Props) {
+export function OpenAppWidget({ app_name, kind, target, fallback_url }: Props) {
   const navigate = useNavigate();
-  const [opened, setOpened] = useState(auto_opened);
-  const didAutoOpenRef = useRef(false);
-
-  // Routes internes : ouvre automatiquement à l'arrivée du widget (une seule fois).
-  useEffect(() => {
-    if (auto_opened && kind === "internal" && !didAutoOpenRef.current) {
-      didAutoOpenRef.current = true;
-      openAppTarget({ kind, target, fallbackUrl: fallback_url, navigate });
-      setOpened(true);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Plus aucune ouverture automatique — l'utilisateur DOIT cliquer (règle anti écran violet).
+  const [opened, setOpened] = useState(false);
 
   const Icon = kind === "internal" ? AppWindow : kind === "web" ? Globe : Monitor;
   const kindLabel =
@@ -65,7 +55,12 @@ export function OpenAppWidget({ app_name, kind, target, fallback_url, auto_opene
       </div>
       {kind === "deeplink" && (
         <p className="text-[10px] text-muted-foreground/70 mt-2 leading-relaxed">
-          ⚠️ Marche uniquement si l'app est installée. Sinon, la version web sera ouverte en secours.
+          ⚠️ Marche uniquement si l'app native est installée. Aucune redirection web automatique.
+        </p>
+      )}
+      {kind === "web" && (
+        <p className="text-[10px] text-muted-foreground/70 mt-2 leading-relaxed">
+          🌐 Lien web — clique sur « Ouvrir » uniquement si tu veux ouvrir un onglet.
         </p>
       )}
     </div>
