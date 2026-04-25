@@ -1260,6 +1260,36 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ----- Crédits : auth + estimation + pré-débit -----
+    const userId = getUserIdFromAuth(req);
+    if (!userId) {
+      return new Response(JSON.stringify({ error: "Authentification requise." }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const estimate = estimateCreditsForRequest({
+      messages, attachments, webSearch, deepThink, forceTool,
+    });
+    const debit = await debitCredits(userId, estimate.credits, {
+      model: deepThink ? "google/gemini-3.1-pro-preview" : "google/gemini-3-flash-preview",
+      action: "chat",
+      inputTokens: estimate.inputTokens,
+      outputTokens: estimate.estimatedOutputTokens,
+      metadata: { phase: "estimate", multiplier: estimate.multiplier, action_tokens: estimate.actionTokens },
+    });
+    if (!debit.ok) {
+      const isInsufficient = debit.error === "insufficient_credits";
+      return new Response(JSON.stringify({
+        error: isInsufficient ? "Crédits insuffisants." : "Erreur de débit crédits.",
+        code: isInsufficient ? "insufficient_credits" : "debit_error",
+        balance: debit.balance ?? 0,
+        required: estimate.credits,
+      }), {
+        status: isInsufficient ? 402 : 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Inject attachments (images + extracted text from documents/audio) into the last user message
     // as multimodal content for Gemini.
     const atts = Array.isArray(attachments) ? attachments : [];
