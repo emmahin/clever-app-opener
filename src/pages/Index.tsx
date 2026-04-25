@@ -125,6 +125,7 @@ export default function Index() {
   const { lang, t } = useLanguage();
   const { settings } = useSettings();
   const navigate = useNavigate();
+  const { get: getProject } = useProjects();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [voiceCallOpen, setVoiceCallOpen] = useState(false);
@@ -155,6 +156,32 @@ export default function Index() {
 
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   useEffect(() => scrollToBottom(), [messages]);
+
+  // Sidebar → recharge un chat depuis l'historique
+  useEffect(() => {
+    const onLoad = (e: Event) => {
+      const detail = (e as CustomEvent<{ id: string }>).detail;
+      if (!detail?.id) return;
+      const proj = getProject(detail.id);
+      const data = proj?.data as { messages?: ChatMessage[] } | undefined;
+      if (data?.messages) {
+        abortRef.current?.abort();
+        setIsLoading(false);
+        setMessages(data.messages);
+      }
+    };
+    const onNew = () => {
+      abortRef.current?.abort();
+      setIsLoading(false);
+      setMessages([]);
+    };
+    window.addEventListener("nex:loadChat", onLoad as EventListener);
+    window.addEventListener("nex:newChat", onNew as EventListener);
+    return () => {
+      window.removeEventListener("nex:loadChat", onLoad as EventListener);
+      window.removeEventListener("nex:newChat", onNew as EventListener);
+    };
+  }, [getProject]);
 
   const jumpToMessage = (id: string) => {
     const el = document.getElementById(`msg-${id}`);
