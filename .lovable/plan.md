@@ -1,94 +1,75 @@
+## Objectif
 
+Transformer la page `/billing` actuelle (qui affiche juste 3 cartes d'abonnement + 2 packs en surface) en une vraie page de tarification complète, lisible, avec tous les détails dont tu as besoin pour comparer les offres.
 
-## Système d'authentification + comptes connectés
+## Constat actuel
 
-### Vue d'ensemble
-Auth e-mail/mot de passe (Lovable Cloud) avec :
-- Page **`/auth`** unifiée (Sign up / Sign in / Mot de passe oublié)
-- **Garde de routes** : tout sauf `/auth` redirige vers `/auth` si non connecté
-- **Préférences synchronisées** côté serveur (Settings, langue, instructions IA, prefs notifications)
-- Table **`connected_accounts`** prête pour intégrer plus tard WhatsApp, ChatGPT, Notion, Google, etc. — chaque connecteur stocke ses credentials chiffrés dans une colonne `JSONB credentials` (clé/token/secret + métadonnées)
-- Migration **transparente du localStorage → cloud** au premier login (one-shot, marquée pour ne pas se répéter)
+`src/pages/Billing.tsx` affiche aujourd'hui :
+- Le solde de crédits
+- 3 abonnements (Starter / Pro / Ultra) → juste prix + nb de crédits
+- 2 packs de crédits → juste prix + nb de crédits
+- Aucune comparaison, aucun détail des avantages, aucune mention du plan Free, pas d'estimation de ce qu'on peut faire avec X crédits
 
-Auto-confirm des e-mails **activé** (mode dev) pour ne pas bloquer le flux. Tu pourras le désactiver plus tard.
+## Ce que je propose d'ajouter
 
-### Architecture backend (Lovable Cloud)
+### 1. Plan **Free** (manquant aujourd'hui)
+Ajouter une carte "Gratuit" :
+- 0 crédit/mois (cohérent avec ta règle "pas de crédits à la création")
+- Accès à l'app, historique de chats, agent local
+- Pas d'IA tant qu'aucun crédit acheté/abonné
 
-**Tables**
-```text
-profiles
-├── id (uuid, PK, FK → auth.users.id, on delete cascade)
-├── email (text)
-├── display_name (text, nullable)
-├── created_at / updated_at
+### 2. Détails enrichis pour chaque abonnement
+Pour **Starter / Pro / Ultra**, ajouter sous chaque carte :
+- Liste de features (✓ chat IA, ✓ génération image, ✓ agent local, ✓ vidéo, ✓ support, etc.)
+- Estimation concrète : "≈ X questions simples / Y analyses / Z générations d'images" (basé sur ta grille 1 crédit = 500 tokens)
+- Mention "crédits non utilisés perdus en fin de mois" (ou reportés, à toi de me dire)
+- Badge "Économie de X%" sur Pro et Ultra vs Starter
 
-user_settings
-├── user_id (uuid, PK, FK → auth.users.id, on delete cascade)
-├── detail_level (text)             ← short/normal/detailed
-├── typewriter (bool)
-├── custom_instructions (text)
-├── ai_name (text)
-├── language (text)                 ← fr/en/es/de
-├── notification_prefs (jsonb)      ← quiet hours, do not disturb, etc.
-├── updated_at
+### 3. Section **Packs** enrichie
+- Garder les 2 packs actuels (1000 / 5000)
+- Ajouter éventuellement un pack "10 000 crédits" pour les gros consommateurs (à valider)
+- Mention "Crédits achetés ne expirent jamais" (vs crédits abonnement)
+- Préciser la priorité de consommation : abonnement d'abord, puis achetés
 
-connected_accounts
-├── id (uuid, PK)
-├── user_id (uuid, FK → auth.users.id, on delete cascade)
-├── provider (text)                 ← 'whatsapp' | 'chatgpt' | 'notion' | 'google' | …
-├── account_label (text)            ← affiché dans l'UI ("Compte perso", numéro masqué…)
-├── credentials (jsonb)             ← {api_key, refresh_token, phone_number, …}
-├── status (text)                   ← 'active' | 'expired' | 'revoked'
-├── connected_at / last_used_at
-├── UNIQUE(user_id, provider, account_label)
-```
+### 4. Tableau comparatif
+Sous les cartes, un **tableau récapitulatif** ligne par ligne :
 
-**RLS** : sur les 3 tables, chaque user ne voit/modifie QUE ses lignes (`auth.uid() = user_id`).
+| Feature | Free | Starter | Pro | Ultra |
+|---|---|---|---|---|
+| Crédits/mois | 0 | 2 000 | 8 000 | 25 000 |
+| Prix | 0 € | 5 € | 15 € | 40 € |
+| Coût / 1 000 crédits | — | 2,50 € | 1,88 € | 1,60 € |
+| Chat IA | ✓ | ✓ | ✓ | ✓ |
+| Génération image | ✗ | ✓ | ✓ | ✓ |
+| Agent local | ✓ | ✓ | ✓ | ✓ |
+| Édition vidéo | ✗ | ✓ | ✓ | ✓ |
+| Support | Communauté | Email | Email prio | Prio + |
 
-**Trigger** `handle_new_user` : à chaque insert dans `auth.users`, crée automatiquement la ligne `profiles` + `user_settings` (defaults).
+(Les features par tier sont à valider — je propose une base, tu ajustes.)
 
-### Frontend
+### 5. FAQ courte en bas de page
+3-4 questions classiques :
+- "Comment sont consommés les crédits ?" → renvoi à ta grille tokens
+- "Que se passe-t-il si je n'ai plus de crédits ?" → blocage + invitation à recharger
+- "Puis-je changer d'abonnement ?" → oui à tout moment (à confirmer)
+- "Les crédits achetés expirent-ils ?" → non (vs ceux d'abonnement)
 
-**Nouveaux fichiers**
-- `src/pages/Auth.tsx` — UI Sign up / Sign in / Forgot password (3 onglets), redirige vers `/` au succès
-- `src/components/AuthGuard.tsx` — wrap des routes protégées, montre splash le temps de `getSession()`, redirige vers `/auth` sinon
-- `src/hooks/useAuth.ts` — `{ user, session, loading, signOut }` avec `onAuthStateChange` (setup AVANT `getSession`)
-- `src/services/userPreferencesService.ts` — `loadPrefs()` / `savePrefs()` côté serveur + migration one-shot du localStorage (clé `app.settings.v1` → `user_settings`)
-- `src/services/connectedAccountsService.ts` — `list()` / `add({provider, label, credentials})` / `remove(id)` / `getByProvider(provider)` (générique pour tous les providers futurs)
+### 6. État "Plan actuel"
+Mettre en évidence visuellement le plan dans lequel se trouve l'utilisateur (badge "Votre plan actuel" sur la carte correspondante, basé sur `user_credits.subscription_tier`).
 
-**Fichiers modifiés**
-- `src/App.tsx` — route `/auth` publique, toutes les autres entourées de `<AuthGuard>`
-- `src/contexts/SettingsProvider.tsx` — au mount : si user connecté, charge depuis Cloud (fallback localStorage), sauvegarde dans Cloud à chaque update (debounced 500 ms), garde localStorage en miroir pour mode hors-ligne
-- `src/components/chatbot/Header.tsx` — l'icône user devient un menu avec "Mon compte" + "Se déconnecter"
-- `src/pages/Settings.tsx` — nouvelle section **"Comptes connectés"** : liste des `connected_accounts`, bouton "Ajouter un compte" avec un menu (WhatsApp / ChatGPT / Notion / Google), pour l'instant juste un dialog placeholder par provider (saisie API key) → câblage réel viendra par provider plus tard
+### 7. Aucun changement DB / backend
+Toute la logique est déjà en place (table `user_credits` avec `subscription_tier`, `consume_credits`, `add_credits`). Pas de migration. Juste de la refonte UI dans `src/pages/Billing.tsx`.
 
-### Flux migration localStorage → cloud
-Au premier login après mise à jour :
-1. Lire `localStorage["app.settings.v1"]`
-2. UPSERT dans `user_settings` (en gardant les valeurs serveur si plus récentes)
-3. Marquer `localStorage["__migrated_to_cloud_v1"] = "1"`
-4. Garder `localStorage` en miroir lecture seule pour usage hors-ligne
+Les boutons "Choisir" / "Acheter" continueront d'afficher le toast "Paiement bientôt disponible" tant que tu n'as pas créé tes comptes Paddle/Stripe.
 
-WhatsApp local (`wa_contacts`, `wa_messages`) **non migré pour l'instant** (ce n'est qu'un mock UI) — sera traité quand tu connecteras l'API WhatsApp Business via `connected_accounts`.
+## Fichiers impactés
 
-### Détails techniques
+- `src/pages/Billing.tsx` → refonte complète (un seul fichier)
 
-- `supabase.auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin + '/' } })`
-- `supabase.auth.signInWithPassword({ email, password })`
-- `supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + '/auth?mode=reset' })`
-- `useAuth` : appelle `supabase.auth.onAuthStateChange(...)` PUIS `supabase.auth.getSession()` (ordre critique — recommandation Supabase)
-- Auto-confirm e-mail activé via `configure_auth({ auto_confirm_email: true, ... })` pour éviter le blocage en dev
-- HIBP (vérification mot de passe compromis) **activé**
-- Aucun stockage clair des secrets dans le front : les `credentials` JSONB sont protégés par RLS strict + chiffrement au repos par Postgres
+## À me confirmer avant de coder
 
-### Sécurité
-- RLS partout (`auth.uid() = user_id`)
-- Pas de rôles admin pour l'instant (single-user perspective)
-- `credentials` JSONB jamais loggué côté client, jamais exposé via une view
-- Trigger `handle_new_user` en `SECURITY DEFINER` avec `SET search_path = public`
+1. **Features par tier** : OK avec ma proposition (génération image bloquée en Free, vidéo bloquée en Free) ou tu veux une autre répartition ?
+2. **Crédits abonnement non utilisés** : reset à zéro chaque mois, ou report sur le mois suivant ?
+3. **4ème pack à 10 000 crédits** : je l'ajoute ou on reste à 2 packs ?
 
-### Hors-périmètre (à faire plus tard)
-- Implémentation réelle des connecteurs WhatsApp Business / OpenAI / Notion (chacun nécessitera une edge function dédiée pour utiliser les credentials)
-- Migration des messages WhatsApp locaux vers cloud
-- Google OAuth (peut être ajouté en 1 étape via Lovable Cloud, à activer quand tu veux)
-
+Une fois validé, je refonds `src/pages/Billing.tsx` en une seule passe.
