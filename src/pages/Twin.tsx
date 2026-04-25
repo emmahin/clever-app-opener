@@ -72,6 +72,70 @@ export default function Twin() {
         addLine(t.source === "user" ? "user" : "assistant", t.message);
       }
     },
+    /**
+     * CLIENT TOOLS — l'agent ElevenLabs peut appeler ces fonctions pour
+     * mémoriser des faits ou ajouter des événements à l'agenda. Pour qu'elles
+     * fonctionnent, il faut DÉCLARER ces tools dans le dashboard ElevenLabs
+     * (Tools > Add client tool) avec EXACTEMENT les mêmes noms et paramètres.
+     */
+    clientTools: {
+      remember_fact: async (params: { content: string; category?: string; importance?: number }) => {
+        try {
+          const cat = (params.category as MemoryCategory) || "fact";
+          const valid: MemoryCategory[] = ["habit", "preference", "goal", "fact", "emotion", "relationship"];
+          const safeCat = valid.includes(cat) ? cat : "fact";
+          await twinMemoryService.addMemory({
+            category: safeCat,
+            content: params.content,
+            importance: Math.min(5, Math.max(1, params.importance ?? 3)),
+            source: "voice",
+          });
+          await refreshAll();
+          return `Souvenir enregistré (${CATEGORY_LABEL[safeCat]}).`;
+        } catch (err: any) {
+          return `Erreur : ${err?.message || "impossible d'enregistrer"}`;
+        }
+      },
+      add_schedule_event: async (params: { title: string; start_iso: string; end_iso?: string; location?: string; notes?: string }) => {
+        try {
+          const startDate = new Date(params.start_iso);
+          if (isNaN(startDate.getTime())) return "Date invalide. Utilise un format ISO 8601.";
+          await twinMemoryService.addEvent({
+            title: params.title,
+            start_iso: startDate.toISOString(),
+            end_iso: params.end_iso ? new Date(params.end_iso).toISOString() : undefined,
+            location: params.location,
+            notes: params.notes,
+            source: "ai",
+          });
+          await refreshAll();
+          return `Événement « ${params.title} » ajouté à l'agenda pour le ${startDate.toLocaleString("fr-FR")}.`;
+        } catch (err: any) {
+          return `Erreur : ${err?.message || "impossible d'ajouter l'événement"}`;
+        }
+      },
+      list_recent_memories: async () => {
+        try {
+          const list = await twinMemoryService.listMemories();
+          if (list.length === 0) return "Aucun souvenir enregistré pour l'instant.";
+          return list.slice(0, 20).map((m) => `[${CATEGORY_LABEL[m.category]}] ${m.content}`).join("\n");
+        } catch (err: any) {
+          return `Erreur : ${err?.message || "impossible de lire les souvenirs"}`;
+        }
+      },
+      list_upcoming_events: async () => {
+        try {
+          const list = await twinMemoryService.listEvents(14);
+          if (list.length === 0) return "Aucun événement prévu dans les 2 prochaines semaines.";
+          return list.map((e) => {
+            const d = new Date(e.start_iso);
+            return `${d.toLocaleString("fr-FR")} — ${e.title}${e.location ? ` (${e.location})` : ""}`;
+          }).join("\n");
+        } catch (err: any) {
+          return `Erreur : ${err?.message || "impossible de lire l'agenda"}`;
+        }
+      },
+    },
   });
 
   function addLine(role: "user" | "assistant", text: string) {
