@@ -1,18 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useConversation } from "@elevenlabs/react";
-import { Sparkles, Mic, MicOff, Phone, PhoneOff, Plus, Trash2, Calendar, Brain, Settings as SettingsIcon, X, Loader2 } from "lucide-react";
+import { Sparkles, Mic, Phone, PhoneOff, Plus, Trash2, Calendar, Brain, Loader2 } from "lucide-react";
 import { Sidebar } from "@/components/chatbot/Sidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { twinMemoryService, twinVoiceService, type UserMemory, type ScheduleEventDB, type MemoryCategory } from "@/services";
-
-const AGENT_ID_KEY = "nex.twin.elevenlabs_agent_id";
+import { twinMemoryService, type UserMemory, type ScheduleEventDB, type MemoryCategory } from "@/services";
+import { useTwinVoice } from "@/hooks/useTwinVoice";
 
 const CATEGORY_LABEL: Record<MemoryCategory, string> = {
   habit: "Habitude",
@@ -32,115 +28,13 @@ const CATEGORY_COLOR: Record<MemoryCategory, string> = {
   relationship: "bg-amber-500/20 text-amber-200 border-amber-400/30",
 };
 
-type TranscriptLine = { id: string; role: "user" | "assistant"; text: string; ts: number };
-
 export default function Twin() {
-  const [agentId, setAgentId] = useState<string>(() => {
-    if (typeof window === "undefined") return "";
-    return localStorage.getItem(AGENT_ID_KEY) || "";
-  });
-  const [showSettings, setShowSettings] = useState(false);
-  const [agentInput, setAgentInput] = useState(agentId);
-
   const [memories, setMemories] = useState<UserMemory[]>([]);
   const [events, setEvents] = useState<ScheduleEventDB[]>([]);
   const [loadingData, setLoadingData] = useState(true);
-  const [transcript, setTranscript] = useState<TranscriptLine[]>([]);
-  const [isConnecting, setIsConnecting] = useState(false);
 
   const [newMem, setNewMem] = useState({ category: "habit" as MemoryCategory, content: "" });
   const [newEvent, setNewEvent] = useState({ title: "", start_iso: "", location: "" });
-
-  // ─── Conversation hook ───
-  const conversation = useConversation({
-    onConnect: () => toast.success("Connecté à votre double numérique"),
-    onDisconnect: () => toast.info("Conversation terminée"),
-    onError: (err: any) => {
-      console.error("[Twin] conversation error:", err);
-      toast.error(typeof err === "string" ? err : err?.message || "Erreur de connexion vocale");
-    },
-    onMessage: (msg: any) => {
-      // The SDK shape varies — try both common shapes.
-      const t = msg?.message ?? msg;
-      if (t?.type === "user_transcript") {
-        const text = t?.user_transcription_event?.user_transcript ?? "";
-        if (text) addLine("user", text);
-      } else if (t?.type === "agent_response") {
-        const text = t?.agent_response_event?.agent_response ?? "";
-        if (text) addLine("assistant", text);
-      } else if (typeof t?.source === "string" && typeof t?.message === "string") {
-        addLine(t.source === "user" ? "user" : "assistant", t.message);
-      }
-    },
-    /**
-     * CLIENT TOOLS — l'agent ElevenLabs peut appeler ces fonctions pour
-     * mémoriser des faits ou ajouter des événements à l'agenda. Pour qu'elles
-     * fonctionnent, il faut DÉCLARER ces tools dans le dashboard ElevenLabs
-     * (Tools > Add client tool) avec EXACTEMENT les mêmes noms et paramètres.
-     */
-    clientTools: {
-      remember_fact: async (params: { content: string; category?: string; importance?: number }) => {
-        try {
-          const cat = (params.category as MemoryCategory) || "fact";
-          const valid: MemoryCategory[] = ["habit", "preference", "goal", "fact", "emotion", "relationship"];
-          const safeCat = valid.includes(cat) ? cat : "fact";
-          await twinMemoryService.addMemory({
-            category: safeCat,
-            content: params.content,
-            importance: Math.min(5, Math.max(1, params.importance ?? 3)),
-            source: "voice",
-          });
-          await refreshAll();
-          return `Souvenir enregistré (${CATEGORY_LABEL[safeCat]}).`;
-        } catch (err: any) {
-          return `Erreur : ${err?.message || "impossible d'enregistrer"}`;
-        }
-      },
-      add_schedule_event: async (params: { title: string; start_iso: string; end_iso?: string; location?: string; notes?: string }) => {
-        try {
-          const startDate = new Date(params.start_iso);
-          if (isNaN(startDate.getTime())) return "Date invalide. Utilise un format ISO 8601.";
-          await twinMemoryService.addEvent({
-            title: params.title,
-            start_iso: startDate.toISOString(),
-            end_iso: params.end_iso ? new Date(params.end_iso).toISOString() : undefined,
-            location: params.location,
-            notes: params.notes,
-            source: "ai",
-          });
-          await refreshAll();
-          return `Événement « ${params.title} » ajouté à l'agenda pour le ${startDate.toLocaleString("fr-FR")}.`;
-        } catch (err: any) {
-          return `Erreur : ${err?.message || "impossible d'ajouter l'événement"}`;
-        }
-      },
-      list_recent_memories: async () => {
-        try {
-          const list = await twinMemoryService.listMemories();
-          if (list.length === 0) return "Aucun souvenir enregistré pour l'instant.";
-          return list.slice(0, 20).map((m) => `[${CATEGORY_LABEL[m.category]}] ${m.content}`).join("\n");
-        } catch (err: any) {
-          return `Erreur : ${err?.message || "impossible de lire les souvenirs"}`;
-        }
-      },
-      list_upcoming_events: async () => {
-        try {
-          const list = await twinMemoryService.listEvents(14);
-          if (list.length === 0) return "Aucun événement prévu dans les 2 prochaines semaines.";
-          return list.map((e) => {
-            const d = new Date(e.start_iso);
-            return `${d.toLocaleString("fr-FR")} — ${e.title}${e.location ? ` (${e.location})` : ""}`;
-          }).join("\n");
-        } catch (err: any) {
-          return `Erreur : ${err?.message || "impossible de lire l'agenda"}`;
-        }
-      },
-    },
-  });
-
-  function addLine(role: "user" | "assistant", text: string) {
-    setTranscript((prev) => [...prev, { id: crypto.randomUUID(), role, text, ts: Date.now() }]);
-  }
 
   // ─── Load memories + events ───
   const refreshAll = useCallback(async () => {
@@ -162,34 +56,22 @@ export default function Twin() {
 
   useEffect(() => { refreshAll(); }, [refreshAll]);
 
-  // ─── Conversation actions ───
-  const startCall = useCallback(async () => {
-    if (!agentId) {
-      setShowSettings(true);
-      toast.error("Configurez d'abord votre Agent ID ElevenLabs (icône réglages).");
-      return;
-    }
-    setIsConnecting(true);
-    try {
-      await navigator.mediaDevices.getUserMedia({ audio: true });
-      const token = await twinVoiceService.getConversationToken(agentId);
-      await conversation.startSession({
-        conversationToken: token,
-        connectionType: "webrtc",
-      } as any);
-    } catch (err: any) {
-      console.error("[Twin] startCall error:", err);
-      toast.error(err?.message || "Impossible de démarrer la conversation.");
-    } finally {
-      setIsConnecting(false);
-    }
-  }, [agentId, conversation]);
+  // ─── Voice loop (Lovable AI + STT navigateur + TTS ElevenLabs/fallback) ───
+  const voice = useTwinVoice({
+    onError: (msg) => toast.error(msg),
+    onMemoryChange: () => { refreshAll(); },
+    getMemoriesContext: () =>
+      memories.slice(0, 30).map((m) => `- [${CATEGORY_LABEL[m.category]}] ${m.content}`).join("\n"),
+    getEventsContext: () =>
+      events.slice(0, 15).map((e) => {
+        const d = new Date(e.start_iso);
+        return `- ${d.toLocaleString("fr-FR")} : ${e.title}${e.location ? ` (${e.location})` : ""}`;
+      }).join("\n"),
+  });
 
-  const endCall = useCallback(async () => {
-    try { await conversation.endSession(); } catch (err) { console.error(err); }
-  }, [conversation]);
-
-  const isConnected = conversation.status === "connected";
+  const isConnected = voice.isCallActive;
+  const isSpeaking = voice.status === "speaking";
+  const isThinking = voice.status === "thinking";
 
   // ─── Memory actions ───
   const addMemory = async () => {
@@ -235,14 +117,6 @@ export default function Twin() {
     } catch (err: any) { toast.error(err?.message || "Échec de suppression"); }
   };
 
-  const saveAgentId = () => {
-    const v = agentInput.trim();
-    setAgentId(v);
-    try { localStorage.setItem(AGENT_ID_KEY, v); } catch { /* ignore */ }
-    setShowSettings(false);
-    toast.success("Agent ID enregistré");
-  };
-
   const groupedMemories = useMemo(() => {
     const g: Record<MemoryCategory, UserMemory[]> = { habit: [], preference: [], goal: [], fact: [], emotion: [], relationship: [] };
     for (const m of memories) g[m.category].push(m);
@@ -268,9 +142,11 @@ export default function Twin() {
                 <p className="text-sm text-white/60">Votre assistant de développement personnel à voix haute</p>
               </div>
             </div>
-            <Button variant="ghost" size="icon" onClick={() => { setAgentInput(agentId); setShowSettings(true); }} className="text-white/70 hover:text-white">
-              <SettingsIcon className="w-5 h-5" />
-            </Button>
+            {!voice.supported && (
+              <span className="text-xs text-amber-300 bg-amber-500/10 border border-amber-400/30 rounded-lg px-2.5 py-1">
+                Reconnaissance vocale non supportée — utilisez Chrome/Edge/Safari
+              </span>
+            )}
           </div>
 
           {/* Voice call card */}
@@ -286,7 +162,7 @@ export default function Twin() {
                       : "bg-gradient-to-br from-purple-700/40 to-pink-700/40 border border-white/10")
                   }
                 >
-                  {conversation.isSpeaking ? (
+                  {isSpeaking ? (
                     <div className="flex items-end gap-1 h-12">
                       <div className="w-1.5 bg-white rounded-full animate-pulse" style={{ height: "60%", animationDelay: "0ms" }} />
                       <div className="w-1.5 bg-white rounded-full animate-pulse" style={{ height: "100%", animationDelay: "150ms" }} />
@@ -309,7 +185,7 @@ export default function Twin() {
               <div className="text-center">
                 <p className="text-white font-medium">
                   {isConnected
-                    ? conversation.isSpeaking ? "Votre double parle…" : "À l'écoute…"
+                    ? isSpeaking ? "Votre double parle…" : isThinking ? "Réflexion…" : "À l'écoute…"
                     : "Prêt à discuter"}
                 </p>
                 <p className="text-white/55 text-sm mt-1">
@@ -321,36 +197,37 @@ export default function Twin() {
 
               {!isConnected ? (
                 <Button
-                  onClick={startCall}
-                  disabled={isConnecting}
+                  onClick={voice.startCall}
+                  disabled={!voice.supported}
                   size="lg"
                   className="rounded-full px-8 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white shadow-lg shadow-purple-500/30"
                 >
-                  {isConnecting ? (
-                    <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Connexion…</>
-                  ) : (
-                    <><Phone className="w-5 h-5 mr-2" /> Appeler mon double</>
-                  )}
+                  <Phone className="w-5 h-5 mr-2" /> Appeler mon double
                 </Button>
               ) : (
-                <Button onClick={endCall} size="lg" variant="destructive" className="rounded-full px-8">
+                <Button onClick={voice.endCall} size="lg" variant="destructive" className="rounded-full px-8">
                   <PhoneOff className="w-5 h-5 mr-2" /> Raccrocher
                 </Button>
               )}
             </div>
 
             {/* Live transcript */}
-            {transcript.length > 0 && (
+            {(voice.transcript.length > 0 || voice.interim) && (
               <div className="mt-6 border-t border-white/10 pt-5">
                 <div className="text-xs uppercase tracking-wider text-white/45 font-semibold mb-2">Transcription</div>
                 <ScrollArea className="h-48 pr-2">
                   <div className="space-y-2">
-                    {transcript.map((l) => (
+                    {voice.transcript.map((l) => (
                       <div key={l.id} className={"text-sm " + (l.role === "user" ? "text-white" : "text-purple-200")}>
                         <span className="font-semibold mr-2">{l.role === "user" ? "Vous :" : "Double :"}</span>
                         {l.text}
                       </div>
                     ))}
+                    {voice.interim && (
+                      <div className="text-sm text-white/50 italic">
+                        <span className="font-semibold mr-2">Vous :</span>{voice.interim}…
+                      </div>
+                    )}
                   </div>
                 </ScrollArea>
               </div>
@@ -493,38 +370,6 @@ export default function Twin() {
           </Tabs>
         </div>
       </main>
-
-      {/* Settings dialog */}
-      <Dialog open={showSettings} onOpenChange={setShowSettings}>
-        <DialogContent className="bg-zinc-900 border-white/10 text-white">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><SettingsIcon className="w-5 h-5" /> Configuration ElevenLabs</DialogTitle>
-            <DialogDescription className="text-white/60">
-              Pour discuter à voix haute avec votre double, créez un agent sur{" "}
-              <a href="https://elevenlabs.io/app/conversational-ai" target="_blank" rel="noreferrer" className="text-purple-400 underline">elevenlabs.io</a>
-              {" "}et collez son Agent ID ici.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <Label htmlFor="agent-id" className="text-white/80">Agent ID</Label>
-            <Input
-              id="agent-id"
-              value={agentInput}
-              onChange={(e) => setAgentInput(e.target.value)}
-              placeholder="agent_xxxxxxxxxxxxxxxxxxxx"
-              className="bg-white/10 border-white/15 text-white placeholder:text-white/40"
-            />
-            <p className="text-xs text-white/50">
-              L'agent doit être configuré avec : voix française, prompt système qui décrit son rôle de coach personnel,
-              et les outils <code className="text-purple-300">remember_fact</code> + <code className="text-purple-300">add_schedule_event</code> si vous voulez qu'il enregistre habitudes et rendez-vous.
-            </p>
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="ghost" onClick={() => setShowSettings(false)} className="text-white/70 hover:text-white">Annuler</Button>
-              <Button onClick={saveAgentId} className="bg-purple-500 hover:bg-purple-600 text-white">Enregistrer</Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
