@@ -57,6 +57,24 @@ export function LocalAppLaunchWidget({ target, args, label }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Mode compact : si tout va bien (lancement réussi ou en cours), on affiche
+  // juste une petite ligne discrète. Le panneau complet n'apparaît qu'en cas
+  // d'erreur ou si l'agent local n'est pas configuré.
+  if (status === "ok" || status === "launching") {
+    return (
+      <div className="inline-flex items-center gap-2 rounded-lg border border-border/40 bg-white/5 px-3 py-1.5 text-xs text-muted-foreground">
+        {status === "launching" ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+        ) : (
+          <Check className="h-3.5 w-3.5 text-emerald-400" />
+        )}
+        <span className="truncate">
+          {status === "launching" ? `Ouverture de ${displayName}…` : `${displayName} lancé sur ton PC`}
+        </span>
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-xl border border-border/40 bg-white/5 p-3">
       <div className="flex items-center gap-3">
@@ -73,14 +91,14 @@ export function LocalAppLaunchWidget({ target, args, label }: Props) {
         <StatusBadge status={status} onRetry={launch} />
       </div>
 
-      {status !== "launching" && status !== "not-configured" && (
+      {status === "error" && (
         <button
           type="button"
           onClick={launch}
           className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90"
         >
           <Play className="h-3.5 w-3.5" />
-          Ouvrir maintenant
+          Réessayer
         </button>
       )}
 
@@ -104,13 +122,7 @@ export function LocalAppLaunchWidget({ target, args, label }: Props) {
         </div>
       )}
 
-      {status === "ok" && (
-        <p className="text-[10px] text-muted-foreground mt-2">
-          Demande envoyée à l'agent local{detail ? ` · ${detail}` : ""}. Aucune fenêtre navigateur ne s'affiche : l'application doit s'ouvrir directement sur ton PC.
-        </p>
-      )}
-
-      {logs.length > 0 && (
+      {status === "error" && logs.length > 0 && (
         <div className="mt-3 rounded-lg border border-border/40 bg-secondary/30 px-3 py-2">
           <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
             Logs ouverture app
