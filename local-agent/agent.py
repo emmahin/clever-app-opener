@@ -626,6 +626,7 @@ def _launch_store_app(shell_target: str) -> JSONResponse:
     print(f"[nex-agent] launch store app target={shell_target!r}", flush=True)
     # explorer.exe est le seul moyen fiable de résoudre shell:AppsFolder
     subprocess.Popen(["explorer.exe", shell_target])
+    _bring_to_foreground_async(shell_target)
     return JSONResponse({"ok": True, "method": "store-app", "target": shell_target})
 
 
