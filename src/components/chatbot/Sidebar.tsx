@@ -1,21 +1,42 @@
 import { Menu, X, Search, MessageSquare, Trash2, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import nexLogo from "@/assets/nex-logo.png";
 import { useProjects } from "@/contexts/ProjectsProvider";
 import { toast } from "sonner";
 
 const SIDEBAR_WIDTH = 280;
+const SIDEBAR_COLLAPSED = 64;
+const STORAGE_KEY = "nex.sidebar.collapsed";
+
+function setRootSidebarWidth(px: number) {
+  document.documentElement.style.setProperty("--sidebar-w", `${px}px`);
+}
 
 export function Sidebar() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const { list, remove } = useProjects();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem(STORAGE_KEY) === "1";
+  });
   const [query, setQuery] = useState("");
 
-  // Ferme automatiquement le drawer au changement de route
+  // Synchronise la variable CSS avec l'état (desktop uniquement, mobile = overlay)
+  useEffect(() => {
+    setRootSidebarWidth(collapsed ? SIDEBAR_COLLAPSED : SIDEBAR_WIDTH);
+    try { window.localStorage.setItem(STORAGE_KEY, collapsed ? "1" : "0"); } catch { /* noop */ }
+  }, [collapsed]);
+
+  // Au mount, force la valeur initiale (au cas où une autre page n'aurait pas remonté Sidebar)
+  useEffect(() => {
+    setRootSidebarWidth(collapsed ? SIDEBAR_COLLAPSED : SIDEBAR_WIDTH);
+  }, []);
+
+  // Ferme automatiquement le drawer mobile au changement de route
   useEffect(() => { setMobileOpen(false); }, [pathname]);
 
   // Bloque le scroll du body quand le drawer mobile est ouvert
@@ -36,7 +57,6 @@ export function Sidebar() {
 
   const loadChat = (proj: { id: string; name: string }) => {
     if (pathname !== "/") navigate("/");
-    // Petit délai pour laisser Index monter avant de dispatch
     setTimeout(() => {
       window.dispatchEvent(new CustomEvent("nex:loadChat", { detail: { id: proj.id } }));
     }, 50);
@@ -52,25 +72,63 @@ export function Sidebar() {
     setMobileOpen(false);
   };
 
-  const panelContent = (compact: boolean) => (
-    <div className="flex flex-col h-full">
-      {/* Logo = AI Tools (lien vers /) */}
-      <Link
-        to="/"
+  const handleLogoClick = () => {
+    // Sur mobile (drawer), juste ferme
+    // Sur desktop, toggle l'état replié
+    setCollapsed((v) => !v);
+  };
+
+  const goAiTools = () => {
+    if (pathname !== "/") navigate("/");
+  };
+
+  // ─── Contenu replié (rail vertical) ───
+  const collapsedContent = (
+    <div className="flex flex-col items-center h-full py-3 gap-3">
+      <button
+        onClick={handleLogoClick}
+        title="Afficher l'historique"
+        className="w-10 h-10 rounded-xl overflow-hidden bg-black/40 ring-1 ring-white/20 shadow-[0_0_18px_rgba(168,85,247,0.45)] hover:ring-white/40 transition"
+      >
+        <img src={nexLogo} alt="Nex" className="w-full h-full object-cover" />
+      </button>
+      <button
+        onClick={goAiTools}
         title="AI Tools"
         className={cn(
-          "flex items-center gap-2.5 px-3 py-3 rounded-xl hover:bg-white/10 transition-colors",
-          pathname === "/" && "bg-white/10"
+          "w-10 h-10 rounded-lg flex items-center justify-center text-white/70 hover:bg-white/10 hover:text-white transition",
+          pathname === "/" && "bg-white/15 text-white"
         )}
+      >
+        <MessageSquare className="w-5 h-5" />
+      </button>
+      <button
+        onClick={newChat}
+        title="Nouveau chat"
+        className="w-10 h-10 rounded-lg flex items-center justify-center text-white/70 hover:bg-white/10 hover:text-white transition"
+      >
+        <Plus className="w-5 h-5" />
+      </button>
+    </div>
+  );
+
+  // ─── Contenu déployé ───
+  const expandedContent = (
+    <div className="flex flex-col h-full">
+      {/* Logo cliquable = toggle volet */}
+      <button
+        onClick={handleLogoClick}
+        title="Masquer l'historique"
+        className="flex items-center gap-2.5 px-3 py-3 mx-1 mt-1 rounded-xl hover:bg-white/10 transition-colors text-left"
       >
         <div className="w-9 h-9 rounded-xl overflow-hidden bg-black/40 flex items-center justify-center ring-1 ring-white/20 shadow-[0_0_18px_rgba(168,85,247,0.45)] flex-shrink-0">
           <img src={nexLogo} alt="Nex" className="w-full h-full object-cover" />
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="text-white font-semibold text-sm leading-tight">AI Tools</div>
           <div className="text-white/55 text-[11px] leading-tight">Nex assistant</div>
         </div>
-      </Link>
+      </button>
 
       {/* Nouveau chat */}
       <button
@@ -93,7 +151,7 @@ export function Sidebar() {
       </div>
 
       {/* Historique */}
-      <div className="mt-3 px-2 text-[10px] uppercase tracking-wider text-white/45 font-semibold">
+      <div className="mt-3 px-3 text-[10px] uppercase tracking-wider text-white/45 font-semibold">
         Historique
       </div>
       <div className="flex-1 overflow-y-auto mt-1 px-1 pb-3">
@@ -135,13 +193,13 @@ export function Sidebar() {
   // ─── Sidebar desktop (>= md) ───
   const desktopAside = (
     <aside
-      className="fixed left-0 top-0 h-full hidden md:flex flex-col z-50"
+      className="fixed left-0 top-0 h-full hidden md:flex flex-col z-50 transition-[width] duration-300 ease-out overflow-hidden"
       style={{
-        width: `${SIDEBAR_WIDTH}px`,
+        width: collapsed ? `${SIDEBAR_COLLAPSED}px` : `${SIDEBAR_WIDTH}px`,
         background: "linear-gradient(180deg, hsl(0, 0%, 4%), hsl(275, 85%, 30%))",
       }}
     >
-      {panelContent(false)}
+      {collapsed ? collapsedContent : expandedContent}
     </aside>
   );
 
@@ -186,7 +244,7 @@ export function Sidebar() {
             <X className="w-5 h-5" />
           </button>
         </div>
-        {panelContent(false)}
+        {expandedContent}
       </aside>
     </>
   );
