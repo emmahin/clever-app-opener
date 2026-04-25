@@ -548,6 +548,7 @@ def _list_microsoft_store_apps() -> list[dict]:
     # visibles dans le menu Démarrer, y compris les apps Store et Win32.
     # On le filtre ensuite pour ne garder que les AppId au format "<PFN>!<id>".
     ps_cmd = (
+        "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; "
         "Get-StartApps | "
         "ForEach-Object { \"$($_.Name)|$($_.AppID)\" }"
     )
@@ -556,6 +557,8 @@ def _list_microsoft_store_apps() -> list[dict]:
             ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_cmd],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=10,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
@@ -565,7 +568,7 @@ def _list_microsoft_store_apps() -> list[dict]:
 
     if result.returncode != 0 or not result.stdout:
         print(
-            f"[nex-agent] scan store-apps returned no data rc={result.returncode}",
+            f"[nex-agent] scan store-apps returned no data rc={result.returncode} stderr={result.stderr[:200] if result.stderr else ''}",
             flush=True,
         )
         return []
