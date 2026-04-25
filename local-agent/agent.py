@@ -278,9 +278,7 @@ def launch(body: LaunchBody, authorization: Optional[str] = Header(default=None)
         # 1) Si c'est un chemin absolu existant → on lance directement.
         if os.path.isabs(target) and os.path.exists(target):
             if sys.platform == "win32":
-                # os.startfile gère .exe, .lnk, dossiers, fichiers (ouvre avec l'app par défaut).
-                os.startfile(target)  # type: ignore[attr-defined]
-                return JSONResponse({"ok": True, "method": "startfile", "target": target})
+                return _launch_windows_path(target, body.args, "path")
             elif sys.platform == "darwin":
                 subprocess.Popen(["open", target, *body.args])
                 return JSONResponse({"ok": True, "method": "open", "target": target})
@@ -294,18 +292,24 @@ def launch(body: LaunchBody, authorization: Optional[str] = Header(default=None)
             subprocess.Popen([resolved, *body.args])
             return JSONResponse({"ok": True, "method": "popen", "target": resolved})
 
+        known_path = _resolve_known_windows_path(target)
+        if known_path:
+            return _launch_windows_path(known_path, body.args, "known-path")
+
         shortcut = _resolve_windows_shortcut_or_app(target)
         if shortcut:
-            os.startfile(shortcut)  # type: ignore[attr-defined]
-            return JSONResponse({"ok": True, "method": "start-menu", "target": shortcut})
+            return _launch_windows_path(shortcut, body.args, "start-menu")
 
-        # 3) Sur Windows, on tente quand même start <name> (gère URI scheme + apps shell).
-        if sys.platform == "win32":
+        # 3) Sur Windows, on tente start uniquement pour les URI schemes explicites.
+        if sys.platform == "win32" and _looks_like_uri_target(target):
             cmd = f'start "" {shlex.quote(target)}'
             subprocess.Popen(cmd, shell=True)
             return JSONResponse({"ok": True, "method": "shell-start", "target": target})
 
-        raise HTTPException(status_code=404, detail=f"App '{target}' introuvable sur le PATH")
+        raise HTTPException(
+            status_code=404,
+            detail=f"App '{target}' introuvable. Essaie le nom exact du raccourci Windows ou le chemin complet du .exe",
+        )
     except HTTPException:
         raise
     except Exception as e:
