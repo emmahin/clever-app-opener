@@ -18,11 +18,13 @@ import Notifications from "./pages/Notifications.tsx";
 import Auth from "./pages/Auth.tsx";
 import Install from "./pages/Install.tsx";
 import { AuthGuard } from "@/components/AuthGuard";
+import { RootErrorBoundary } from "@/components/RootErrorBoundary";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
+    <RootErrorBoundary>
     <LanguageProvider>
       <SettingsProvider>
         <ProjectsProvider>
@@ -49,6 +51,7 @@ const App = () => (
         </ProjectsProvider>
       </SettingsProvider>
     </LanguageProvider>
+    </RootErrorBoundary>
   </QueryClientProvider>
 );
 
