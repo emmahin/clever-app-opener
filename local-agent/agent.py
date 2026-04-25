@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import os
 import re
+import json
 import shlex
 import shutil
 import subprocess
@@ -440,6 +441,7 @@ _STORE_PFN_HINTS: dict[str, list[str]] = {
     # fragments larges pour matcher différentes versions/éditeurs.
     "whatsapp": ["whatsapp", "5319275a.whatsappdesktop"],
     "snapchat": ["snapchat"],
+    "snappchat": ["snapchat"],
     "instagram": ["instagram"],
     "netflix": ["netflix"],
     "xbox": ["xbox", "xboxapp", "gamingapp"],
@@ -485,13 +487,10 @@ def _resolve_microsoft_store_app(target: str) -> Optional[str]:
     if not hint_terms:
         return None
 
-    # PowerShell : récupère Name + PackageFamilyName de TOUS les paquets installés
-    # (pour le user actuel). Format CSV simple pour parsing facile.
+    # PowerShell : Get-StartApps fournit le vrai AppID lançable par AppsFolder.
     ps_cmd = (
         "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; "
-        "Get-AppxPackage | "
-        "Select-Object -Property Name,PackageFamilyName | "
-        "ForEach-Object { \"$($_.Name)|$($_.PackageFamilyName)\" }"
+        "Get-StartApps | Select-Object Name,AppID | ConvertTo-Json -Compress"
     )
     try:
         result = subprocess.run(
@@ -511,23 +510,30 @@ def _resolve_microsoft_store_app(target: str) -> Optional[str]:
         print(f"[nex-agent] strategy=store-app powershell returned no data rc={result.returncode}", flush=True)
         return None
 
+    try:
+        rows = json.loads(result.stdout)
+        if isinstance(rows, dict):
+            rows = [rows]
+    except Exception as e:
+        print(f"[nex-agent] strategy=store-app json parse error: {e}", flush=True)
+        return None
+
     best: Optional[str] = None
-    for line in result.stdout.splitlines():
-        if "|" not in line:
-            continue
-        name, pfn = line.split("|", 1)
-        haystack = (name + " " + pfn).lower()
+    for row in rows:
+        name = str(row.get("Name") or "").strip()
+        app_id = str(row.get("AppID") or "").strip()
+        haystack = (name + " " + app_id).lower().replace(" ", "")
         if any(term in haystack for term in hint_terms):
             print(
-                f"[nex-agent] strategy=store-app candidate name={name!r} pfn={pfn!r}",
+                f"[nex-agent] strategy=store-app candidate name={name!r} app_id={app_id!r}",
                 flush=True,
             )
-            best = pfn.strip()
+            best = app_id
             break
 
     if not best:
         return None
-    return f"shell:AppsFolder\\{best}!App"
+    return f"shell:AppsFolder\\{best}"
 
 
 def _launch_store_app(shell_target: str) -> JSONResponse:
@@ -546,14 +552,11 @@ def _list_microsoft_store_apps() -> list[dict]:
     if sys.platform != "win32":
         return []
 
-    # On veut le PackageFamilyName + le DisplayName lisible + l'AppId du tile.
-    # Get-StartApps donne directement (Name, AppID) pour toutes les tuiles
-    # visibles dans le menu Démarrer, y compris les apps Store et Win32.
-    # On le filtre ensuite pour ne garder que les AppId au format "<PFN>!<id>".
+    # Get-StartApps donne directement le Name + AppID lançable via AppsFolder.
+    # On garde aussi les AppID sans "!" : certaines apps Store/progressives les utilisent.
     ps_cmd = (
         "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; "
-        "Get-StartApps | "
-        "ForEach-Object { \"$($_.Name)|$($_.AppID)\" }"
+        "Get-StartApps | Select-Object Name,AppID | ConvertTo-Json -Compress"
     )
     try:
         result = subprocess.run(
@@ -578,18 +581,18 @@ def _list_microsoft_store_apps() -> list[dict]:
 
     found: list[dict] = []
     seen: set[str] = set()
-    for line in result.stdout.splitlines():
-        line = line.strip()
-        if "|" not in line:
-            continue
-        name, app_id = line.split("|", 1)
-        name = name.strip()
-        app_id = app_id.strip()
+    try:
+        rows = json.loads(result.stdout)
+        if isinstance(rows, dict):
+            rows = [rows]
+    except Exception as e:
+        print(f"[nex-agent] scan store-apps json parse error: {e}", flush=True)
+        return []
+
+    for row in rows:
+        name = str(row.get("Name") or "").strip()
+        app_id = str(row.get("AppID") or "").strip()
         if not name or not app_id:
-            continue
-        # Ne garder que les AppId UWP (contiennent '!'). Les autres sont des
-        # raccourcis Win32 déjà couverts par le scan .lnk.
-        if "!" not in app_id:
             continue
         # Filtre des apps système peu intéressantes
         low = name.lower()
