@@ -2,7 +2,7 @@ import { Sidebar } from "@/components/chatbot/Sidebar";
 import { Header } from "@/components/chatbot/Header";
 import { useSettings, DetailLevel } from "@/contexts/SettingsProvider";
 import { useLanguage, LANGS, Lang } from "@/i18n/LanguageProvider";
-import { Settings as SettingsIcon, Globe, Sparkles, MessageSquare, Trash2, RotateCcw, Check, Bell, Monitor } from "lucide-react";
+import { Settings as SettingsIcon, Globe, Sparkles, MessageSquare, Trash2, RotateCcw, Check, Bell, Monitor, ChevronDown } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useNotificationPrefs } from "@/hooks/useNotifications";
@@ -243,14 +243,14 @@ export default function Settings() {
             </div>
           </Section>
 
-          {/* Agent local PC */}
-          <Section
+          {/* Agent local PC — volet battant */}
+          <CollapsibleSection
             icon={<Monitor className="w-5 h-5" />}
             title="Agent local PC"
             description="Permet à l'IA d'ouvrir des applications installées sur ton ordinateur."
           >
             <LocalAgentSection />
-          </Section>
+          </CollapsibleSection>
 
           {/* Confidentialité (boutons) */}
           <Section
