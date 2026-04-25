@@ -15,6 +15,12 @@ export function MessageWidgets({ widgets, messageId }: { widgets: ChatWidget[]; 
   return (
     <div className="space-y-4 mt-3">
       {widgets.map((w, i) => {
+        if (w.type === "open_app") {
+          console.debug("[nex:message-widgets] open_app widget received", { index: i, widget: w });
+        }
+        if (w.type === "launch_local_app") {
+          console.debug("[nex:message-widgets] launch_local_app widget received", { index: i, widget: w });
+        }
         if (w.type === "news") return <NewsWidget key={i} items={w.items} />;
         if (w.type === "stocks") return <StocksWidget key={i} items={w.items} />;
         if (w.type === "image") return <ImageWidget key={i} url={w.url} prompt={w.prompt} />;
