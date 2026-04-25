@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Sparkles, Mic, Phone, PhoneOff, Plus, Trash2, Calendar, Brain, Loader2 } from "lucide-react";
+import { Sparkles, Mic, Phone, PhoneOff, Plus, Trash2, Calendar, Brain, Loader2, Eraser } from "lucide-react";
 import { Sidebar } from "@/components/chatbot/Sidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { twinMemoryService, type UserMemory, type ScheduleEventDB, type MemoryCategory } from "@/services";
-import { useTwinVoice } from "@/hooks/useTwinVoice";
+import { useTwinVoiceContext } from "@/contexts/TwinVoiceProvider";
 
 const CATEGORY_LABEL: Record<MemoryCategory, string> = {
   habit: "Habitude",
@@ -56,18 +56,22 @@ export default function Twin() {
 
   useEffect(() => { refreshAll(); }, [refreshAll]);
 
-  // ─── Voice loop (Lovable AI + STT navigateur + TTS ElevenLabs/fallback) ───
-  const voice = useTwinVoice({
-    onError: (msg) => toast.error(msg),
-    onMemoryChange: () => { refreshAll(); },
-    getMemoriesContext: () =>
-      memories.slice(0, 30).map((m) => `- [${CATEGORY_LABEL[m.category]}] ${m.content}`).join("\n"),
-    getEventsContext: () =>
-      events.slice(0, 15).map((e) => {
-        const d = new Date(e.start_iso);
-        return `- ${d.toLocaleString("fr-FR")} : ${e.title}${e.location ? ` (${e.location})` : ""}`;
-      }).join("\n"),
-  });
+  // ─── Voice loop (provider global → conversation persiste entre pages) ───
+  const voice = useTwinVoiceContext();
+  // On (re)câble les providers de contexte à chaque fois que mémoires/events changent.
+  useEffect(() => {
+    voice.setContextProviders({
+      onError: (msg: string) => toast.error(msg),
+      onMemoryChange: () => { refreshAll(); },
+      getMemoriesContext: () =>
+        memories.slice(0, 30).map((m) => `- [${CATEGORY_LABEL[m.category]}] ${m.content}`).join("\n"),
+      getEventsContext: () =>
+        events.slice(0, 15).map((e) => {
+          const d = new Date(e.start_iso);
+          return `- ${d.toLocaleString("fr-FR")} : ${e.title}${e.location ? ` (${e.location})` : ""}`;
+        }).join("\n"),
+    } as any);
+  }, [memories, events, refreshAll, voice]);
 
   const isConnected = voice.isCallActive;
   const isSpeaking = voice.status === "speaking";
@@ -214,7 +218,18 @@ export default function Twin() {
             {/* Live transcript */}
             {(voice.transcript.length > 0 || voice.interim) && (
               <div className="mt-6 border-t border-white/10 pt-5">
-                <div className="text-xs uppercase tracking-wider text-white/45 font-semibold mb-2">Transcription</div>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-xs uppercase tracking-wider text-white/45 font-semibold">
+                    Conversation {voice.transcript.length > 0 ? `(${voice.transcript.length})` : ""}
+                  </div>
+                  <button
+                    onClick={voice.clearTranscript}
+                    className="text-[11px] text-white/50 hover:text-white inline-flex items-center gap-1 px-2 py-1 rounded-md hover:bg-white/5 transition"
+                    title="Effacer l'historique de cette conversation"
+                  >
+                    <Eraser className="w-3 h-3" /> Effacer
+                  </button>
+                </div>
                 <ScrollArea className="h-48 pr-2">
                   <div className="space-y-2">
                     {voice.transcript.map((l) => (

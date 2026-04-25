@@ -17,6 +17,45 @@ const corsHeaders = {
 const DEFAULT_VOICE_ID = "XB0fDUnXU5powFXDhCwa"; // Charlotte
 const DEFAULT_MODEL = "eleven_turbo_v2_5";
 
+/**
+ * Nettoie le texte avant TTS pour éviter que la voix lise les caractères
+ * de formatage markdown (étoiles, dièses, underscores, backticks…) et
+ * pour que les phrases sonnent naturelles à l'oral.
+ */
+function sanitizeForSpeech(input: string): string {
+  let t = input;
+  // Code blocks ```...``` → enlever balises
+  t = t.replace(/```[\s\S]*?```/g, (m) => m.replace(/```/g, " "));
+  // Liens markdown [label](url) → label
+  t = t.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
+  // Images ![alt](url) → alt
+  t = t.replace(/!\[([^\]]*)\]\([^)]+\)/g, "$1");
+  // Titres en début de ligne #, ##, ###…
+  t = t.replace(/^\s{0,3}#{1,6}\s+/gm, "");
+  // Citations >
+  t = t.replace(/^\s{0,3}>\s?/gm, "");
+  // Puces - * + en début de ligne
+  t = t.replace(/^\s{0,3}[-*+]\s+/gm, "");
+  // Listes numérotées 1. 2.
+  t = t.replace(/^\s{0,3}\d+\.\s+/gm, "");
+  // Gras / italique : **x**, __x__, *x*, _x_
+  t = t.replace(/\*\*([^*]+)\*\*/g, "$1");
+  t = t.replace(/__([^_]+)__/g, "$1");
+  t = t.replace(/(^|[\s(])\*([^*\n]+)\*/g, "$1$2");
+  t = t.replace(/(^|[\s(])_([^_\n]+)_/g, "$1$2");
+  // Inline code `x`
+  t = t.replace(/`([^`]+)`/g, "$1");
+  // Astérisques / dièses / backticks isolés restants
+  t = t.replace(/[*_`#~]+/g, " ");
+  // Émojis — facultatif : on les retire pour éviter "emoji visage souriant"
+  t = t.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, "");
+  // Normalisation espaces
+  t = t.replace(/\s+\n/g, "\n").replace(/\n{2,}/g, ". ").replace(/[ \t]{2,}/g, " ").trim();
+  // S'assurer d'une ponctuation finale pour une intonation naturelle
+  if (t && !/[.!?…]$/.test(t)) t += ".";
+  return t;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -24,6 +63,13 @@ Deno.serve(async (req) => {
     const { text, voiceId, modelId } = await req.json();
     if (!text || typeof text !== "string") {
       return new Response(JSON.stringify({ error: "text required" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const cleanText = sanitizeForSpeech(text);
+    if (!cleanText) {
+      return new Response(JSON.stringify({ error: "empty after sanitize" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -47,7 +93,7 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        text,
+        text: cleanText,
         model_id: mid,
         // Réglages "plus humain" : moins de stability = plus d'expressivité,
         // style élevé = intonations émotionnelles, speed légèrement ralentie

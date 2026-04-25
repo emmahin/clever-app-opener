@@ -10,6 +10,7 @@ import Analytics from "./pages/Analytics.tsx";
 import { LanguageProvider } from "@/i18n/LanguageProvider";
 import { SettingsProvider } from "@/contexts/SettingsProvider";
 import { ProjectsProvider } from "@/contexts/ProjectsProvider";
+import { TwinVoiceProvider } from "@/contexts/TwinVoiceProvider";
 import Settings from "./pages/Settings.tsx";
 import VideoEditor from "./pages/VideoEditor.tsx";
 import Documents from "./pages/Documents.tsx";
@@ -30,6 +31,7 @@ const App = () => (
     <LanguageProvider>
       <SettingsProvider>
         <ProjectsProvider>
+        <TwinVoiceProvider>
         <TooltipProvider>
         <Toaster />
         <Sonner />
@@ -52,6 +54,7 @@ const App = () => (
           </Routes>
         </BrowserRouter>
         </TooltipProvider>
+        </TwinVoiceProvider>
         </ProjectsProvider>
       </SettingsProvider>
     </LanguageProvider>

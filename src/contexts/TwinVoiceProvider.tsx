@@ -1,28 +1,30 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { createContext, useContext, ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { twinMemoryService, type MemoryCategory } from "@/services";
 
 export type TwinRole = "user" | "assistant";
 export interface TwinTurn { id: string; role: TwinRole; text: string; ts: number }
 
-interface UseTwinVoiceOpts {
-  onError?: (msg: string) => void;
-  onMemoryChange?: () => void;
-  getMemoriesContext?: () => string;
-  getEventsContext?: () => string;
+interface TwinVoiceContextValue {
+  isCallActive: boolean;
+  status: "idle" | "listening" | "thinking" | "speaking";
+  transcript: TwinTurn[];
+  interim: string;
+  supported: boolean;
+  startCall: () => Promise<void>;
+  endCall: () => void;
+  clearTranscript: () => void;
+  /** Permet aux pages d'enrichir le contexte (mémoires & agenda) */
+  setContextProviders: (providers: {
+    getMemoriesContext?: () => string;
+    getEventsContext?: () => string;
+    onMemoryChange?: () => void;
+  }) => void;
 }
 
-/**
- * Voice loop 100% Lovable AI :
- *  - STT navigateur (Web Speech API) : reconnaissance vocale gratuite illimitée
- *  - LLM : Lovable AI Gateway (Gemini) via edge fn `twin-chat` (avec tool calling)
- *  - TTS : edge fn `twin-tts` (ElevenLabs free tier) avec fallback SpeechSynthesis
- *
- * État `status` : idle | listening | thinking | speaking
- */
-export function useTwinVoice(opts: UseTwinVoiceOpts = {}) {
-  const { onError, onMemoryChange, getMemoriesContext, getEventsContext } = opts;
+const TwinVoiceContext = createContext<TwinVoiceContextValue | null>(null);
 
+export function TwinVoiceProvider({ children }: { children: ReactNode }) {
   const [isCallActive, setIsCallActive] = useState(false);
   const [status, setStatus] = useState<"idle" | "listening" | "thinking" | "speaking">("idle");
   const [transcript, setTranscript] = useState<TwinTurn[]>([]);
@@ -34,8 +36,22 @@ export function useTwinVoice(opts: UseTwinVoiceOpts = {}) {
   const messagesRef = useRef<{ role: "user" | "assistant" | "tool"; content: string; tool_call_id?: string; tool_calls?: any[] }[]>([]);
   const callActiveRef = useRef(false);
   const restartTimerRef = useRef<number | null>(null);
+  const statusRef = useRef(status);
+  useEffect(() => { statusRef.current = status; }, [status]);
 
-  // ─── Init recognition ───
+  // Providers fournis par la page Twin (mémoires + agenda)
+  const providersRef = useRef<{
+    getMemoriesContext?: () => string;
+    getEventsContext?: () => string;
+    onMemoryChange?: () => void;
+    onError?: (msg: string) => void;
+  }>({});
+
+  const setContextProviders: TwinVoiceContextValue["setContextProviders"] = useCallback((p) => {
+    providersRef.current = { ...providersRef.current, ...p };
+  }, []);
+
+  // Init recognition (1×, persistant)
   useEffect(() => {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) {
@@ -63,15 +79,13 @@ export function useTwinVoice(opts: UseTwinVoiceOpts = {}) {
     };
 
     rec.onerror = (e: any) => {
-      // 'no-speech' arrive souvent en silence prolongé : on relancera dans onend.
       if (e.error && e.error !== "no-speech" && e.error !== "aborted") {
         console.warn("[Twin] recognition error:", e.error);
       }
     };
 
     rec.onend = () => {
-      // Auto-restart tant que l'appel est actif (et qu'on n'est pas en train de parler)
-      if (callActiveRef.current && status !== "speaking" && status !== "thinking") {
+      if (callActiveRef.current && statusRef.current !== "speaking" && statusRef.current !== "thinking") {
         if (restartTimerRef.current) window.clearTimeout(restartTimerRef.current);
         restartTimerRef.current = window.setTimeout(() => {
           try { rec.start(); } catch { /* déjà démarré */ }
@@ -99,7 +113,6 @@ export function useTwinVoice(opts: UseTwinVoiceOpts = {}) {
     try { rec.stop(); } catch { /* ignore */ }
   }, []);
 
-  // ─── Tools handlers (côté client, RLS user) ───
   async function executeTool(name: string, args: any): Promise<string> {
     try {
       if (name === "remember_fact") {
@@ -111,7 +124,7 @@ export function useTwinVoice(opts: UseTwinVoiceOpts = {}) {
           importance: Math.min(5, Math.max(1, Number(args.importance) || 3)),
           source: "voice",
         });
-        onMemoryChange?.();
+        providersRef.current.onMemoryChange?.();
         return `OK, mémorisé (${cat}).`;
       }
       if (name === "add_schedule_event") {
@@ -125,7 +138,7 @@ export function useTwinVoice(opts: UseTwinVoiceOpts = {}) {
           notes: args.notes,
           source: "ai",
         });
-        onMemoryChange?.();
+        providersRef.current.onMemoryChange?.();
         return `Événement ajouté pour le ${start.toLocaleString("fr-FR")}.`;
       }
       return `Tool inconnu: ${name}`;
@@ -134,10 +147,9 @@ export function useTwinVoice(opts: UseTwinVoiceOpts = {}) {
     }
   }
 
-  // ─── Loop principale ───
   async function callChat(): Promise<string> {
-    const memoriesContext = getMemoriesContext?.() || "";
-    const eventsContext = getEventsContext?.() || "";
+    const memoriesContext = providersRef.current.getMemoriesContext?.() || "";
+    const eventsContext = providersRef.current.getEventsContext?.() || "";
     const { data, error } = await supabase.functions.invoke("twin-chat", {
       body: { messages: messagesRef.current, memoriesContext, eventsContext },
     });
@@ -146,7 +158,6 @@ export function useTwinVoice(opts: UseTwinVoiceOpts = {}) {
     const message = data?.message;
     if (!message) throw new Error("Réponse vide");
 
-    // Tool calls ?
     if (Array.isArray(message.tool_calls) && message.tool_calls.length > 0) {
       messagesRef.current.push({ role: "assistant", content: message.content || "", tool_calls: message.tool_calls });
       for (const call of message.tool_calls) {
@@ -156,7 +167,6 @@ export function useTwinVoice(opts: UseTwinVoiceOpts = {}) {
         const result = await executeTool(name, args);
         messagesRef.current.push({ role: "tool", tool_call_id: call.id, content: result });
       }
-      // Re-call pour la réponse finale
       return await callChat();
     }
 
@@ -189,7 +199,6 @@ export function useTwinVoice(opts: UseTwinVoiceOpts = {}) {
           await audio.play();
           return;
         }
-        // Fallback navigateur
         speakBrowser(text, resolve);
       } catch (e) {
         console.warn("[Twin] TTS server failed, fallback browser:", e);
@@ -223,7 +232,7 @@ export function useTwinVoice(opts: UseTwinVoiceOpts = {}) {
       setTranscript((prev) => [...prev, { id: crypto.randomUUID(), role: "assistant", text: reply, ts: Date.now() }]);
       await speak(reply);
     } catch (e: any) {
-      onError?.(e?.message || "Erreur du double");
+      providersRef.current.onError?.(e?.message || "Erreur du double");
     } finally {
       if (callActiveRef.current) {
         setStatus("listening");
@@ -236,29 +245,35 @@ export function useTwinVoice(opts: UseTwinVoiceOpts = {}) {
 
   const startCall = useCallback(async () => {
     if (!supported) {
-      onError?.("Reconnaissance vocale non supportée. Utilisez Chrome, Edge ou Safari.");
+      providersRef.current.onError?.("Reconnaissance vocale non supportée. Utilisez Chrome, Edge ou Safari.");
       return;
     }
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch {
-      onError?.("Microphone refusé.");
+      providersRef.current.onError?.("Microphone refusé.");
       return;
     }
+    // On garde le transcript existant si l'utilisateur revient (persistance entre pages)
+    // mais on repart sur une fenêtre de contexte LLM fraîche pour ne pas exploser les tokens.
     messagesRef.current = [];
-    setTranscript([]);
     setInterim("");
     callActiveRef.current = true;
     setIsCallActive(true);
-    // Petit message d'ouverture vocal pour engager
     setStatus("speaking");
-    await speak("Bonjour. Je suis là, à l'écoute… De quoi as-tu envie de parler ?");
+    const opener = transcript.length === 0
+      ? "Bonjour. Je suis là, à l'écoute… De quoi as-tu envie de parler ?"
+      : "Je t'écoute, on continue.";
+    if (transcript.length === 0) {
+      setTranscript([{ id: crypto.randomUUID(), role: "assistant", text: opener, ts: Date.now() }]);
+    }
+    await speak(opener);
     if (callActiveRef.current) {
       setStatus("listening");
       startListening();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [supported, startListening]);
+  }, [supported, startListening, transcript.length]);
 
   const endCall = useCallback(() => {
     callActiveRef.current = false;
@@ -269,13 +284,21 @@ export function useTwinVoice(opts: UseTwinVoiceOpts = {}) {
     if ("speechSynthesis" in window) window.speechSynthesis.cancel();
   }, [stopListening]);
 
-  return {
-    isCallActive,
-    status, // idle | listening | thinking | speaking
-    transcript,
-    interim,
-    supported,
-    startCall,
-    endCall,
+  const clearTranscript = useCallback(() => {
+    setTranscript([]);
+    messagesRef.current = [];
+  }, []);
+
+  const value: TwinVoiceContextValue = {
+    isCallActive, status, transcript, interim, supported,
+    startCall, endCall, clearTranscript, setContextProviders,
   };
+
+  return <TwinVoiceContext.Provider value={value}>{children}</TwinVoiceContext.Provider>;
+}
+
+export function useTwinVoiceContext() {
+  const ctx = useContext(TwinVoiceContext);
+  if (!ctx) throw new Error("useTwinVoiceContext must be used inside <TwinVoiceProvider>");
+  return ctx;
 }
