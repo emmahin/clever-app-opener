@@ -510,7 +510,7 @@ def _resolve_microsoft_store_app(target: str) -> Optional[str]:
     )
     try:
         result = subprocess.run(
-            ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_cmd],
+            [_windows_powershell_exe(), "-NoProfile", "-NonInteractive", "-Command", ps_cmd],
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -646,7 +646,7 @@ def _list_microsoft_store_apps() -> list[dict]:
     )
     try:
         result = subprocess.run(
-            ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_cmd],
+            [_windows_powershell_exe(), "-NoProfile", "-NonInteractive", "-Command", ps_cmd],
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -931,6 +931,7 @@ def _list_windows_apps() -> list[dict]:
 
     # 6) Apps Microsoft Store / UWP (WhatsApp, Snapchat, Instagram, Netflix…)
     candidates += _list_microsoft_store_apps()
+    candidates += _list_shell_appsfolder_apps()
 
     # Dédup par nom normalisé (préfère le .lnk si dispo)
     by_key: dict[str, dict] = {}
