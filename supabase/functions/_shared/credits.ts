@@ -12,6 +12,63 @@ const TOKENS_PER_CREDIT = 500;
 const MIN_CREDITS = 1;
 const MAX_CREDITS = 50;
 
+// ---------- Admin bypass ----------
+const _adminCache = new Map<string, { value: boolean; ts: number }>();
+const ADMIN_CACHE_MS = 60_000;
+
+/** Vérifie si l'utilisateur est admin via la fonction has_role. Cache 60s. */
+export async function isAdmin(userId: string): Promise<boolean> {
+  const cached = _adminCache.get(userId);
+  if (cached && Date.now() - cached.ts < ADMIN_CACHE_MS) return cached.value;
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/has_role`, {
+      method: "POST",
+      headers: {
+        apikey: SERVICE_ROLE,
+        Authorization: `Bearer ${SERVICE_ROLE}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ _user_id: userId, _role: "admin" }),
+    });
+    const value = r.ok ? (await r.json()) === true : false;
+    _adminCache.set(userId, { value, ts: Date.now() });
+    return value;
+  } catch {
+    return false;
+  }
+}
+
+/** Log gratuit pour audit admin (n'affecte pas le solde). */
+export async function logAdminFree(
+  userId: string,
+  meta: { model?: string; action?: string; inputTokens?: number; outputTokens?: number; metadata?: Record<string, unknown> } = {},
+): Promise<void> {
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/credit_transactions`, {
+      method: "POST",
+      headers: {
+        apikey: SERVICE_ROLE,
+        Authorization: `Bearer ${SERVICE_ROLE}`,
+        "Content-Type": "application/json",
+        Prefer: "return=minimal",
+      },
+      body: JSON.stringify({
+        user_id: userId,
+        kind: "admin_free",
+        amount: 0,
+        balance_after: 0,
+        model: meta.model ?? null,
+        action: meta.action ?? "chat",
+        input_tokens: meta.inputTokens ?? null,
+        output_tokens: meta.outputTokens ?? null,
+        metadata: meta.metadata ?? {},
+      }),
+    });
+  } catch (e) {
+    console.warn("logAdminFree failed", e);
+  }
+}
+
 // ---------- JWT (extraction user_id sans vérif crypto, RLS service-role gère le reste) ----------
 export function getUserIdFromAuth(req: Request): string | null {
   const auth = req.headers.get("authorization") || req.headers.get("Authorization");
