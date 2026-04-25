@@ -1,5 +1,5 @@
 import { ChatWidget, ChartSpec, ChartSeries, NewsItem, Stock, WebSource, GalleryImage, VideoItem } from "@/services";
-import { useState } from "react";
+import { Component, ReactNode, useState } from "react";
 import { ExternalLink, Newspaper, TrendingUp, TrendingDown, BarChart3, Globe, ImageIcon, Images, Video, PlayCircle, LineChart as LineChartIcon } from "lucide-react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { WhatsAppSendWidget } from "./WhatsAppSendWidget";
@@ -21,67 +21,108 @@ export function MessageWidgets({ widgets, messageId }: { widgets: ChatWidget[]; 
         if (w.type === "launch_local_app") {
           console.debug("[nex:message-widgets] launch_local_app widget received", { index: i, widget: w });
         }
-        if (w.type === "news") return <NewsWidget key={i} items={w.items} />;
-        if (w.type === "stocks") return <StocksWidget key={i} items={w.items} />;
-        if (w.type === "image") return <ImageWidget key={i} url={w.url} prompt={w.prompt} />;
-        if (w.type === "image_gallery") return <ImageGalleryWidget key={i} query={w.query} items={w.items} />;
-        if (w.type === "videos") return <VideosWidget key={i} query={w.query} items={w.items} />;
-        if (w.type === "web_sources") return <WebSourcesWidget key={i} items={w.items} />;
-        if (w.type === "chart") return <ChartWidget key={i} chart={w.chart} />;
-        if (w.type === "whatsapp_send") return <WhatsAppSendWidget key={i} contact_name={w.contact_name} body={w.body} />;
-        if (w.type === "reminder_created") return <ReminderWidget key={i} title={w.title} body={w.body} when_iso={w.when_iso} />;
-        if (w.type === "insight_created") return <InsightWidget key={i} title={w.title} body={w.body} />;
-        if (w.type === "open_app") return (
-          w.kind === "deeplink" ? (
-            <LocalAppLaunchWidget
-              key={i}
-              target={w.app_name || w.target}
-              label={w.app_name}
-            />
-          ) : (
-            <OpenAppWidget
-              key={i}
-              app_name={w.app_name}
-              kind={w.kind}
-              target={w.target}
-              fallback_url={w.fallback_url}
-              auto_opened={w.auto_opened}
-            />
-          )
+        const node = renderWidget(w, i, messageId);
+        if (!node) return null;
+        return (
+          <WidgetErrorBoundary key={i} widgetType={w.type}>
+            {node}
+          </WidgetErrorBoundary>
         );
-        if (w.type === "launch_local_app") return (
-          <LocalAppLaunchWidget
-            key={i}
-            target={w.target}
-            args={w.args}
-            label={w.label}
-          />
-        );
-        if (w.type === "organize_files") return (
-          <OrganizeFilesWidget
-            key={i}
-            root_name={w.root_name}
-            total={w.total}
-            categories={w.categories}
-            mapping={w.mapping}
-            explanation={w.explanation}
-            messageId={w.messageId || messageId}
-          />
-        );
-        if (w.type === "schedule") return (
-          <ScheduleWidget
-            key={i}
-            range_label={w.range_label}
-            range_start_iso={w.range_start_iso}
-            range_end_iso={w.range_end_iso}
-            added={w.added}
-            remove_query={w.remove_query}
-          />
-        );
-        return null;
       })}
     </div>
   );
+}
+
+function renderWidget(w: ChatWidget, i: number, messageId?: string): ReactNode {
+  if (w.type === "news") return <NewsWidget items={w.items} />;
+  if (w.type === "stocks") return <StocksWidget items={w.items} />;
+  if (w.type === "image") return <ImageWidget url={w.url} prompt={w.prompt} />;
+  if (w.type === "image_gallery") return <ImageGalleryWidget query={w.query} items={w.items} />;
+  if (w.type === "videos") return <VideosWidget query={w.query} items={w.items} />;
+  if (w.type === "web_sources") return <WebSourcesWidget items={w.items} />;
+  if (w.type === "chart") return <ChartWidget chart={w.chart} />;
+  if (w.type === "whatsapp_send") return <WhatsAppSendWidget contact_name={w.contact_name} body={w.body} />;
+  if (w.type === "reminder_created") return <ReminderWidget title={w.title} body={w.body} when_iso={w.when_iso} />;
+  if (w.type === "insight_created") return <InsightWidget title={w.title} body={w.body} />;
+  if (w.type === "open_app") {
+    return w.kind === "deeplink" ? (
+      <LocalAppLaunchWidget target={w.app_name || w.target} label={w.app_name} />
+    ) : (
+      <OpenAppWidget
+        app_name={w.app_name}
+        kind={w.kind}
+        target={w.target}
+        fallback_url={w.fallback_url}
+        auto_opened={w.auto_opened}
+      />
+    );
+  }
+  if (w.type === "launch_local_app") {
+    return <LocalAppLaunchWidget target={w.target} args={w.args} label={w.label} />;
+  }
+  if (w.type === "organize_files") {
+    return (
+      <OrganizeFilesWidget
+        root_name={w.root_name}
+        total={w.total}
+        categories={w.categories}
+        mapping={w.mapping}
+        explanation={w.explanation}
+        messageId={w.messageId || messageId}
+      />
+    );
+  }
+  if (w.type === "schedule") {
+    return (
+      <ScheduleWidget
+        range_label={w.range_label}
+        range_start_iso={w.range_start_iso}
+        range_end_iso={w.range_end_iso}
+        added={w.added}
+        remove_query={w.remove_query}
+      />
+    );
+  }
+  return null;
+}
+
+/**
+ * Évite qu'un widget qui crash (props inattendues, URL invalide…) ne fasse planter
+ * tout l'écran de chat (page violette gelée). On affiche un mini-message à la place.
+ */
+class WidgetErrorBoundary extends Component<
+  { children: ReactNode; widgetType: string },
+  { error: Error | null }
+> {
+  state = { error: null as Error | null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  componentDidCatch(error: Error, info: unknown) {
+    console.error("[nex:widget-error-boundary] widget crashed", {
+      widgetType: this.props.widgetType,
+      message: error?.message,
+      info,
+    });
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
+          ⚠️ Impossible d'afficher ce contenu ({this.props.widgetType}).
+          {this.state.error.message ? (
+            <span className="block mt-1 font-mono text-[10px] opacity-70">
+              {this.state.error.message}
+            </span>
+          ) : null}
+        </div>
+      );
+    }
+    return this.props.children;
+  }
 }
 
 function ImageGalleryWidget({ query, items }: { query: string; items: GalleryImage[] }) {
