@@ -32,6 +32,4 @@ export type {
   ConversationSummary,
   ScheduleEventDB,
 } from "./twinMemoryService";
-export { twinVoiceService } from "./twinVoiceService";
-export type { ITwinVoiceService } from "./twinVoiceService";
 export * from "./types";
