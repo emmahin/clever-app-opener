@@ -1324,6 +1324,13 @@ Deno.serve(async (req) => {
         const enc = new TextEncoder();
         const send = (obj: any) => controller.enqueue(enc.encode(`data: ${JSON.stringify(obj)}\n\n`));
 
+        // Trace texte produit pour ajustement crédits final
+        let producedText = "";
+        const sendWithCount = (obj: any) => {
+          if (typeof obj?.delta === "string") producedText += obj.delta;
+          send(obj);
+        };
+
         try {
           const userText = latestUserText(messages);
           // Construit le prompt système en fonction du message courant (gain de tokens si planning non pertinent)
@@ -1341,7 +1348,7 @@ Deno.serve(async (req) => {
           if (pastedVideoUrl) {
             const { widget, summary } = await callTool("search_videos", { url: pastedVideoUrl });
             if (widget) send({ widgets: [widget] });
-            send({ delta: `Voilà la vidéo intégrée monsieur. ${summary}` });
+            sendWithCount({ delta: `Voilà la vidéo intégrée monsieur. ${summary}` });
             send({ done: true });
             controller.close();
             return;
@@ -1351,7 +1358,7 @@ Deno.serve(async (req) => {
           if (inferredImageQuery) {
             const { widget, summary } = await callTool("search_images", { query: inferredImageQuery, count: 8 });
             if (widget) send({ widgets: [widget] });
-            send({ delta: `Bien sûr monsieur — j’ai compris que vous parlez des sneakers Nike Air Force 1. Voici des exemples visuels pertinents.\n\n${summary}` });
+            sendWithCount({ delta: `Bien sûr monsieur — j’ai compris que vous parlez des sneakers Nike Air Force 1. Voici des exemples visuels pertinents.\n\n${summary}` });
             send({ done: true });
             controller.close();
             return;
@@ -1435,8 +1442,8 @@ Deno.serve(async (req) => {
                   ...toolResults,
                 ],
             };
-            const streamed = await streamModelResponse(phase3Body, send);
-            if (!streamed.trim()) send({ delta: `Voilà monsieur.\n\n${toolResults.map((r) => r.content).join("\n")}` });
+            const streamed = await streamModelResponse(phase3Body, sendWithCount);
+            if (!streamed.trim()) sendWithCount({ delta: `Voilà monsieur.\n\n${toolResults.map((r) => r.content).join("\n")}` });
           } else {
             // No tools: stream the direct response token by token
             // Re-call with stream=true (since phase1 was not streamed)
@@ -1444,10 +1451,10 @@ Deno.serve(async (req) => {
               model: "google/gemini-3-flash-preview",
               messages: [{ role: "system", content: SYSTEM_PROMPT }, ...messages],
             };
-            const streamed = await streamModelResponse(directBody, send);
+            const streamed = await streamModelResponse(directBody, sendWithCount);
             if (!streamed.trim()) {
               const fallback = await completeModelResponse({ ...directBody, model: "google/gemini-2.5-flash" });
-              send({ delta: fallback || "Je suis là monsieur, mais je n’ai pas reçu de contenu exploitable. Reformulez votre demande en une phrase et je m’en occupe." });
+              sendWithCount({ delta: fallback || "Je suis là monsieur, mais je n’ai pas reçu de contenu exploitable. Reformulez votre demande en une phrase et je m’en occupe." });
             }
           }
 
@@ -1458,6 +1465,33 @@ Deno.serve(async (req) => {
           const enc = new TextEncoder();
           controller.enqueue(enc.encode(`data: ${JSON.stringify({ error: String(e) })}\n\n`));
           controller.close();
+        } finally {
+          // Ajustement crédits a posteriori : compare estimation vs coût réel.
+          try {
+            const realOutputTokens = Math.ceil(producedText.length / 4);
+            const finalCredits = computeFinalCredits({
+              realInputTokens: estimate.inputTokens,
+              realOutputTokens,
+              multiplier: estimate.multiplier,
+              actionTokens: estimate.actionTokens,
+            });
+            const delta = finalCredits - estimate.credits;
+            if (delta > 0) {
+              await debitCredits(userId, delta, {
+                model: deepThink ? "google/gemini-3.1-pro-preview" : "google/gemini-3-flash-preview",
+                action: "chat",
+                inputTokens: estimate.inputTokens,
+                outputTokens: realOutputTokens,
+                metadata: { phase: "adjust", reason: "underestimate" },
+              });
+            } else if (delta < 0) {
+              await refundCredits(userId, -delta, {
+                metadata: { phase: "adjust", reason: "overestimate", real_output_tokens: realOutputTokens },
+              });
+            }
+          } catch (e) {
+            console.warn("credits adjustment failed", e);
+          }
         }
       },
     });
