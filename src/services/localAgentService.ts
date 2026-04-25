@@ -120,6 +120,10 @@ function normalizeAppName(s: string): string {
     .trim();
 }
 
+function compactAppName(s: string): string {
+  return normalizeAppName(s).replace(/\s+/g, "");
+}
+
 function normalizeUrl(url: string): string {
   return url.trim().replace(/\/+$/, "");
 }
@@ -264,15 +268,16 @@ export const localAgentService: ILocalAgentService = {
     const cache = readAppsCache();
     if (!cache || cache.apps.length === 0) return null;
     const q = normalizeAppName(query);
+    const compactQ = compactAppName(query);
     if (!q || q.length < 2) return null;
 
     // 1) Match exact sur nom normalisé
     for (const app of cache.apps) {
-      if (normalizeAppName(app.name) === q) return app;
+      if (normalizeAppName(app.name) === q || compactAppName(app.name) === compactQ) return app;
     }
     // 2) Match "le nom contient toute la query" (préfère .lnk)
     const contains = cache.apps
-      .filter((a) => normalizeAppName(a.name).includes(q))
+      .filter((a) => normalizeAppName(a.name).includes(q) || compactAppName(a.name).includes(compactQ))
       .sort((a, b) => {
         if (a.source === "lnk" && b.source !== "lnk") return -1;
         if (b.source === "lnk" && a.source !== "lnk") return 1;
@@ -283,7 +288,8 @@ export const localAgentService: ILocalAgentService = {
     // 3) Match "query contient le nom" (utile quand on tape "spotify musique")
     for (const app of cache.apps) {
       const n = normalizeAppName(app.name);
-      if (n.length >= 3 && q.includes(n)) return app;
+      const cn = compactAppName(app.name);
+      if (n.length >= 3 && (q.includes(n) || compactQ.includes(cn))) return app;
     }
     return null;
   },
