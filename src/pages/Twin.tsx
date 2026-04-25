@@ -1,18 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useConversation } from "@elevenlabs/react";
-import { Sparkles, Mic, MicOff, Phone, PhoneOff, Plus, Trash2, Calendar, Brain, Settings as SettingsIcon, X, Loader2 } from "lucide-react";
+import { Sparkles, Mic, Phone, PhoneOff, Plus, Trash2, Calendar, Brain, Loader2 } from "lucide-react";
 import { Sidebar } from "@/components/chatbot/Sidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { twinMemoryService, twinVoiceService, type UserMemory, type ScheduleEventDB, type MemoryCategory } from "@/services";
-
-const AGENT_ID_KEY = "nex.twin.elevenlabs_agent_id";
+import { twinMemoryService, type UserMemory, type ScheduleEventDB, type MemoryCategory } from "@/services";
+import { useTwinVoice } from "@/hooks/useTwinVoice";
 
 const CATEGORY_LABEL: Record<MemoryCategory, string> = {
   habit: "Habitude",
@@ -32,115 +28,13 @@ const CATEGORY_COLOR: Record<MemoryCategory, string> = {
   relationship: "bg-amber-500/20 text-amber-200 border-amber-400/30",
 };
 
-type TranscriptLine = { id: string; role: "user" | "assistant"; text: string; ts: number };
-
 export default function Twin() {
-  const [agentId, setAgentId] = useState<string>(() => {
-    if (typeof window === "undefined") return "";
-    return localStorage.getItem(AGENT_ID_KEY) || "";
-  });
-  const [showSettings, setShowSettings] = useState(false);
-  const [agentInput, setAgentInput] = useState(agentId);
-
   const [memories, setMemories] = useState<UserMemory[]>([]);
   const [events, setEvents] = useState<ScheduleEventDB[]>([]);
   const [loadingData, setLoadingData] = useState(true);
-  const [transcript, setTranscript] = useState<TranscriptLine[]>([]);
-  const [isConnecting, setIsConnecting] = useState(false);
 
   const [newMem, setNewMem] = useState({ category: "habit" as MemoryCategory, content: "" });
   const [newEvent, setNewEvent] = useState({ title: "", start_iso: "", location: "" });
-
-  // ─── Conversation hook ───
-  const conversation = useConversation({
-    onConnect: () => toast.success("Connecté à votre double numérique"),
-    onDisconnect: () => toast.info("Conversation terminée"),
-    onError: (err: any) => {
-      console.error("[Twin] conversation error:", err);
-      toast.error(typeof err === "string" ? err : err?.message || "Erreur de connexion vocale");
-    },
-    onMessage: (msg: any) => {
-      // The SDK shape varies — try both common shapes.
-      const t = msg?.message ?? msg;
-      if (t?.type === "user_transcript") {
-        const text = t?.user_transcription_event?.user_transcript ?? "";
-        if (text) addLine("user", text);
-      } else if (t?.type === "agent_response") {
-        const text = t?.agent_response_event?.agent_response ?? "";
-        if (text) addLine("assistant", text);
-      } else if (typeof t?.source === "string" && typeof t?.message === "string") {
-        addLine(t.source === "user" ? "user" : "assistant", t.message);
-      }
-    },
-    /**
-     * CLIENT TOOLS — l'agent ElevenLabs peut appeler ces fonctions pour
-     * mémoriser des faits ou ajouter des événements à l'agenda. Pour qu'elles
-     * fonctionnent, il faut DÉCLARER ces tools dans le dashboard ElevenLabs
-     * (Tools > Add client tool) avec EXACTEMENT les mêmes noms et paramètres.
-     */
-    clientTools: {
-      remember_fact: async (params: { content: string; category?: string; importance?: number }) => {
-        try {
-          const cat = (params.category as MemoryCategory) || "fact";
-          const valid: MemoryCategory[] = ["habit", "preference", "goal", "fact", "emotion", "relationship"];
-          const safeCat = valid.includes(cat) ? cat : "fact";
-          await twinMemoryService.addMemory({
-            category: safeCat,
-            content: params.content,
-            importance: Math.min(5, Math.max(1, params.importance ?? 3)),
-            source: "voice",
-          });
-          await refreshAll();
-          return `Souvenir enregistré (${CATEGORY_LABEL[safeCat]}).`;
-        } catch (err: any) {
-          return `Erreur : ${err?.message || "impossible d'enregistrer"}`;
-        }
-      },
-      add_schedule_event: async (params: { title: string; start_iso: string; end_iso?: string; location?: string; notes?: string }) => {
-        try {
-          const startDate = new Date(params.start_iso);
-          if (isNaN(startDate.getTime())) return "Date invalide. Utilise un format ISO 8601.";
-          await twinMemoryService.addEvent({
-            title: params.title,
-            start_iso: startDate.toISOString(),
-            end_iso: params.end_iso ? new Date(params.end_iso).toISOString() : undefined,
-            location: params.location,
-            notes: params.notes,
-            source: "ai",
-          });
-          await refreshAll();
-          return `Événement « ${params.title} » ajouté à l'agenda pour le ${startDate.toLocaleString("fr-FR")}.`;
-        } catch (err: any) {
-          return `Erreur : ${err?.message || "impossible d'ajouter l'événement"}`;
-        }
-      },
-      list_recent_memories: async () => {
-        try {
-          const list = await twinMemoryService.listMemories();
-          if (list.length === 0) return "Aucun souvenir enregistré pour l'instant.";
-          return list.slice(0, 20).map((m) => `[${CATEGORY_LABEL[m.category]}] ${m.content}`).join("\n");
-        } catch (err: any) {
-          return `Erreur : ${err?.message || "impossible de lire les souvenirs"}`;
-        }
-      },
-      list_upcoming_events: async () => {
-        try {
-          const list = await twinMemoryService.listEvents(14);
-          if (list.length === 0) return "Aucun événement prévu dans les 2 prochaines semaines.";
-          return list.map((e) => {
-            const d = new Date(e.start_iso);
-            return `${d.toLocaleString("fr-FR")} — ${e.title}${e.location ? ` (${e.location})` : ""}`;
-          }).join("\n");
-        } catch (err: any) {
-          return `Erreur : ${err?.message || "impossible de lire l'agenda"}`;
-        }
-      },
-    },
-  });
-
-  function addLine(role: "user" | "assistant", text: string) {
-    setTranscript((prev) => [...prev, { id: crypto.randomUUID(), role, text, ts: Date.now() }]);
-  }
 
   // ─── Load memories + events ───
   const refreshAll = useCallback(async () => {
@@ -162,34 +56,22 @@ export default function Twin() {
 
   useEffect(() => { refreshAll(); }, [refreshAll]);
 
-  // ─── Conversation actions ───
-  const startCall = useCallback(async () => {
-    if (!agentId) {
-      setShowSettings(true);
-      toast.error("Configurez d'abord votre Agent ID ElevenLabs (icône réglages).");
-      return;
-    }
-    setIsConnecting(true);
-    try {
-      await navigator.mediaDevices.getUserMedia({ audio: true });
-      const token = await twinVoiceService.getConversationToken(agentId);
-      await conversation.startSession({
-        conversationToken: token,
-        connectionType: "webrtc",
-      } as any);
-    } catch (err: any) {
-      console.error("[Twin] startCall error:", err);
-      toast.error(err?.message || "Impossible de démarrer la conversation.");
-    } finally {
-      setIsConnecting(false);
-    }
-  }, [agentId, conversation]);
+  // ─── Voice loop (Lovable AI + STT navigateur + TTS ElevenLabs/fallback) ───
+  const voice = useTwinVoice({
+    onError: (msg) => toast.error(msg),
+    onMemoryChange: () => { refreshAll(); },
+    getMemoriesContext: () =>
+      memories.slice(0, 30).map((m) => `- [${CATEGORY_LABEL[m.category]}] ${m.content}`).join("\n"),
+    getEventsContext: () =>
+      events.slice(0, 15).map((e) => {
+        const d = new Date(e.start_iso);
+        return `- ${d.toLocaleString("fr-FR")} : ${e.title}${e.location ? ` (${e.location})` : ""}`;
+      }).join("\n"),
+  });
 
-  const endCall = useCallback(async () => {
-    try { await conversation.endSession(); } catch (err) { console.error(err); }
-  }, [conversation]);
-
-  const isConnected = conversation.status === "connected";
+  const isConnected = voice.isCallActive;
+  const isSpeaking = voice.status === "speaking";
+  const isThinking = voice.status === "thinking";
 
   // ─── Memory actions ───
   const addMemory = async () => {
@@ -233,14 +115,6 @@ export default function Twin() {
       await twinMemoryService.deleteEvent(id);
       setEvents((e) => e.filter((x) => x.id !== id));
     } catch (err: any) { toast.error(err?.message || "Échec de suppression"); }
-  };
-
-  const saveAgentId = () => {
-    const v = agentInput.trim();
-    setAgentId(v);
-    try { localStorage.setItem(AGENT_ID_KEY, v); } catch { /* ignore */ }
-    setShowSettings(false);
-    toast.success("Agent ID enregistré");
   };
 
   const groupedMemories = useMemo(() => {
