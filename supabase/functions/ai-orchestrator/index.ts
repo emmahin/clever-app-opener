@@ -433,8 +433,11 @@ TOOLS.push({
       "un programme natif (Notepad, Word, Excel, Photoshop, Steam, OBS, un .exe, un dossier, etc.) " +
       "PLUTÔT qu'un site web. " +
       "Pour les apps web (Gmail, YouTube, etc.), utilise plutôt 'open_app'. " +
-      "Le nom 'target' doit être : soit un nom d'exécutable connu du PATH (ex: 'notepad', 'code', " +
-      "'spotify'), soit un chemin absolu fourni par l'utilisateur (ex: 'C:\\\\Users\\\\moi\\\\app.exe'). " +
+      "PAR DÉFAUT, passe simplement le NOM SIMPLE de l'application en minuscules, SANS extension (" +
+      "ex: 'whatsapp', 'snapchat', 'spotify', 'notepad', 'word', 'chrome', 'steam'). " +
+      "N'AJOUTE JAMAIS '.exe' toi-même : l'agent local sait résoudre le nom (PATH, registre, " +
+      "Microsoft Store, raccourcis du menu Démarrer). Utilise un chemin absolu UNIQUEMENT si " +
+      "l'utilisateur l'a explicitement fourni (ex: 'C:\\\\Users\\\\moi\\\\app.exe'). " +
       "L'agent local côté PC vérifie que l'app existe ; s'il n'est pas configuré, l'utilisateur sera invité " +
       "à le faire dans les Paramètres.",
     parameters: {
@@ -442,7 +445,7 @@ TOOLS.push({
       properties: {
         target: {
           type: "string",
-          description: "Nom d'exécutable (ex: 'notepad', 'code', 'spotify') OU chemin absolu de l'app/fichier/dossier.",
+          description: "Nom simple de l'app SANS extension (ex: 'whatsapp', 'spotify', 'notepad') OU chemin absolu si l'utilisateur l'a donné. NE METS PAS '.exe'.",
         },
         args: {
           type: "array",
