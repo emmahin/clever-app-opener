@@ -15,6 +15,7 @@ import { useProjects } from "@/contexts/ProjectsProvider";
 import { useNavigate } from "react-router-dom";
 import { notificationService } from "@/services/notificationService";
 import { scheduleService } from "@/services/scheduleService";
+import { toast } from "sonner";
 import { organizeLocally } from "@/lib/localOrganizer";
 import { registerOrganizeFiles } from "@/lib/organizeRegistry";
 import {
