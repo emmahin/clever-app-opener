@@ -177,16 +177,38 @@ export default function Index() {
     const localExecutable = extractLocalExecutableRequest(content);
     if (localExecutable) {
       setMessages((prev) => [...prev, userMsg]);
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: `Je tente d'ouvrir **${localExecutable.label}** via l'agent local.`,
-          createdAt: Date.now(),
-          widgets: [{ type: "launch_local_app", target: localExecutable.target, label: localExecutable.label }],
-        },
-      ]);
+      if (localExecutable.kind === "found") {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content: `Je tente d'ouvrir **${localExecutable.label}** via l'agent local.`,
+            createdAt: Date.now(),
+            widgets: [{ type: "launch_local_app", target: localExecutable.target, label: localExecutable.label }],
+          },
+        ]);
+      } else {
+        // Aucune app trouvée : on AFFICHE un message clair, sans jamais rediriger vers le web.
+        const cached = localAgentService.getCachedApps();
+        const hint = !localAgentService.isConfigured()
+          ? "L'agent local n'est pas configuré. Va dans **Paramètres → Agent local PC** pour l'activer."
+          : !cached
+            ? "Aucune liste d'applications n'a encore été scannée. Va dans **Paramètres → Agent local PC** et clique sur **Scanner mes applications**."
+            : `Cette application n'apparaît pas dans tes ${cached.apps.length} apps détectées. Re-scanne ou précise le chemin complet du \`.exe\`/\`.lnk\`.`;
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content:
+              `❌ Je n'ai trouvé aucune application correspondant à **${localExecutable.label}** sur ton PC.\n\n` +
+              hint +
+              `\n\n*Je n'ouvre jamais de lien web automatiquement — précise « ouvre le site … » si c'est ce que tu veux.*`,
+            createdAt: Date.now(),
+          },
+        ]);
+      }
       return;
     }
 
