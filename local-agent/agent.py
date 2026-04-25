@@ -552,14 +552,11 @@ def _list_microsoft_store_apps() -> list[dict]:
     if sys.platform != "win32":
         return []
 
-    # On veut le PackageFamilyName + le DisplayName lisible + l'AppId du tile.
-    # Get-StartApps donne directement (Name, AppID) pour toutes les tuiles
-    # visibles dans le menu Démarrer, y compris les apps Store et Win32.
-    # On le filtre ensuite pour ne garder que les AppId au format "<PFN>!<id>".
+    # Get-StartApps donne directement le Name + AppID lançable via AppsFolder.
+    # On garde aussi les AppID sans "!" : certaines apps Store/progressives les utilisent.
     ps_cmd = (
         "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; "
-        "Get-StartApps | "
-        "ForEach-Object { \"$($_.Name)|$($_.AppID)\" }"
+        "Get-StartApps | Select-Object Name,AppID | ConvertTo-Json -Compress"
     )
     try:
         result = subprocess.run(
@@ -584,18 +581,18 @@ def _list_microsoft_store_apps() -> list[dict]:
 
     found: list[dict] = []
     seen: set[str] = set()
-    for line in result.stdout.splitlines():
-        line = line.strip()
-        if "|" not in line:
-            continue
-        name, app_id = line.split("|", 1)
-        name = name.strip()
-        app_id = app_id.strip()
+    try:
+        rows = json.loads(result.stdout)
+        if isinstance(rows, dict):
+            rows = [rows]
+    except Exception as e:
+        print(f"[nex-agent] scan store-apps json parse error: {e}", flush=True)
+        return []
+
+    for row in rows:
+        name = str(row.get("Name") or "").strip()
+        app_id = str(row.get("AppID") or "").strip()
         if not name or not app_id:
-            continue
-        # Ne garder que les AppId UWP (contiennent '!'). Les autres sont des
-        # raccourcis Win32 déjà couverts par le scan .lnk.
-        if "!" not in app_id:
             continue
         # Filtre des apps système peu intéressantes
         low = name.lower()
