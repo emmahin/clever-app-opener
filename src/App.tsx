@@ -48,6 +48,7 @@ const App = () => (
             <Route path="/notifications" element={<AuthGuard><Notifications /></AuthGuard>} />
             <Route path="/billing" element={<AuthGuard><Billing /></AuthGuard>} />
             <Route path="/admin/users" element={<AuthGuard><AdminUsers /></AuthGuard>} />
+            <Route path="/Admin/user" element={<AuthGuard><AdminUsers /></AuthGuard>} />
             <Route path="/agenda" element={<AuthGuard><Agenda /></AuthGuard>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
