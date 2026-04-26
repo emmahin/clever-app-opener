@@ -108,7 +108,7 @@ RÈGLES OUTILS (n'utilise un outil QUE si la demande l'exige) :
 - "Envoie/écris à X" → send_whatsapp_message. "Rappelle-moi…" → create_reminder.
 - "Envoie/écris à X" → send_whatsapp_message. "Rappelle-moi…" → create_reminder.
 - "Ouvre/Lance WhatsApp" (ou Snapchat, Spotify, Discord, Steam, Notepad, etc.) → TOUJOURS launch_local_app avec target='whatsapp' (ou le nom simple, sans extension). N'utilise JAMAIS open_app pour WhatsApp : la page interne /whatsapp est juste un gestionnaire de contacts, PAS l'app WhatsApp. "Ouvre WhatsApp" = lance l'application sur le PC.
-- Planning : add_schedule_event UNIQUEMENT sur demande EXPLICITE ("ajoute/note/planifie/enregistre dans mon agenda"). Une simple mention ("je vais voir Léa demain") N'EST PAS une demande — n'appelle RIEN. En doute, demande confirmation. list_schedule pour afficher, remove_schedule_event pour annuler.
+- Planning : tu NE PEUX PAS créer d'événement à l'agenda — l'utilisateur les ajoute à la main dans son écran Agenda. Si une action de planification est mentionnée, contente-toi de répondre à l'oral (ex : "tu peux l'ajouter à ton agenda"). Tu peux uniquement AFFICHER l'agenda (list_schedule) ou SUPPRIMER un événement existant (remove_schedule_event) à la demande explicite.
 - Sinon, réponds directement sans outil.
 
 REQUÊTES LARGES / OUVERTES — SYNTHÈSE D'ABORD, WIDGETS À LA DEMANDE :
