@@ -44,6 +44,8 @@ export interface IMoodService {
   tagMessage(args: { messageId: string; conversationId: string; content: string }): Promise<void>;
   /** Récupère les N derniers moods de l'utilisateur. */
   recent(limit?: number): Promise<MoodEntry[]>;
+  /** Calcule un résumé de la tendance émotionnelle des N derniers jours. */
+  recentContext(days?: number): Promise<{ dominantMood: string; trend: string; topThemes: string[]; sampleSize: number } | null>;
   /** Demande la génération des insights hebdo (idempotent côté serveur). */
   generateWeeklyInsights(): Promise<{ ok: boolean; insights?: MoodInsight[] }>;
   /** Liste les insights non-dismissés, plus récents d'abord. */
@@ -85,6 +87,42 @@ class MoodService implements IMoodService {
       return [];
     }
     return (data ?? []) as MoodEntry[];
+  }
+
+  async recentContext(days = 7) {
+    try {
+      const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+      const { data, error } = await supabase
+        .from("message_moods")
+        .select("mood, intensity, themes, created_at")
+        .gte("created_at", since)
+        .order("created_at", { ascending: false })
+        .limit(40);
+      if (error || !data || data.length < 3) return null;
+      // Dominant mood (par fréquence pondérée par l'intensité)
+      const moodScore = new Map<string, number>();
+      const themeCount = new Map<string, number>();
+      for (const r of data) {
+        moodScore.set(r.mood, (moodScore.get(r.mood) ?? 0) + (Number(r.intensity) || 0.5));
+        for (const th of (r.themes ?? [])) {
+          themeCount.set(th, (themeCount.get(th) ?? 0) + 1);
+        }
+      }
+      const dominantMood = [...moodScore.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "neutral";
+      const topThemes = [...themeCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([t]) => t);
+      // Tendance : compare la moitié récente vs l'ancienne par intensité moyenne
+      const half = Math.floor(data.length / 2);
+      const avg = (slice: typeof data) =>
+        slice.reduce((s, r) => s + (Number(r.intensity) || 0), 0) / Math.max(1, slice.length);
+      const recentAvg = avg(data.slice(0, half));
+      const olderAvg = avg(data.slice(half));
+      const delta = recentAvg - olderAvg;
+      const trend = delta > 0.1 ? "intensifying" : delta < -0.1 ? "calming" : "stable";
+      return { dominantMood, trend, topThemes, sampleSize: data.length };
+    } catch (e) {
+      console.warn("[mood] recentContext failed", e);
+      return null;
+    }
   }
 
   async generateWeeklyInsights() {
