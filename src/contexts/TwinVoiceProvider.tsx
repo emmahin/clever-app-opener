@@ -157,7 +157,12 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
 
   const endCall = useCallback(() => {
     setIsCallActive(false);
-    conversation.endSession().catch(() => { /* ignore */ });
+    try {
+      const r = conversation.endSession() as unknown as Promise<void> | void;
+      if (r && typeof (r as Promise<void>).catch === "function") {
+        (r as Promise<void>).catch(() => { /* ignore */ });
+      }
+    } catch { /* ignore */ }
   }, [conversation]);
 
   const clearTranscript = useCallback(() => {
