@@ -34,4 +34,6 @@ export type {
 } from "./twinMemoryService";
 export { googleCalendarService } from "./googleCalendarService";
 export type { GCalStatus, GCalSyncResult } from "./googleCalendarService";
+export { moodService } from "./moodService";
+export type { Mood, MoodEntry, MoodInsight, InsightCategory } from "./moodService";
 export * from "./types";

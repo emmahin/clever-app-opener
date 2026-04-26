@@ -22,6 +22,8 @@ export interface StreamChatParams {
   deepThink?: boolean;
   forceTool?: "image" | "code" | null;
   schedule?: { title: string; start_iso: string; end_iso?: string; location?: string; notes?: string }[];
+  /** Tendance émotionnelle récente (7 derniers jours) injectée dans le system prompt. */
+  moodContext?: { dominantMood: string; trend: string; topThemes: string[]; sampleSize: number } | null;
 }
 
 export interface IChatService {
@@ -31,7 +33,7 @@ export interface IChatService {
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-orchestrator`;
 
 export const webChatService: IChatService = {
-  async streamChat({ messages, onDelta, onWidgets, onDone, onError, signal, lang, detailLevel, customInstructions, aiName, attachments, webSearch, deepThink, forceTool, schedule }) {
+  async streamChat({ messages, onDelta, onWidgets, onDone, onError, signal, lang, detailLevel, customInstructions, aiName, attachments, webSearch, deepThink, forceTool, schedule, moodContext }) {
     try {
       // Récupère le JWT utilisateur (nécessaire pour identifier le user côté serveur — débit crédits).
       const { data: { session } } = await supabase.auth.getSession();
@@ -54,6 +56,7 @@ export const webChatService: IChatService = {
           deepThink,
           forceTool,
           schedule,
+          moodContext,
           // Donne au backend le fuseau horaire du navigateur pour qu'il
           // injecte l'heure locale + le jour de la semaine dans le system prompt.
           timezone: (() => {

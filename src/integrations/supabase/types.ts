@@ -292,6 +292,87 @@ export type Database = {
         }
         Relationships: []
       }
+      message_moods: {
+        Row: {
+          conversation_id: string
+          created_at: string
+          id: string
+          intensity: number
+          message_id: string
+          model: string | null
+          mood: string
+          summary: string
+          themes: string[]
+          user_id: string
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string
+          id?: string
+          intensity?: number
+          message_id: string
+          model?: string | null
+          mood?: string
+          summary?: string
+          themes?: string[]
+          user_id: string
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          intensity?: number
+          message_id?: string
+          model?: string | null
+          mood?: string
+          summary?: string
+          themes?: string[]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      mood_insights: {
+        Row: {
+          category: string
+          created_at: string
+          dismissed: boolean
+          id: string
+          insight: string
+          period_end: string
+          period_start: string
+          read_at: string | null
+          suggested_action: string | null
+          themes: string[]
+          user_id: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          dismissed?: boolean
+          id?: string
+          insight: string
+          period_end: string
+          period_start: string
+          read_at?: string | null
+          suggested_action?: string | null
+          themes?: string[]
+          user_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          dismissed?: boolean
+          id?: string
+          insight?: string
+          period_end?: string
+          period_start?: string
+          read_at?: string | null
+          suggested_action?: string | null
+          themes?: string[]
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string

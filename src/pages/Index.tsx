@@ -7,6 +7,7 @@ import { SuggestionPills } from "@/components/chatbot/SuggestionPills";
 import { ChatMessageItem } from "@/components/chatbot/ChatMessage";
 import { chatService, ChatMessage, ChatAttachment, APP_CATALOG, localAgentService, twinMemoryService, googleCalendarService } from "@/services";
 import { conversationService } from "@/services/conversationService";
+import { moodService } from "@/services/moodService";
 import { Expand, Minimize2, Settings2, Sparkles, MessageSquarePlus, Trash2, SlidersHorizontal, PhoneCall } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useSettings } from "@/contexts/SettingsProvider";
@@ -259,6 +260,15 @@ export default function Index() {
     return () => { active = false; };
   }, []);
 
+  // Au mount : déclenche la génération des insights hebdo (idempotent côté serveur).
+  // Ne bloque rien et ne notifie pas si rien à générer.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      moodService.generateWeeklyInsights().catch(() => {});
+    }, 4000);
+    return () => clearTimeout(t);
+  }, []);
+
   // Sidebar → recharge un chat depuis l'historique
   useEffect(() => {
     const onLoad = (e: Event) => {
@@ -446,6 +456,12 @@ export default function Index() {
           conversationIdRef.current = conv.id;
         }
         await conversationService.addMessage(conversationIdRef.current, userMsg);
+        // Mémoire émotionnelle : tag l'humeur en arrière-plan (jamais bloquant).
+        moodService.tagMessage({
+          messageId: userMsg.id,
+          conversationId: conversationIdRef.current,
+          content: userMsg.content,
+        });
       } catch (e) {
         console.warn("[chat] persist user message failed", e);
       }
@@ -453,6 +469,10 @@ export default function Index() {
 
     // Construit l'agenda (localStorage + Supabase + pull GCal si pertinent).
     const scheduleForAI = await buildScheduleForAI(content);
+
+    // Récupère la tendance émotionnelle récente pour adapter le ton de l'IA.
+    // Silencieux : si rien (pas assez de data), on envoie null.
+    const moodContext = await moodService.recentContext(7).catch(() => null);
 
     let accumulated = "";
     let lastWidgets: import("@/services/types").ChatWidget[] | undefined;
@@ -534,6 +554,7 @@ export default function Index() {
       deepThink: options?.deepThink,
       forceTool: options?.forceTool ?? null,
       schedule: scheduleForAI,
+      moodContext,
     });
   };
 
