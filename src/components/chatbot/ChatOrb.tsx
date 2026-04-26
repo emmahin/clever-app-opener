@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import starFrame from "@/assets/star-frame-violet.png";
+import starFrame from "@/assets/sparkles-violet.svg";
 
 interface ChatOrbProps {
   isLoading?: boolean;

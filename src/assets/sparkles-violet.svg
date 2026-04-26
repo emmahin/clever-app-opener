@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" fill="none">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <radialGradient id="g" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#F5B8FF"/>
+      <stop offset="50%" stop-color="#C44CFF"/>
+      <stop offset="100%" stop-color="#8B2FD9"/>
+    </radialGradient>
+  </defs>
+  <g filter="url(#glow)" fill="url(#g)">
+    <!-- Cluster haut-gauche : 1 grande, 2 moyennes, 1 petite -->
+    <!-- Grande étoile haut-gauche -->
+    <path d="M90 100 L96 142 L138 148 L96 154 L90 196 L84 154 L42 148 L84 142 Z"/>
+    <!-- Moyenne juste à droite -->
+    <path d="M170 80 L174 108 L202 112 L174 116 L170 144 L166 116 L138 112 L166 108 Z"/>
+    <!-- Moyenne en dessous -->
+    <path d="M140 180 L143 200 L163 203 L143 206 L140 226 L137 206 L117 203 L137 200 Z"/>
+    <!-- Petite à gauche -->
+    <path d="M50 220 L52 233 L65 235 L52 237 L50 250 L48 237 L35 235 L48 233 Z"/>
+
+    <!-- Cluster bas-droit : 1 grande, 2 moyennes, 1 moyenne, 1 petite -->
+    <!-- Grande bas-droit -->
+    <path d="M300 280 L306 322 L348 328 L306 334 L300 376 L294 334 L252 328 L294 322 Z"/>
+    <!-- Moyenne au-dessus à gauche -->
+    <path d="M230 250 L234 278 L262 282 L234 286 L230 314 L226 286 L198 282 L226 278 Z"/>
+    <!-- Moyenne à droite -->
+    <path d="M360 230 L363 252 L385 255 L363 258 L360 280 L357 258 L335 255 L357 252 Z"/>
+    <!-- Moyenne basse centre -->
+    <path d="M210 340 L213 360 L233 363 L213 366 L210 386 L207 366 L187 363 L207 360 Z"/>
+    <!-- Petite bas droite -->
+    <path d="M370 360 L372 372 L384 374 L372 376 L370 388 L368 376 L356 374 L368 372 Z"/>
+  </g>
+</svg>
