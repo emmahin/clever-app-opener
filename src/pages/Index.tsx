@@ -158,21 +158,18 @@ export default function Index() {
     return /\b(agenda|calendrier|planning|emploi du temps|rendez[-\s]?vous|rdv|prochain|évén?ements?|events?|aujourd['’]hui|demain|cette semaine|prochaine semaine|ce week[-\s]?end|ce mois|libre|disponible|réuni(?:on|ons)|schedule)\b/i.test(text);
   };
 
-  /** Charge les événements depuis Supabase + ceux du localStorage, dédupliqués. */
+  /** Charge les événements depuis le scheduleService (qui est maintenant adossé à la DB). */
   const buildScheduleForAI = async (
     userText: string,
   ): Promise<{ title: string; start_iso: string; end_iso?: string; location?: string; notes?: string }[]> => {
-    const local = scheduleService.getAll().map((e) => ({
-      title: e.title,
-      start_iso: e.start_iso,
-      end_iso: e.end_iso,
-      location: e.location,
-      notes: e.notes,
-    }));
-
     // Si la requête ne concerne pas l'agenda, on évite tout aller-retour réseau
-    // et on se contente du localStorage (comportement actuel).
-    if (!looksAgendaRelated(userText)) return local;
+    // et on retourne ce qu'on a déjà en cache.
+    if (!looksAgendaRelated(userText)) {
+      return scheduleService.getAll().map((e) => ({
+        title: e.title, start_iso: e.start_iso, end_iso: e.end_iso,
+        location: e.location, notes: e.notes,
+      }));
+    }
 
     // 1) Pull Google Calendar (silencieux, max 1×/2 min) si connecté.
     try {
@@ -202,11 +199,10 @@ export default function Index() {
       console.warn("[gcal sync] skipped", e);
     }
 
-    // 2) Lis les événements depuis Supabase (45 jours autour d'aujourd'hui).
-    let dbEvents: { title: string; start_iso: string; end_iso?: string; location?: string; notes?: string }[] = [];
+    // 2) Lis directement depuis la DB (frais après le pull GCal éventuel).
     try {
       const rows = await twinMemoryService.listEvents(45);
-      dbEvents = rows.map((r) => ({
+      return rows.map((r) => ({
         title: r.title,
         start_iso: r.start_iso,
         end_iso: r.end_iso ?? undefined,
@@ -214,19 +210,12 @@ export default function Index() {
         notes: r.notes ?? undefined,
       }));
     } catch (e) {
-      console.warn("[schedule] DB read failed", e);
+      console.warn("[schedule] DB read failed, falling back to cache", e);
+      return scheduleService.getAll().map((e) => ({
+        title: e.title, start_iso: e.start_iso, end_iso: e.end_iso,
+        location: e.location, notes: e.notes,
+      }));
     }
-
-    // 3) Fusion + dédup (clé = title|start_iso, insensible à la casse).
-    const seen = new Set<string>();
-    const merged: typeof dbEvents = [];
-    for (const ev of [...dbEvents, ...local]) {
-      const key = `${ev.title.trim().toLowerCase()}|${ev.start_iso}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      merged.push(ev);
-    }
-    return merged;
   };
 
   // Track fullscreen state
