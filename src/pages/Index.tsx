@@ -136,6 +136,94 @@ export default function Index() {
   const messagesRef = useRef<ChatMessage[]>([]);
   useEffect(() => { messagesRef.current = messages; }, [messages]);
 
+  // Cache l'état "Google Calendar connecté ?" pour éviter d'appeler `status` à chaque message.
+  // Null = pas encore vérifié, true/false sinon.
+  const gcalConnectedRef = useRef<boolean | null>(null);
+  // Évite les pulls Google concurrents : on n'en lance qu'un à la fois,
+  // et on l'attend si une requête arrive juste après.
+  const gcalPullPromiseRef = useRef<Promise<void> | null>(null);
+  const gcalLastPullRef = useRef<number>(0);
+
+  /**
+   * Détecte si la requête concerne l'agenda. Si oui, on se donne la peine
+   * d'aller chercher les événements en DB + de re-synchroniser Google Calendar
+   * (en arrière-plan, max 1×/2 min) avant l'envoi.
+   */
+  const looksAgendaRelated = (text: string): boolean => {
+    return /\b(agenda|calendrier|planning|emploi du temps|rendez[-\s]?vous|rdv|prochain|évén?ements?|events?|aujourd['’]hui|demain|cette semaine|prochaine semaine|ce week[-\s]?end|ce mois|libre|disponible|réuni(?:on|ons)|schedule)\b/i.test(text);
+  };
+
+  /** Charge les événements depuis Supabase + ceux du localStorage, dédupliqués. */
+  const buildScheduleForAI = async (
+    userText: string,
+  ): Promise<{ title: string; start_iso: string; end_iso?: string; location?: string; notes?: string }[]> => {
+    const local = scheduleService.getAll().map((e) => ({
+      title: e.title,
+      start_iso: e.start_iso,
+      end_iso: e.end_iso,
+      location: e.location,
+      notes: e.notes,
+    }));
+
+    // Si la requête ne concerne pas l'agenda, on évite tout aller-retour réseau
+    // et on se contente du localStorage (comportement actuel).
+    if (!looksAgendaRelated(userText)) return local;
+
+    // 1) Pull Google Calendar (silencieux, max 1×/2 min) si connecté.
+    try {
+      if (gcalConnectedRef.current === null) {
+        const status = await googleCalendarService.getStatus().catch(() => null);
+        gcalConnectedRef.current = !!status?.connected;
+      }
+      if (gcalConnectedRef.current) {
+        const now = Date.now();
+        const tooRecent = now - gcalLastPullRef.current < 2 * 60 * 1000;
+        if (!tooRecent) {
+          if (!gcalPullPromiseRef.current) {
+            gcalPullPromiseRef.current = googleCalendarService
+              .pull()
+              .then(() => { gcalLastPullRef.current = Date.now(); })
+              .catch((e) => { console.warn("[gcal pull] failed", e); })
+              .finally(() => { gcalPullPromiseRef.current = null; });
+          }
+          // On attend brièvement (max 4s) pour avoir les events frais ; sinon on continue avec ce qu'on a.
+          await Promise.race([
+            gcalPullPromiseRef.current,
+            new Promise<void>((r) => setTimeout(r, 4000)),
+          ]);
+        }
+      }
+    } catch (e) {
+      console.warn("[gcal sync] skipped", e);
+    }
+
+    // 2) Lis les événements depuis Supabase (45 jours autour d'aujourd'hui).
+    let dbEvents: { title: string; start_iso: string; end_iso?: string; location?: string; notes?: string }[] = [];
+    try {
+      const rows = await twinMemoryService.listEvents(45);
+      dbEvents = rows.map((r) => ({
+        title: r.title,
+        start_iso: r.start_iso,
+        end_iso: r.end_iso ?? undefined,
+        location: r.location ?? undefined,
+        notes: r.notes ?? undefined,
+      }));
+    } catch (e) {
+      console.warn("[schedule] DB read failed", e);
+    }
+
+    // 3) Fusion + dédup (clé = title|start_iso, insensible à la casse).
+    const seen = new Set<string>();
+    const merged: typeof dbEvents = [];
+    for (const ev of [...dbEvents, ...local]) {
+      const key = `${ev.title.trim().toLowerCase()}|${ev.start_iso}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      merged.push(ev);
+    }
+    return merged;
+  };
+
   // Track fullscreen state
   useEffect(() => {
     const onChange = () => setIsFullscreen(!!document.fullscreenElement);
@@ -336,6 +424,9 @@ export default function Index() {
 
     abortRef.current = new AbortController();
 
+    // Construit l'agenda (localStorage + Supabase + pull GCal si pertinent).
+    const scheduleForAI = await buildScheduleForAI(content);
+
     let accumulated = "";
     await chatService.streamChat({
       messages: historyForAI,
@@ -397,13 +488,7 @@ export default function Index() {
       webSearch: options?.webSearch,
       deepThink: options?.deepThink,
       forceTool: options?.forceTool ?? null,
-      schedule: scheduleService.getAll().map((e) => ({
-        title: e.title,
-        start_iso: e.start_iso,
-        end_iso: e.end_iso,
-        location: e.location,
-        notes: e.notes,
-      })),
+      schedule: scheduleForAI,
     });
   };
 
