@@ -20,10 +20,8 @@ const SYSTEM_PROMPT = `Tu es le double numérique de l'utilisateur — un coach 
 Ton rôle :
 • Écouter activement, reformuler, poser des questions ouvertes.
 • Aider à clarifier les pensées, identifier les habitudes, fixer des objectifs.
-• Détecter les habitudes / préférences / rendez-vous mentionnés et les enregistrer via tes outils sans demander confirmation à chaque fois (tu confirmes brièvement à l'oral).
-• Quand l'utilisateur mentionne une heure/date précise pour quelque chose, appelle systématiquement add_schedule_event.
-• Quand il révèle une habitude récurrente, une préférence forte, un objectif → appelle remember_fact.
-• Quand il décrit un emploi du temps qui se répète chaque semaine (cours, sport hebdo, réunion fixe…) → appelle add_recurring_schedule, une fois par créneau. Tu peux en enchaîner plusieurs dans une même réponse pour couvrir toute la semaine.
+• Détecter les habitudes / préférences importantes mentionnées et les enregistrer via remember_fact (sans demander confirmation, tu confirmes brièvement à l'oral).
+• N'AJOUTE JAMAIS d'événement à l'agenda et ne crée JAMAIS de règle d'emploi du temps récurrente, même si l'utilisateur mentionne un horaire ou une activité régulière. L'agenda est géré uniquement à la main par l'utilisateur depuis l'écran Agenda. Si tu penses qu'un événement mériterait d'être noté, suggère-le simplement à l'oral ("tu pourrais l'ajouter à ton agenda si tu veux") sans rien créer.
 
 Style oral STRICT (très important — ta réponse est lue par une voix de synthèse) :
 • Écris UNIQUEMENT du texte brut, comme un humain qui parle. Aucune mise en forme.
@@ -53,46 +51,6 @@ const tools = [
           importance: { type: "number", description: "1 (anodin) à 5 (capital). Défaut 3.", minimum: 1, maximum: 5 },
         },
         required: ["content", "category"],
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "add_schedule_event",
-      description: "Ajoute un événement à l'agenda de l'utilisateur quand il mentionne un rendez-vous, une tâche planifiée ou une activité datée.",
-      parameters: {
-        type: "object",
-        properties: {
-          title: { type: "string", description: "Titre court de l'événement." },
-          start_iso: { type: "string", description: "Date et heure de début au format ISO 8601 (ex: 2026-04-25T14:00:00+02:00). Si l'utilisateur dit 'demain 14h', calcule la date absolue." },
-          end_iso: { type: "string", description: "Optionnel, date de fin ISO 8601." },
-          location: { type: "string", description: "Optionnel." },
-          notes: { type: "string", description: "Optionnel." },
-        },
-        required: ["title", "start_iso"],
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "add_recurring_schedule",
-      description: "Crée une règle d'emploi du temps qui se répète chaque semaine (ex: 'cours de maths tous les lundis 8h-10h'). Le système ajoutera automatiquement les events des prochains jours, en sautant les vacances scolaires si une zone est définie. Appelle ce tool une fois par créneau.",
-      parameters: {
-        type: "object",
-        properties: {
-          title: { type: "string", description: "Ex: 'Cours de maths', 'Entraînement piscine'." },
-          day_of_week: { type: "number", description: "0=dimanche, 1=lundi, 2=mardi, 3=mercredi, 4=jeudi, 5=vendredi, 6=samedi.", minimum: 0, maximum: 6 },
-          start_time: { type: "string", description: "Heure de début format HH:MM (24h), ex '08:00'." },
-          end_time: { type: "string", description: "Optionnel, format HH:MM." },
-          location: { type: "string", description: "Optionnel." },
-          notes: { type: "string", description: "Optionnel." },
-          skip_school_holidays: { type: "boolean", description: "Défaut true. Mets false pour les activités qui continuent pendant les vacances." },
-        },
-        required: ["title", "day_of_week", "start_time"],
         additionalProperties: false,
       },
     },
