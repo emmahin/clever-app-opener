@@ -1,4 +1,5 @@
-import { createContext, useContext, ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { createContext, useContext, ReactNode, useCallback, useRef, useState } from "react";
+import { useConversation } from "@elevenlabs/react";
 import { supabase } from "@/integrations/supabase/client";
 import { twinMemoryService, type MemoryCategory } from "@/services";
 
@@ -27,18 +28,9 @@ const TwinVoiceContext = createContext<TwinVoiceContextValue | null>(null);
 
 export function TwinVoiceProvider({ children }: { children: ReactNode }) {
   const [isCallActive, setIsCallActive] = useState(false);
-  const [status, setStatus] = useState<"idle" | "listening" | "thinking" | "speaking">("idle");
   const [transcript, setTranscript] = useState<TwinTurn[]>([]);
-  const [interim, setInterim] = useState("");
-  const [supported, setSupported] = useState(true);
-
-  const recognitionRef = useRef<any>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const messagesRef = useRef<{ role: "user" | "assistant" | "tool"; content: string; tool_call_id?: string; tool_calls?: any[] }[]>([]);
-  const callActiveRef = useRef(false);
-  const restartTimerRef = useRef<number | null>(null);
-  const statusRef = useRef(status);
-  useEffect(() => { statusRef.current = status; }, [status]);
+  const [interim] = useState("");
+  const supported = true; // ElevenLabs gère via WebRTC, supporté partout (Chrome, Edge, Safari, Firefox).
 
   // Providers fournis par la page Twin (mémoires + agenda)
   const providersRef = useRef<{
@@ -52,242 +44,129 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
     providersRef.current = { ...providersRef.current, ...p };
   }, []);
 
-  // Init recognition (1×, persistant)
-  useEffect(() => {
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SR) {
-      setSupported(false);
-      return;
-    }
-    const rec = new SR();
-    rec.lang = "fr-FR";
-    rec.continuous = true;
-    rec.interimResults = true;
-
-    rec.onresult = (event: any) => {
-      let finalText = "";
-      let interimText = "";
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const t = event.results[i][0].transcript;
-        if (event.results[i].isFinal) finalText += t + " ";
-        else interimText += t;
-      }
-      if (interimText) setInterim(interimText);
-      if (finalText.trim()) {
-        setInterim("");
-        handleUserUtterance(finalText.trim());
-      }
-    };
-
-    rec.onerror = (e: any) => {
-      if (e.error && e.error !== "no-speech" && e.error !== "aborted") {
-        console.warn("[Twin] recognition error:", e.error);
-      }
-    };
-
-    rec.onend = () => {
-      if (callActiveRef.current && statusRef.current !== "speaking" && statusRef.current !== "thinking") {
-        if (restartTimerRef.current) window.clearTimeout(restartTimerRef.current);
-        restartTimerRef.current = window.setTimeout(() => {
-          try { rec.start(); } catch { /* déjà démarré */ }
-        }, 200) as unknown as number;
-      }
-    };
-
-    recognitionRef.current = rec;
-    return () => {
-      try { rec.abort(); } catch { /* ignore */ }
-      if (restartTimerRef.current) window.clearTimeout(restartTimerRef.current);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const startListening = useCallback(() => {
-    const rec = recognitionRef.current;
-    if (!rec) return;
-    try { rec.start(); setStatus("listening"); } catch { /* déjà démarré */ }
-  }, []);
-
-  const stopListening = useCallback(() => {
-    const rec = recognitionRef.current;
-    if (!rec) return;
-    try { rec.stop(); } catch { /* ignore */ }
-  }, []);
-
-  async function executeTool(name: string, args: any): Promise<string> {
-    try {
-      if (name === "remember_fact") {
+  // ─── Client tools exposés à l'agent ElevenLabs ──────────────────────────
+  // Ces fonctions DOIVENT être déclarées dans le dashboard ElevenLabs (onglet Tools)
+  // pour que l'agent puisse les appeler.
+  const clientTools = {
+    remember_fact: async (params: { category?: string; content: string; importance?: number }) => {
+      try {
         const valid: MemoryCategory[] = ["habit", "preference", "goal", "fact", "emotion", "relationship"];
-        const cat = (valid.includes(args.category) ? args.category : "fact") as MemoryCategory;
+        const cat = (valid.includes(params.category as MemoryCategory) ? params.category : "fact") as MemoryCategory;
         await twinMemoryService.addMemory({
           category: cat,
-          content: String(args.content || "").trim(),
-          importance: Math.min(5, Math.max(1, Number(args.importance) || 3)),
+          content: String(params.content || "").trim(),
+          importance: Math.min(5, Math.max(1, Number(params.importance) || 3)),
           source: "voice",
         });
         providersRef.current.onMemoryChange?.();
         return `OK, mémorisé (${cat}).`;
+      } catch (e: any) {
+        return `Erreur mémorisation: ${e?.message || "inconnue"}`;
       }
-      if (name === "add_schedule_event") {
-        const start = new Date(args.start_iso);
+    },
+    add_schedule_event: async (params: { title: string; start_iso: string; end_iso?: string; location?: string; notes?: string }) => {
+      try {
+        const start = new Date(params.start_iso);
         if (isNaN(start.getTime())) return "Date invalide.";
         await twinMemoryService.addEvent({
-          title: String(args.title || "").trim() || "Événement",
+          title: String(params.title || "").trim() || "Événement",
           start_iso: start.toISOString(),
-          end_iso: args.end_iso ? new Date(args.end_iso).toISOString() : undefined,
-          location: args.location,
-          notes: args.notes,
+          end_iso: params.end_iso ? new Date(params.end_iso).toISOString() : undefined,
+          location: params.location,
+          notes: params.notes,
           source: "ai",
         });
         providersRef.current.onMemoryChange?.();
         return `Événement ajouté pour le ${start.toLocaleString("fr-FR")}.`;
+      } catch (e: any) {
+        return `Erreur agenda: ${e?.message || "inconnue"}`;
       }
-      return `Tool inconnu: ${name}`;
-    } catch (e: any) {
-      return `Erreur tool ${name}: ${e?.message || "inconnue"}`;
-    }
-  }
+    },
+    get_user_context: async () => {
+      const mem = providersRef.current.getMemoriesContext?.() || "";
+      const events = providersRef.current.getEventsContext?.() || "";
+      return `Mémoires:\n${mem}\n\nAgenda:\n${events}`.slice(0, 4000);
+    },
+  };
 
-  async function callChat(): Promise<string> {
-    const memoriesContext = providersRef.current.getMemoriesContext?.() || "";
-    const eventsContext = providersRef.current.getEventsContext?.() || "";
-    const { data, error } = await supabase.functions.invoke("twin-chat", {
-      body: { messages: messagesRef.current, memoriesContext, eventsContext },
-    });
-    if (error) throw new Error(error.message || "Échec IA");
-    if (data?.error) throw new Error(data.error);
-    const message = data?.message;
-    if (!message) throw new Error("Réponse vide");
+  const conversation = useConversation({
+    clientTools,
+    onConnect: () => {
+      console.log("[Twin] Connected to ElevenLabs agent");
+    },
+    onDisconnect: () => {
+      setIsCallActive(false);
+    },
+    onMessage: (message: any) => {
+      // Le SDK émet user_transcript et agent_response selon les events activés.
+      const t = message?.message ?? message?.text ?? "";
+      const src = message?.source ?? message?.type;
+      if (!t) return;
+      const role: TwinRole = src === "user" || src === "user_transcript" ? "user" : "assistant";
+      setTranscript((prev) => [...prev, { id: crypto.randomUUID(), role, text: String(t), ts: Date.now() }]);
+    },
+    onError: (err: any) => {
+      console.error("[Twin] ElevenLabs error", err);
+      providersRef.current.onError?.(typeof err === "string" ? err : (err?.message || "Erreur du double"));
+    },
+  });
 
-    if (Array.isArray(message.tool_calls) && message.tool_calls.length > 0) {
-      messagesRef.current.push({ role: "assistant", content: message.content || "", tool_calls: message.tool_calls });
-      for (const call of message.tool_calls) {
-        const name = call.function?.name;
-        let args: any = {};
-        try { args = JSON.parse(call.function?.arguments || "{}"); } catch { /* ignore */ }
-        const result = await executeTool(name, args);
-        messagesRef.current.push({ role: "tool", tool_call_id: call.id, content: result });
-      }
-      return await callChat();
-    }
-
-    const text: string = message.content || "";
-    messagesRef.current.push({ role: "assistant", content: text });
-    return text;
-  }
-
-  async function speak(text: string): Promise<void> {
-    setStatus("speaking");
-    return new Promise<void>(async (resolve) => {
-      try {
-        const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/twin-tts`;
-        const r = await fetch(url, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: JSON.stringify({ text }),
-        });
-        const ct = r.headers.get("Content-Type") || "";
-        if (r.ok && ct.startsWith("audio/")) {
-          const blob = await r.blob();
-          const audio = new Audio(URL.createObjectURL(blob));
-          audioRef.current = audio;
-          audio.onended = () => { URL.revokeObjectURL(audio.src); resolve(); };
-          audio.onerror = () => { URL.revokeObjectURL(audio.src); resolve(); };
-          await audio.play();
-          return;
-        }
-        speakBrowser(text, resolve);
-      } catch (e) {
-        console.warn("[Twin] TTS server failed, fallback browser:", e);
-        speakBrowser(text, resolve);
-      }
-    });
-  }
-
-  function speakBrowser(text: string, done: () => void) {
-    if (!("speechSynthesis" in window)) { done(); return; }
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = "fr-FR";
-    u.rate = 1.0;
-    u.pitch = 1.0;
-    const voices = window.speechSynthesis.getVoices();
-    const fr = voices.find((v) => v.lang?.startsWith("fr"));
-    if (fr) u.voice = fr;
-    u.onend = done;
-    u.onerror = done;
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(u);
-  }
-
-  async function handleUserUtterance(text: string) {
-    setTranscript((prev) => [...prev, { id: crypto.randomUUID(), role: "user", text, ts: Date.now() }]);
-    messagesRef.current.push({ role: "user", content: text });
-    stopListening();
-    setStatus("thinking");
-    try {
-      const reply = await callChat();
-      setTranscript((prev) => [...prev, { id: crypto.randomUUID(), role: "assistant", text: reply, ts: Date.now() }]);
-      await speak(reply);
-    } catch (e: any) {
-      providersRef.current.onError?.(e?.message || "Erreur du double");
-    } finally {
-      if (callActiveRef.current) {
-        setStatus("listening");
-        startListening();
-      } else {
-        setStatus("idle");
-      }
-    }
-  }
+  const status: "idle" | "listening" | "thinking" | "speaking" =
+    !isCallActive ? "idle" : conversation.isSpeaking ? "speaking" : "listening";
 
   const startCall = useCallback(async () => {
-    if (!supported) {
-      providersRef.current.onError?.("Reconnaissance vocale non supportée. Utilisez Chrome, Edge ou Safari.");
-      return;
-    }
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch {
       providersRef.current.onError?.("Microphone refusé.");
       return;
     }
-    // On garde le transcript existant si l'utilisateur revient (persistance entre pages)
-    // mais on repart sur une fenêtre de contexte LLM fraîche pour ne pas exploser les tokens.
-    messagesRef.current = [];
-    setInterim("");
-    callActiveRef.current = true;
-    setIsCallActive(true);
-    setStatus("speaking");
-    const opener = transcript.length === 0
-      ? "Bonjour. Je suis là, à l'écoute… De quoi as-tu envie de parler ?"
-      : "Je t'écoute, on continue.";
-    if (transcript.length === 0) {
-      setTranscript([{ id: crypto.randomUUID(), role: "assistant", text: opener, ts: Date.now() }]);
+
+    try {
+      // Récupère un token WebRTC frais via notre edge function (clé API serveur).
+      const { data, error } = await supabase.functions.invoke("elevenlabs-agent-token");
+      if (error) throw new Error(error.message || "Échec récupération token");
+      if (!data?.token) throw new Error("Token vide");
+
+      // Injecte les contextes mémoire/agenda dans le system prompt à chaud.
+      const memCtx = providersRef.current.getMemoriesContext?.() || "";
+      const evCtx = providersRef.current.getEventsContext?.() || "";
+      const contextBlock = [memCtx && `MÉMOIRES UTILISATEUR:\n${memCtx}`, evCtx && `AGENDA:\n${evCtx}`]
+        .filter(Boolean)
+        .join("\n\n");
+
+      await conversation.startSession({
+        conversationToken: data.token,
+        connectionType: "webrtc",
+        ...(contextBlock
+          ? {
+              overrides: {
+                agent: {
+                  prompt: { prompt: contextBlock },
+                },
+              },
+            }
+          : {}),
+      } as any);
+
+      setIsCallActive(true);
+    } catch (e: any) {
+      providersRef.current.onError?.(e?.message || "Impossible de démarrer la conversation");
     }
-    await speak(opener);
-    if (callActiveRef.current) {
-      setStatus("listening");
-      startListening();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [supported, startListening, transcript.length]);
+  }, [conversation]);
 
   const endCall = useCallback(() => {
-    callActiveRef.current = false;
     setIsCallActive(false);
-    setStatus("idle");
-    stopListening();
-    if (audioRef.current) { try { audioRef.current.pause(); } catch { /* ignore */ } }
-    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
-  }, [stopListening]);
+    try {
+      const r = conversation.endSession() as unknown as Promise<void> | void;
+      if (r && typeof (r as Promise<void>).catch === "function") {
+        (r as Promise<void>).catch(() => { /* ignore */ });
+      }
+    } catch { /* ignore */ }
+  }, [conversation]);
 
   const clearTranscript = useCallback(() => {
     setTranscript([]);
-    messagesRef.current = [];
   }, []);
 
   const value: TwinVoiceContextValue = {
