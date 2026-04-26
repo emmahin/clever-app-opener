@@ -19,9 +19,9 @@ interface Props {
 }
 
 const DAY_MS = 86_400_000;
-const HOUR_PX = 44;             // height of one hour row
-const START_HOUR = 7;           // grid starts at 07:00
-const END_HOUR = 23;            // grid ends at 23:00 (exclusive)
+const HOUR_PX = 64;             // height of one hour row (agrandi)
+const START_HOUR = 6;           // grid starts at 06:00
+const END_HOUR = 24;            // grid ends at 24:00 (exclusive)
 const TOTAL_HOURS = END_HOUR - START_HOUR;
 
 function startOfDay(d: Date): Date {
@@ -171,7 +171,7 @@ export function ScheduleWidget({
       : `${days[0].toLocaleDateString([], { day: "numeric", month: "short" })} – ${days[6].toLocaleDateString([], { day: "numeric", month: "short", year: "numeric" })}`;
 
   return (
-    <div className="rounded-xl border border-violet-500/40 bg-gradient-to-br from-violet-900/25 to-fuchsia-900/15 p-4">
+    <div className="rounded-xl border border-violet-500/40 bg-gradient-to-br from-violet-900/25 to-fuchsia-900/15 p-4 md:p-5 w-full max-w-[1100px]">
       {/* Header */}
       <div className="flex items-center justify-between gap-2 mb-3">
         <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
@@ -238,16 +238,16 @@ export function ScheduleWidget({
       {/* Grid */}
       <div className="rounded-lg border border-border/30 bg-background/30 overflow-hidden">
         {/* Day headers */}
-        <div className="grid border-b border-border/30 bg-background/40" style={{ gridTemplateColumns: `48px repeat(${days.length}, minmax(0, 1fr))` }}>
+        <div className="grid border-b border-border/30 bg-background/40" style={{ gridTemplateColumns: `64px repeat(${days.length}, minmax(0, 1fr))` }}>
           <div />
           {days.map((d) => {
             const isToday = startOfDay(d).getTime() === today;
             return (
-              <div key={d.toISOString()} className="px-1.5 py-1.5 text-center border-l border-border/30">
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+              <div key={d.toISOString()} className="px-2 py-2 text-center border-l border-border/30">
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
                   {d.toLocaleDateString([], { weekday: "short" })}
                 </p>
-                <p className={`text-sm font-semibold ${isToday ? "text-violet-300" : "text-foreground"}`}>
+                <p className={`text-base font-semibold ${isToday ? "text-violet-300" : "text-foreground"}`}>
                   {d.getDate()}
                 </p>
               </div>
@@ -259,7 +259,7 @@ export function ScheduleWidget({
         <div
           className="relative grid"
           style={{
-            gridTemplateColumns: `48px repeat(${days.length}, minmax(0, 1fr))`,
+            gridTemplateColumns: `64px repeat(${days.length}, minmax(0, 1fr))`,
             height: `${TOTAL_HOURS * HOUR_PX}px`,
           }}
         >
@@ -268,7 +268,7 @@ export function ScheduleWidget({
             {Array.from({ length: TOTAL_HOURS }, (_, i) => (
               <div
                 key={i}
-                className="absolute left-0 right-0 text-[10px] text-muted-foreground/70 px-1 text-right"
+                className="absolute left-0 right-0 text-[11px] text-muted-foreground/80 px-1.5 text-right"
                 style={{ top: `${i * HOUR_PX}px`, height: `${HOUR_PX}px` }}
               >
                 {String(START_HOUR + i).padStart(2, "0")}:00
