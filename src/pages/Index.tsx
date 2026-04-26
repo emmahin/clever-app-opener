@@ -608,7 +608,7 @@ export default function Index() {
           </div>
 
           {/* Input area */}
-          <div className="absolute bottom-0 left-0 right-0 px-3 md:px-6 pb-4 md:pb-6 pt-3 bg-gradient-to-t from-black/80 via-black/40 to-transparent" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
+          <div className="absolute bottom-0 left-0 right-0 px-3 md:px-6 pb-8 md:pb-6 pt-3 bg-gradient-to-t from-black/80 via-black/40 to-transparent" style={{ paddingBottom: "max(2.25rem, calc(env(safe-area-inset-bottom) + 1.5rem))" }}>
             <div className="max-w-3xl mx-auto">
               <ChatInput
                 onSend={sendMessage}
