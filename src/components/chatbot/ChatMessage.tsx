@@ -35,7 +35,7 @@ export function ChatMessageItem({ message, isThinking }: ChatMessageProps) {
       <div
         className={cn(
           "rounded-2xl px-4 py-3",
-          isRichAssistant ? "w-full max-w-[95%]" : "max-w-[85%]",
+          isRichAssistant ? "w-full max-w-full" : "max-w-[85%]",
           isUser
             ? "bg-primary text-primary-foreground rounded-br-md"
             : isRichAssistant
