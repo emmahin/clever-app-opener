@@ -260,6 +260,15 @@ export default function Index() {
     return () => { active = false; };
   }, []);
 
+  // Au mount : déclenche la génération des insights hebdo (idempotent côté serveur).
+  // Ne bloque rien et ne notifie pas si rien à générer.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      moodService.generateWeeklyInsights().catch(() => {});
+    }, 4000);
+    return () => clearTimeout(t);
+  }, []);
+
   // Sidebar → recharge un chat depuis l'historique
   useEffect(() => {
     const onLoad = (e: Event) => {
