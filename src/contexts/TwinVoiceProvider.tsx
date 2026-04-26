@@ -19,6 +19,7 @@ interface TwinVoiceContextValue {
     getMemoriesContext?: () => string;
     getEventsContext?: () => string;
     onMemoryChange?: () => void;
+    onError?: (msg: string) => void;
   }) => void;
 }
 
