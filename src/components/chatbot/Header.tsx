@@ -1,4 +1,4 @@
-import { User, LogOut, Settings as SettingsIcon, Coins, Shield, Infinity as InfinityIcon } from "lucide-react";
+import { User, LogOut, Settings as SettingsIcon, Coins, Shield, Infinity as InfinityIcon, Calendar } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { NotificationBell } from "./NotificationBell";
 import { useAuth } from "@/hooks/useAuth";
@@ -27,6 +27,14 @@ export function Header(_props: HeaderProps = {}) {
       style={{ background: "linear-gradient(90deg, hsl(0, 0%, 4%, 0.95), hsl(275, 85%, 45%, 0.95))" }}>
       {/* Right actions */}
       <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
+        <button
+          onClick={() => navigate("/agenda")}
+          title="Agenda"
+          aria-label="Agenda"
+          className="w-9 h-9 rounded-lg bg-white/20 flex items-center justify-center text-white hover:bg-white/25 transition-colors"
+        >
+          <Calendar className="w-5 h-5" />
+        </button>
         {isAdmin ? (
           <button
             onClick={() => navigate("/billing")}
