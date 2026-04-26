@@ -49,6 +49,7 @@ export interface ScheduleEventDB {
   source: string;
   external_id: string | null;
   external_provider: string | null;
+  google_event_id: string | null;
   created_at: string;
   updated_at: string;
 }
