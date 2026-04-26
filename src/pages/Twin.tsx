@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Sparkles, Mic, Phone, PhoneOff, Plus, Trash2, Calendar, Brain, Loader2, Eraser } from "lucide-react";
+import { Sparkles, Mic, Phone, PhoneOff, Plus, Trash2, Calendar, Brain, Loader2, Eraser, RefreshCw, Link2, Unlink, Upload } from "lucide-react";
 import { Sidebar } from "@/components/chatbot/Sidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
-import { twinMemoryService, type UserMemory, type ScheduleEventDB, type MemoryCategory } from "@/services";
+import { twinMemoryService, googleCalendarService, type UserMemory, type ScheduleEventDB, type MemoryCategory, type GCalStatus } from "@/services";
 import { useTwinVoiceContext } from "@/contexts/TwinVoiceProvider";
 
 const CATEGORY_LABEL: Record<MemoryCategory, string> = {
@@ -35,6 +35,21 @@ export default function Twin() {
 
   const [newMem, setNewMem] = useState({ category: "habit" as MemoryCategory, content: "" });
   const [newEvent, setNewEvent] = useState({ title: "", start_iso: "", location: "" });
+
+  // ─── Google Calendar ───
+  const [gcalStatus, setGcalStatus] = useState<GCalStatus | null>(null);
+  const [gcalBusy, setGcalBusy] = useState(false);
+
+  const refreshGcalStatus = useCallback(async () => {
+    try {
+      const s = await googleCalendarService.getStatus();
+      setGcalStatus(s);
+    } catch (e) {
+      console.warn("gcal status failed", e);
+    }
+  }, []);
+
+  useEffect(() => { refreshGcalStatus(); }, [refreshGcalStatus]);
 
   // ─── Load memories + events ───
   const refreshAll = useCallback(async () => {
@@ -105,10 +120,20 @@ export default function Twin() {
     }
     try {
       const iso = new Date(newEvent.start_iso).toISOString();
-      await twinMemoryService.addEvent({ title: newEvent.title.trim(), start_iso: iso, location: newEvent.location || undefined, source: "manual" });
+      const created = await twinMemoryService.addEvent({ title: newEvent.title.trim(), start_iso: iso, location: newEvent.location || undefined, source: "manual" });
       setNewEvent({ title: "", start_iso: "", location: "" });
       await refreshAll();
       toast.success("Événement ajouté");
+      // Push auto vers Google si connecté
+      if (gcalStatus?.connected) {
+        try {
+          await googleCalendarService.pushEvent(created.id);
+          await refreshAll();
+          toast.success("Synchronisé avec Google Calendar");
+        } catch (e: any) {
+          toast.error("Push Google échoué : " + (e?.message || "inconnu"));
+        }
+      }
     } catch (err: any) {
       toast.error(err?.message || "Échec d'ajout d'événement");
     }
@@ -119,6 +144,57 @@ export default function Twin() {
       await twinMemoryService.deleteEvent(id);
       setEvents((e) => e.filter((x) => x.id !== id));
     } catch (err: any) { toast.error(err?.message || "Échec de suppression"); }
+  };
+
+  // ─── Google Calendar actions ───
+  const onConnectGoogle = async () => {
+    setGcalBusy(true);
+    try {
+      await googleCalendarService.connect(); // redirige vers Google
+    } catch (e: any) {
+      toast.error(e?.message || "Connexion impossible");
+      setGcalBusy(false);
+    }
+  };
+
+  const onDisconnectGoogle = async () => {
+    if (!confirm("Déconnecter Google Calendar ?")) return;
+    setGcalBusy(true);
+    try {
+      await googleCalendarService.disconnect();
+      await refreshGcalStatus();
+      toast.success("Google Calendar déconnecté");
+    } catch (e: any) {
+      toast.error(e?.message || "Déconnexion impossible");
+    } finally {
+      setGcalBusy(false);
+    }
+  };
+
+  const onPullGoogle = async () => {
+    setGcalBusy(true);
+    try {
+      const r = await googleCalendarService.pull();
+      await refreshAll();
+      toast.success(`Importé : ${r.imported}, mis à jour : ${r.updated}`);
+    } catch (e: any) {
+      toast.error(e?.message || "Import impossible");
+    } finally {
+      setGcalBusy(false);
+    }
+  };
+
+  const onPushOne = async (eventId: string) => {
+    setGcalBusy(true);
+    try {
+      await googleCalendarService.pushEvent(eventId);
+      await refreshAll();
+      toast.success("Envoyé vers Google");
+    } catch (e: any) {
+      toast.error(e?.message || "Push échoué");
+    } finally {
+      setGcalBusy(false);
+    }
   };
 
   const groupedMemories = useMemo(() => {
