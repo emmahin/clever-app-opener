@@ -151,6 +151,28 @@ export function VoiceCallMode({ open, onClose }: Props) {
         });
         return `Événement ajouté pour le ${start.toLocaleString("fr-FR")}.`;
       }
+      if (name === "add_recurring_schedule") {
+        const { recurringScheduleService } = await import("@/services/recurringScheduleService");
+        const dow = Math.min(6, Math.max(0, Number(args.day_of_week) ?? 1));
+        const t = String(args.start_time || "").trim();
+        // Normalise HH:MM en HH:MM:SS
+        const start_time = /^\d{1,2}:\d{2}$/.test(t) ? `${t.padStart(5, "0")}:00` : t;
+        const e = args.end_time ? String(args.end_time).trim() : null;
+        const end_time = e && /^\d{1,2}:\d{2}$/.test(e) ? `${e.padStart(5, "0")}:00` : e ?? undefined;
+        await recurringScheduleService.add({
+          title: String(args.title || "").trim() || "Créneau récurrent",
+          day_of_week: dow,
+          start_time,
+          end_time: end_time || undefined,
+          location: args.location,
+          notes: args.notes,
+          skip_school_holidays: args.skip_school_holidays !== false,
+        });
+        // Génère immédiatement les events de la semaine pour que ce soit visible
+        try { await recurringScheduleService.runAutofill(7); } catch { /* ignore */ }
+        const labels = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
+        return `Créneau récurrent ajouté : ${args.title} chaque ${labels[dow]} à ${start_time}.`;
+      }
       return `Tool inconnu: ${name}`;
     } catch (e: any) {
       return `Erreur tool ${name}: ${e?.message || "inconnue"}`;
