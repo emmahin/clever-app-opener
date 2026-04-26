@@ -161,6 +161,42 @@ export type Database = {
         }
         Relationships: []
       }
+      google_oauth_tokens: {
+        Row: {
+          access_token: string
+          created_at: string
+          expires_at: string
+          google_email: string | null
+          id: string
+          refresh_token: string
+          scope: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token: string
+          created_at?: string
+          expires_at: string
+          google_email?: string | null
+          id?: string
+          refresh_token: string
+          scope?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token?: string
+          created_at?: string
+          expires_at?: string
+          google_email?: string | null
+          id?: string
+          refresh_token?: string
+          scope?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -191,6 +227,7 @@ export type Database = {
           end_iso: string | null
           external_id: string | null
           external_provider: string | null
+          google_event_id: string | null
           id: string
           location: string | null
           notes: string | null
@@ -205,6 +242,7 @@ export type Database = {
           end_iso?: string | null
           external_id?: string | null
           external_provider?: string | null
+          google_event_id?: string | null
           id?: string
           location?: string | null
           notes?: string | null
@@ -219,6 +257,7 @@ export type Database = {
           end_iso?: string | null
           external_id?: string | null
           external_provider?: string | null
+          google_event_id?: string | null
           id?: string
           location?: string | null
           notes?: string | null
