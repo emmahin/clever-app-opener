@@ -546,6 +546,44 @@ export default function Index() {
     conversationIdRef.current = null;
   };
 
+  /**
+   * Régénère la réponse de l'IA pour un message assistant donné :
+   * on retire ce message (et tous ceux d'après) puis on relance le dernier user msg.
+   */
+  const handleRegenerate = (assistantMessageId: string) => {
+    if (isLoading) return;
+    const all = messagesRef.current;
+    const idx = all.findIndex((m) => m.id === assistantMessageId);
+    if (idx === -1) return;
+    // Trouve le dernier user msg juste avant
+    let userIdx = -1;
+    for (let i = idx - 1; i >= 0; i--) {
+      if (all[i].role === "user") { userIdx = i; break; }
+    }
+    if (userIdx === -1) return;
+    const userMsg = all[userIdx];
+    // Tronque l'historique jusqu'au user msg (exclu) puis renvoie
+    const truncated = all.slice(0, userIdx);
+    setMessages(truncated);
+    messagesRef.current = truncated;
+    void sendMessage(userMsg.content);
+  };
+
+  /**
+   * Modifie un message utilisateur déjà envoyé puis relance la conversation.
+   * On supprime le user msg + tout ce qui suit, et on renvoie avec le nouveau contenu.
+   */
+  const handleEditAndResend = (userMessageId: string, newContent: string) => {
+    if (isLoading) return;
+    const all = messagesRef.current;
+    const idx = all.findIndex((m) => m.id === userMessageId);
+    if (idx === -1) return;
+    const truncated = all.slice(0, idx);
+    setMessages(truncated);
+    messagesRef.current = truncated;
+    void sendMessage(newContent);
+  };
+
   return (
     <div
       className="min-h-screen text-foreground overflow-hidden"
@@ -645,6 +683,8 @@ export default function Index() {
                       key={msg.id}
                       message={msg}
                       isThinking={isThinking}
+                      onRegenerate={handleRegenerate}
+                      onEditAndResend={handleEditAndResend}
                     />
                   );
                 })}
