@@ -115,12 +115,23 @@ Deno.serve(async (req) => {
     const messages = Array.isArray(body?.messages) ? body.messages : [];
     const memoriesContext: string = typeof body?.memoriesContext === "string" ? body.memoriesContext : "";
     const eventsContext: string = typeof body?.eventsContext === "string" ? body.eventsContext : "";
-    // Aujourd'hui pour aider à résoudre "demain", "mardi", etc.
-    const nowIso = new Date().toISOString();
+    const tz = typeof body?.timezone === "string" && body.timezone ? body.timezone : "UTC";
+    // Date/heure locale lisible pour aider à résoudre "demain", "mardi", "ce soir", etc.
+    const now = new Date();
+    const nowIsoUtc = now.toISOString();
+    let nowLocal = nowIsoUtc;
+    try {
+      nowLocal = new Intl.DateTimeFormat("fr-FR", {
+        timeZone: tz,
+        weekday: "long", year: "numeric", month: "long", day: "numeric",
+        hour: "2-digit", minute: "2-digit", hour12: false,
+      }).format(now);
+    } catch { /* fallback UTC */ }
 
     const systemFull = `${SYSTEM_PROMPT}
 
-Date/heure actuelle : ${nowIso}
+Date et heure actuelles : ${nowLocal} (fuseau ${tz}). En UTC : ${nowIsoUtc}.
+Utilise toujours cette date pour interpréter "aujourd'hui", "demain", "ce soir", "lundi prochain", etc.
 
 Mémoire à long terme de l'utilisateur :
 ${memoriesContext || "(vide pour l'instant)"}

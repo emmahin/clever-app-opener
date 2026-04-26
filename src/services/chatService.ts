@@ -43,7 +43,24 @@ export const webChatService: IChatService = {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ messages, lang, detailLevel, customInstructions, aiName, attachments, webSearch, deepThink, forceTool, schedule }),
+        body: JSON.stringify({
+          messages,
+          lang,
+          detailLevel,
+          customInstructions,
+          aiName,
+          attachments,
+          webSearch,
+          deepThink,
+          forceTool,
+          schedule,
+          // Donne au backend le fuseau horaire du navigateur pour qu'il
+          // injecte l'heure locale + le jour de la semaine dans le system prompt.
+          timezone: (() => {
+            try { return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; }
+            catch { return "UTC"; }
+          })(),
+        }),
         signal,
       });
 
