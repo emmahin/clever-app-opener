@@ -608,16 +608,24 @@ export default function Index() {
           </div>
 
           {/* Input area */}
-          <div className="absolute bottom-0 left-0 right-0 px-3 md:px-6 pb-8 md:pb-6 pt-3 bg-gradient-to-t from-black/80 via-black/40 to-transparent" style={{ paddingBottom: "max(2.25rem, calc(env(safe-area-inset-bottom) + 1.5rem))" }}>
+          <div
+            className="absolute bottom-0 left-0 right-0 px-3 md:px-6 pb-3 md:pb-6 pt-3 bg-gradient-to-t from-black/80 via-black/40 to-transparent"
+            style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+          >
             <div className="max-w-3xl mx-auto">
+              {/* Suggestions — au-dessus de l'input sur mobile, en-dessous sur desktop */}
+              <div className="md:hidden mb-2">
+                <SuggestionPills onSelect={handleSuggestion} />
+              </div>
+
               <ChatInput
                 onSend={sendMessage}
                 disabled={isLoading}
                 onOpenVoiceCall={() => setVoiceCallOpen(true)}
               />
 
-              {/* Suggestions */}
-              <div className="mt-3 md:mt-4">
+              {/* Suggestions desktop uniquement */}
+              <div className="hidden md:block mt-4">
                 <p className="text-center text-xs text-muted-foreground mb-3 flex items-center justify-center gap-1">
                   <Sparkles className="w-3 h-3" />
                   {t("tryAsking")}
