@@ -449,10 +449,24 @@ export default function Index() {
 
     abortRef.current = new AbortController();
 
+    // ─── Persistance : crée la conversation au premier message + sauve le user msg ───
+    (async () => {
+      try {
+        if (!conversationIdRef.current) {
+          const conv = await conversationService.create();
+          conversationIdRef.current = conv.id;
+        }
+        await conversationService.addMessage(conversationIdRef.current, userMsg);
+      } catch (e) {
+        console.warn("[chat] persist user message failed", e);
+      }
+    })();
+
     // Construit l'agenda (localStorage + Supabase + pull GCal si pertinent).
     const scheduleForAI = await buildScheduleForAI(content);
 
     let accumulated = "";
+    let lastWidgets: import("@/services/types").ChatWidget[] | undefined;
     await chatService.streamChat({
       messages: historyForAI,
       onDelta: (chunk) => {
@@ -462,6 +476,7 @@ export default function Index() {
         );
       },
       onWidgets: (widgets) => {
+        lastWidgets = widgets;
         setMessages((prev) =>
           prev.map((m) => (m.id === assistantId ? { ...m, widgets } : m))
         );
@@ -478,6 +493,22 @@ export default function Index() {
             actionUrl: "/",
           });
         }
+        // Persiste la réponse complète de l'assistant en DB.
+        (async () => {
+          try {
+            const convId = conversationIdRef.current;
+            if (!convId || !accumulated.trim()) return;
+            await conversationService.addMessage(convId, {
+              id: assistantId,
+              role: "assistant",
+              content: accumulated,
+              widgets: lastWidgets,
+              createdAt: Date.now(),
+            });
+          } catch (e) {
+            console.warn("[chat] persist assistant message failed", e);
+          }
+        })();
       },
       onError: (err) => {
         setIsLoading(false);
