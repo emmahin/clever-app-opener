@@ -87,6 +87,12 @@ export function Header(_props: HeaderProps = {}) {
               <SettingsIcon className="w-4 h-4 mr-2" />
               Paramètres
             </DropdownMenuItem>
+            {isAdmin && (
+              <DropdownMenuItem onClick={() => navigate("/admin/users")}>
+                <Shield className="w-4 h-4 mr-2" />
+                Administration
+              </DropdownMenuItem>
+            )}
             {user && (
               <DropdownMenuItem onClick={() => signOut()}>
                 <LogOut className="w-4 h-4 mr-2" />
