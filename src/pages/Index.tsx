@@ -6,6 +6,7 @@ import { ChatInput } from "@/components/chatbot/ChatInput";
 import { SuggestionPills } from "@/components/chatbot/SuggestionPills";
 import { ChatMessageItem } from "@/components/chatbot/ChatMessage";
 import { chatService, ChatMessage, ChatAttachment, APP_CATALOG, localAgentService, twinMemoryService, googleCalendarService } from "@/services";
+import { conversationService } from "@/services/conversationService";
 import { Expand, Minimize2, Settings2, Sparkles, MessageSquarePlus, Trash2, SlidersHorizontal, PhoneCall } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useSettings } from "@/contexts/SettingsProvider";
@@ -136,6 +137,10 @@ export default function Index() {
   const messagesRef = useRef<ChatMessage[]>([]);
   useEffect(() => { messagesRef.current = messages; }, [messages]);
 
+  // ID de la conversation persistée actuellement chargée.
+  // null = aucune (sera créée au premier message envoyé).
+  const conversationIdRef = useRef<string | null>(null);
+
   // Cache l'état "Google Calendar connecté ?" pour éviter d'appeler `status` à chaque message.
   // Null = pas encore vérifié, true/false sinon.
   const gcalConnectedRef = useRef<boolean | null>(null);
@@ -246,6 +251,25 @@ export default function Index() {
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   useEffect(() => scrollToBottom(), [messages]);
 
+  // Au mount : charge la dernière conversation de l'utilisateur (s'il en a une).
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const list = await conversationService.list();
+        if (!active || list.length === 0) return;
+        const latest = list[0];
+        const msgs = await conversationService.getMessages(latest.id);
+        if (!active) return;
+        conversationIdRef.current = latest.id;
+        setMessages(msgs);
+      } catch (e) {
+        console.warn("[chat] load latest conversation failed", e);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
+
   // Sidebar → recharge un chat depuis l'historique
   useEffect(() => {
     const onLoad = (e: Event) => {
@@ -263,6 +287,7 @@ export default function Index() {
       abortRef.current?.abort();
       setIsLoading(false);
       setMessages([]);
+      conversationIdRef.current = null;
     };
     window.addEventListener("nex:loadChat", onLoad as EventListener);
     window.addEventListener("nex:newChat", onNew as EventListener);
