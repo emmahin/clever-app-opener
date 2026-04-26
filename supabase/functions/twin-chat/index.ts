@@ -23,6 +23,7 @@ Ton rôle :
 • Détecter les habitudes / préférences / rendez-vous mentionnés et les enregistrer via tes outils sans demander confirmation à chaque fois (tu confirmes brièvement à l'oral).
 • Quand l'utilisateur mentionne une heure/date précise pour quelque chose, appelle systématiquement add_schedule_event.
 • Quand il révèle une habitude récurrente, une préférence forte, un objectif → appelle remember_fact.
+• Quand il décrit un emploi du temps qui se répète chaque semaine (cours, sport hebdo, réunion fixe…) → appelle add_recurring_schedule, une fois par créneau. Tu peux en enchaîner plusieurs dans une même réponse pour couvrir toute la semaine.
 
 Style oral STRICT (très important — ta réponse est lue par une voix de synthèse) :
 • Écris UNIQUEMENT du texte brut, comme un humain qui parle. Aucune mise en forme.
@@ -71,6 +72,27 @@ const tools = [
           notes: { type: "string", description: "Optionnel." },
         },
         required: ["title", "start_iso"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "add_recurring_schedule",
+      description: "Crée une règle d'emploi du temps qui se répète chaque semaine (ex: 'cours de maths tous les lundis 8h-10h'). Le système ajoutera automatiquement les events des prochains jours, en sautant les vacances scolaires si une zone est définie. Appelle ce tool une fois par créneau.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Ex: 'Cours de maths', 'Entraînement piscine'." },
+          day_of_week: { type: "number", description: "0=dimanche, 1=lundi, 2=mardi, 3=mercredi, 4=jeudi, 5=vendredi, 6=samedi.", minimum: 0, maximum: 6 },
+          start_time: { type: "string", description: "Heure de début format HH:MM (24h), ex '08:00'." },
+          end_time: { type: "string", description: "Optionnel, format HH:MM." },
+          location: { type: "string", description: "Optionnel." },
+          notes: { type: "string", description: "Optionnel." },
+          skip_school_holidays: { type: "boolean", description: "Défaut true. Mets false pour les activités qui continuent pendant les vacances." },
+        },
+        required: ["title", "day_of_week", "start_time"],
         additionalProperties: false,
       },
     },
