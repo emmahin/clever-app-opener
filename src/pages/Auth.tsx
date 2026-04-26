@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Sparkles, Mail, Lock, Loader2, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
-type Mode = "signin" | "forgot";
+type Mode = "signin" | "signup" | "forgot";
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -33,6 +33,15 @@ export default function Auth() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         toast.success("Connecté");
+      } else if (mode === "signup") {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { emailRedirectTo: `${window.location.origin}/` },
+        });
+        if (error) throw error;
+        toast.success("Compte créé ! Vérifie ta boîte mail pour confirmer ton adresse.");
+        setMode("signin");
       } else {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
           redirectTo: `${window.location.origin}/auth`,
@@ -48,6 +57,8 @@ export default function Auth() {
         toast.error("E-mail non confirmé. Vérifie ta boîte mail (et les spams).");
       } else if (/invalid login/i.test(msg)) {
         toast.error("E-mail ou mot de passe incorrect.");
+      } else if (/user already registered/i.test(msg)) {
+        toast.error("Un compte existe déjà avec cet e-mail.");
       } else {
         toast.error(msg);
       }
@@ -72,11 +83,15 @@ export default function Auth() {
             <h2 className="text-lg font-semibold">
               {mode === "forgot"
                 ? "Réinitialiser le mot de passe"
+                : mode === "signup"
+                ? "Créer un compte"
                 : "Se connecter"}
             </h2>
             <p className="text-xs text-muted-foreground mt-1">
               {mode === "forgot"
                 ? "Reçois un lien par e-mail pour choisir un nouveau mot de passe."
+                : mode === "signup"
+                ? "Crée ton compte en quelques secondes."
                 : "Connecte-toi à ton compte."}
             </p>
           </div>
@@ -107,7 +122,7 @@ export default function Auth() {
                     type={showPassword ? "text" : "password"}
                     required
                     minLength={6}
-                    autoComplete="current-password"
+                    autoComplete={mode === "signup" ? "new-password" : "current-password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full pl-10 pr-10 py-2.5 rounded-lg bg-secondary/40 border border-border/60 text-sm focus:outline-none focus:border-primary"
@@ -133,14 +148,26 @@ export default function Auth() {
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
               {mode === "signin"
                 ? "Se connecter"
+                : mode === "signup"
+                ? "Créer mon compte"
                 : "Envoyer l'e-mail"}
             </button>
           </form>
 
           <div className="mt-4 text-center space-y-2">
             {mode === "signin" && (
-              <button onClick={() => setMode("forgot")} className="block w-full text-xs text-muted-foreground hover:text-foreground transition-colors">
-                Mot de passe oublié ?
+              <>
+                <button onClick={() => setMode("forgot")} className="block w-full text-xs text-muted-foreground hover:text-foreground transition-colors">
+                  Mot de passe oublié ?
+                </button>
+                <button onClick={() => setMode("signup")} className="block w-full text-xs text-muted-foreground hover:text-foreground transition-colors">
+                  Pas encore de compte ? <span className="text-primary">Créer un compte</span>
+                </button>
+              </>
+            )}
+            {mode === "signup" && (
+              <button onClick={() => setMode("signin")} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                ← Déjà un compte ? Se connecter
               </button>
             )}
             {mode === "forgot" && (
@@ -152,7 +179,7 @@ export default function Auth() {
         </div>
 
         <p className="text-xs text-muted-foreground text-center mt-6">
-          Accès réservé. Les inscriptions sont fermées.
+          En créant un compte, tu acceptes nos conditions d'utilisation.
         </p>
       </div>
     </div>
