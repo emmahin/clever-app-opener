@@ -96,15 +96,16 @@ class ConversationService implements IConversationService {
 
   async addMessage(conversationId: string, msg: ChatMessage) {
     const uid = await requireUserId();
-    const { error } = await supabase.from("chat_messages").insert({
+    const row = {
       id: msg.id,
       conversation_id: conversationId,
       user_id: uid,
       role: msg.role,
       content: msg.content ?? "",
-      widgets: msg.widgets ?? [],
+      widgets: (msg.widgets ?? []) as unknown as never,
       position: msg.createdAt, // simple: timestamp = position naturelle
-    });
+    };
+    const { error } = await supabase.from("chat_messages").insert(row as never);
     if (error) throw error;
 
     // Mise à jour last_message_at + auto-titre si c'est le premier message user.
@@ -125,11 +126,11 @@ class ConversationService implements IConversationService {
   }
 
   async updateMessage(messageId: string, patch: { content?: string; widgets?: ChatWidget[] }) {
-    const update: Record<string, unknown> = {};
+    const update: { content?: string; widgets?: never } = {};
     if (patch.content !== undefined) update.content = patch.content;
-    if (patch.widgets !== undefined) update.widgets = patch.widgets;
+    if (patch.widgets !== undefined) update.widgets = patch.widgets as unknown as never;
     if (Object.keys(update).length === 0) return;
-    const { error } = await supabase.from("chat_messages").update(update).eq("id", messageId);
+    const { error } = await supabase.from("chat_messages").update(update as never).eq("id", messageId);
     if (error) throw error;
   }
 }
