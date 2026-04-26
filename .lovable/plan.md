@@ -1,129 +1,122 @@
-## 🎯 Objectif
+## Objectif
 
-Mettre en place un système de rôles sécurisé permettant :
-- Un **admin principal** (toi), promu via SQL une seule fois et **non révocable**
-- Des **admins secondaires** que tu peux promouvoir/révoquer depuis une page dédiée
-- **Bypass complet des crédits** pour tous les admins (avec traçabilité)
-- Une page `/admin/users` complète pour gérer users, plans, crédits et rôles
+Donner à Nex une vraie initiative : il pousse des **notifications natives OS** (PC + mobile, même app fermée) pour rappeler les events de l'agenda et faire des suggestions proactives, en analysant en arrière-plan ton agenda + tes mémoires.
 
 ---
 
-## 🗄️ Étape 1 — Schéma base de données (migration)
+## 1. Vraies notifs OS — Web Push (VAPID)
 
-### Enum + table `user_roles`
-```sql
-CREATE TYPE public.app_role AS ENUM ('admin', 'user');
+### a. Service worker minimal
+- Création de `public/sw.js` : il ne fait **que** recevoir les pushes et afficher la notif (`self.addEventListener('push', …)`) + gérer le clic (`notificationclick` → ouvre `actionUrl`).
+- Pas de `vite-plugin-pwa`, pas de cache, pas de précaching → zéro risque de casser le preview Lovable. SW enregistré uniquement hors iframe / hors host preview (garde standard).
+- Manifeste déjà présent (`public/manifest.webmanifest`) → suffisant pour l'install mobile.
 
-CREATE TABLE public.user_roles (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  role app_role NOT NULL,
-  is_primary boolean NOT NULL DEFAULT false,  -- 🔒 admin principal intouchable
-  granted_by uuid,
-  granted_at timestamptz DEFAULT now(),
-  UNIQUE (user_id, role)
-);
-ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
+### b. Clés VAPID
+- Génération d'une paire VAPID **une fois** dans une edge function utilitaire `vapid-init` (générée via `web-push` npm dans Deno) → on stocke `VAPID_PUBLIC_KEY` et `VAPID_PRIVATE_KEY` comme secrets Lovable Cloud (j'utiliserai `add_secret` au moment de l'implémentation).
+- Public key exposée via une edge fonction `vapid-public-key` (lecture publique).
+
+### c. Table `push_subscriptions`
 ```
-
-### Fonction sécurisée `has_role()` (SECURITY DEFINER, évite la récursion RLS)
-```sql
-CREATE OR REPLACE FUNCTION public.has_role(_user_id uuid, _role app_role)
-RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public
-AS $$ SELECT EXISTS (SELECT 1 FROM public.user_roles WHERE user_id=_user_id AND role=_role) $$;
+id uuid pk
+user_id uuid
+endpoint text unique
+p256dh text
+auth text
+user_agent text
+created_at, last_used_at
 ```
+RLS : user voit/insère/supprime les siennes ; admin lit tout.
 
-### Policies RLS sur `user_roles`
-- SELECT : user voit ses rôles OU est admin
-- INSERT/DELETE : seulement admins, **et impossible de toucher une ligne `is_primary=true`**
+### d. Flow d'abonnement côté client
+- Nouveau composant `NotificationsPermissionCard` dans **Settings** → bouton « Activer les notifications système » qui :
+  1. Demande `Notification.requestPermission()`.
+  2. `navigator.serviceWorker.register('/sw.js')`.
+  3. `pushManager.subscribe({ applicationServerKey: VAPID_PUBLIC })`.
+  4. Envoie la subscription à l'edge function `push-subscribe` qui upsert dans la table.
+- Détection auto du support (Safari iOS ≥ 16.4 nécessite que l'app soit **installée à l'écran d'accueil** d'abord — un message clair explique cette étape).
 
-### RPC `promote_to_admin(_target_user_id)` et `revoke_admin(_target_user_id)`
-- SECURITY DEFINER, vérifient que l'appelant est admin
-- `revoke_admin` lève une exception si la cible est `is_primary=true`
+### e. Edge function `push-send`
+- Reçoit `{ user_id, title, body, url, icon }`.
+- Récupère toutes les subscriptions du user.
+- Utilise `npm:web-push` pour signer et envoyer chaque push avec les VAPID keys.
+- Supprime automatiquement les subscriptions expirées (status 410/404).
 
-### Élargir les policies existantes pour les admins
-- `user_credits`, `credit_transactions`, `profiles` → ajouter une policy SELECT permettant aux admins de tout voir
-- `user_credits` → policy UPDATE pour admins (changement de plan, ajout de crédits via RPC)
-
-### Nouvelle RPC `admin_add_credits(_target_user_id, _amount, _bucket)`
-- Vérifie `has_role(auth.uid(), 'admin')` puis appelle `add_credits()` existante
-
-### Nouvelle RPC `admin_set_tier(_target_user_id, _tier)`
-- Met à jour `subscription_tier` + recharge les crédits du palier choisi
-
-### 🔑 Promotion manuelle de l'admin principal
-Après la migration, je lancerai une seule fois :
-```sql
-INSERT INTO public.user_roles (user_id, role, is_primary)
-VALUES ('<TON_UUID>', 'admin', true);
-```
-👉 **Tu devras d'abord créer ton compte via `/auth`** puis me donner ton email pour que je récupère ton UUID.
+### f. Intégration au `notificationService` existant
+- Ajout d'une méthode `notifyPushed(input)` qui :
+  - Crée la notif dans la liste locale (comme aujourd'hui).
+  - Si la notif vient d'un push serveur (ou si elle est programmée et que l'app n'est pas focus), elle ne re-toast pas en double.
+- Le hook `useNotifications` reste inchangé pour les composants UI.
 
 ---
 
-## ⚙️ Étape 2 — Bypass crédits dans les edge functions
+## 2. IA proactive — cron serveur toutes les 20 min
 
-Modifier `supabase/functions/_shared/credits.ts` :
-- Nouvelle fonction `isAdmin(supabase, userId)` qui appelle `has_role`
-- Si admin → retourne `{ skipBilling: true }`
+### a. Edge function `proactive-tick` (cron)
+Pour **chaque user** ayant au moins une push subscription active :
 
-Modifier `ai-chat/index.ts` et `ai-orchestrator/index.ts` :
-- Avant `estimateCredits` : check admin
-- Si admin → skip pré-débit ET skip ajustement final
-- Logger quand même une transaction `kind='admin_free'` avec `amount=0` pour audit
+1. **Rappels d'agenda intelligents (smart timing)**  
+   Lit `schedule_events` des prochaines 4h. Pour chaque event pas encore notifié :
+   - Si `location` non vide et ≠ "maison/home/chez moi" → rappel **30 min avant**.
+   - Si type détecté "examen / contrôle / interro / entretien / RDV médical" → **45 min avant**.
+   - Si event court (<30 min, type "appel/call") → **5 min avant**.
+   - Sinon → **15 min avant** (défaut).
+   - Tag `notified_at` stocké dans une nouvelle table `event_notifications(event_id, kind, sent_at)` pour ne pas spammer.
+   - Pousse via `push-send` : « ⏰ Cours de maths dans 15 min — Salle B204 ».
 
----
+2. **Suggestions proactives (LLM léger)**  
+   - Une fois par tranche de 4h max par user (anti-spam).
+   - Construit un mini-contexte : 5 derniers `user_memories`, events des 24h passées + 24h à venir, dernière `conversation_summary`.
+   - Appel `google/gemini-2.5-flash-lite` (cheap) avec un prompt « Propose AU PLUS UNE suggestion utile et concrète OU réponds {none:true} si rien d'utile à dire maintenant. Format JSON strict. ».
+   - Si suggestion → push : « 💡 Suggestion de Nex : … » avec lien `/notifications`.
+   - Coût plafonné via les crédits utilisateur (le user paie ses propres suggestions, comme le chat).
 
-## 🎨 Étape 3 — UI
+### b. pg_cron
+- Job `proactive-tick-every-20-min` créé via insert SQL (pas migration, contient l'anon key) :
+  ```
+  */20 * * * *  →  net.http_post(.../proactive-tick)
+  ```
+- Activation `pg_cron` + `pg_net` si pas déjà actif.
 
-### Hook `useIsAdmin()`
-- Query Supabase `has_role(auth.uid(), 'admin')` au login
-- Cache via React Query, refresh à l'auth change
-
-### Header (`Header.tsx`)
-- Si admin : remplacer le compteur de crédits par un badge **"∞ Admin"** (gradient or)
-- Si admin : afficher un bouton **🛡️ Admin** à côté de Crédits/Notifications → vers `/admin/users`
-
-### Nouvelle page `/admin/users`
-Protection : redirige vers `/` si pas admin (vérif côté client + RLS côté DB).
-
-**Sections :**
-1. **Liste des utilisateurs** (table)
-   - Colonnes : email, plan, crédits (sub + purchased), total consommé, rôle, actions
-   - Recherche + tri
-   - Actions par ligne :
-     - Bouton **Promouvoir admin** / **Révoquer admin** (désactivé + tooltip "Admin principal protégé" si `is_primary`)
-     - Menu **Changer le plan** (Free / Starter / Pro / Ultra)
-     - Bouton **+ Crédits** (modal : montant + bucket subscription/purchased)
-
-2. **Onglet Transactions globales**
-   - Liste paginée de toutes les `credit_transactions`
-   - Filtres : user, kind, action, date
-   - Affiche les `admin_free` avec un tag spécial
-
-### Route dans `App.tsx`
-- `/admin/users` protégée par `<AuthGuard>` + check admin
+### c. Préférences utilisateur (Settings)
+Nouveau bloc dans `MemorySection`/`RecurringScheduleSection` ou section dédiée :
+- Toggle global « Notifications système »
+- Toggle « Rappels d'agenda automatiques »
+- Toggle « Suggestions proactives de Nex »
+- Plage horaire de silence (réutilise les `quietHours` déjà dans `notificationService` + on les sync vers `user_settings.notification_prefs` côté DB pour que le cron les respecte).
 
 ---
 
-## 🛡️ Étape 4 — Sécurité
+## 3. Heure courante pour l'IA (rappel — déjà en place)
 
-- ✅ Rôles dans table séparée (jamais sur profiles)
-- ✅ `SECURITY DEFINER` pour éviter récursion RLS
-- ✅ Toutes les actions admin passent par des RPC vérifiant `has_role()`
-- ✅ Flag `is_primary` empêche la suppression de l'admin principal (au niveau RPC + RLS)
-- ✅ Transactions `admin_free` loggées pour audit
-- ✅ Vérification côté client ET côté serveur (jamais de confiance au front seul)
+Le système prompt injecte déjà l'heure locale + timezone (`buildSystemPrompt` dans `ai-orchestrator`). Rien à refaire ici, juste vérifier que `proactive-tick` fait pareil quand il appelle le LLM.
 
 ---
 
-## 📋 Ordre d'exécution validé
+## 4. Récap des fichiers
 
-1. Migration SQL (table, enum, fonctions, policies, RPCs)
-2. Tu crées ton compte via `/auth` puis me donnes ton email
-3. Je lance la requête de promotion admin principal
-4. Bypass crédits dans les edge functions
-5. Page `/admin/users` + hook + boutons header
-6. Test complet ensemble
+**Nouveaux**
+- `public/sw.js` — service worker push-only
+- `src/services/pushService.ts` — subscribe/unsubscribe + détection support
+- `src/components/settings/NotificationsPermissionCard.tsx`
+- `src/components/settings/ProactivePreferencesCard.tsx`
+- `supabase/functions/vapid-public-key/index.ts`
+- `supabase/functions/push-subscribe/index.ts`
+- `supabase/functions/push-send/index.ts`
+- `supabase/functions/proactive-tick/index.ts`
+- Migration : tables `push_subscriptions`, `event_notifications` + RLS + colonne `proactive_last_run_at` sur `user_settings`.
 
-**Une fois validé, je passe en mode default et j'attaque l'étape 1.**
+**Modifiés**
+- `src/services/notificationService.ts` — sync prefs DB + flag « pushed »
+- `src/pages/Settings.tsx` — ajout des 2 cartes
+- `src/main.tsx` — register SW (avec garde iframe/preview)
+
+**Secrets à demander**
+- `VAPID_PUBLIC_KEY` + `VAPID_PRIVATE_KEY` (je les générerai et te donnerai la commande pour les ajouter, ou je les générerai dans une edge function utilitaire et te demanderai juste de les coller).
+
+---
+
+## Limites honnêtes
+- **iOS Safari** : les Web Push marchent **uniquement** si l'utilisateur a d'abord ajouté l'app à l'écran d'accueil (PWA installée). Une étape claire sera affichée sur iPhone.
+- **Desktop** : marche partout (Chrome, Edge, Firefox, Safari macOS).
+- **Quand l'app est fermée** : ça marche tant que l'OS / le navigateur tourne en arrière-plan (cas normal).
+- Le cron toutes les 20 min veut dire que la précision d'un rappel « 15 min avant » sera entre 15 et 35 min avant (acceptable). Si tu veux pile à la minute on passe à 5 min mais ça multiplie les invocations.
