@@ -123,7 +123,7 @@ export function IcalSubscriptionsSection() {
                     <span className="break-all">{s.last_error}</span>
                   </div>
                 ) : s.last_synced_at ? (
-                  <div className="mt-1 text-xs text-emerald-500 flex items-center gap-1">
+                  <div className="mt-1 text-xs text-primary flex items-center gap-1">
                     <CheckCircle2 className="w-3.5 h-3.5" /> À jour
                   </div>
                 ) : null}
