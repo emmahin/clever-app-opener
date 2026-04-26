@@ -10,6 +10,8 @@ import { NotificationType } from "@/services/notificationService";
 import { LocalAgentSection } from "@/components/chatbot/LocalAgentSection";
 import { MemorySection } from "@/components/settings/MemorySection";
 import { RecurringScheduleSection } from "@/components/settings/RecurringScheduleSection";
+import { NotificationsPermissionCard } from "@/components/settings/NotificationsPermissionCard";
+import { ProactivePreferencesCard } from "@/components/settings/ProactivePreferencesCard";
 
 export default function Settings() {
   const { settings, update, reset } = useSettings();
@@ -172,12 +174,21 @@ export default function Settings() {
             description="Gère ce que tu reçois et quand."
           >
             <div className="space-y-5">
+              <NotificationsPermissionCard />
+
+              <div className="border-t border-border/60 pt-5">
+                <h3 className="text-sm font-semibold mb-3">Initiative de Nex</h3>
+                <ProactivePreferencesCard />
+              </div>
+
+              <div className="border-t border-border/60 pt-5">
               <ToggleRow
                 label="Activer les notifications"
                 description="Désactive pour couper toasts + cloche."
                 checked={notifPrefs.enabled}
                 onChange={(v) => updateNotif({ enabled: v })}
               />
+              </div>
               <ToggleRow
                 label="Ne pas déranger"
                 description="Garde l'historique mais bloque toasts et sons."
