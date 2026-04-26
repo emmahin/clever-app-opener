@@ -12,7 +12,19 @@
       <stop offset="50%" stop-color="#C44CFF"/>
       <stop offset="100%" stop-color="#8B2FD9"/>
     </radialGradient>
+    <linearGradient id="stroke" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F5B8FF"/>
+      <stop offset="50%" stop-color="#C44CFF"/>
+      <stop offset="100%" stop-color="#8B2FD9"/>
+    </linearGradient>
   </defs>
+  <!-- Anneaux concentriques décalés (trait uniforme, même palette violette que les étoiles) -->
+  <g filter="url(#glow)" fill="none" stroke="url(#stroke)" stroke-width="3" stroke-linecap="round">
+    <ellipse cx="200" cy="210" rx="120" ry="118"/>
+    <ellipse cx="205" cy="200" rx="118" ry="122" transform="rotate(-8 205 200)"/>
+    <ellipse cx="195" cy="205" rx="122" ry="116" transform="rotate(12 195 205)"/>
+    <ellipse cx="200" cy="200" rx="116" ry="120" transform="rotate(25 200 200)"/>
+  </g>
   <g filter="url(#glow)" fill="url(#g)">
     <!-- Cluster haut-gauche : 1 grande, 2 moyennes, 1 petite -->
     <!-- Grande étoile haut-gauche -->
