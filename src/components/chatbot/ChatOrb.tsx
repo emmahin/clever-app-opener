@@ -19,8 +19,8 @@ export function ChatOrb({ isLoading = false }: ChatOrbProps) {
   return (
     <div className="relative w-48 h-48 flex items-center justify-center">
       {/* Soft violet/fuchsia halo behind the frame */}
-      <div className="absolute -inset-10 rounded-full bg-fuchsia-500/30 blur-3xl" />
-      <div className="absolute inset-4 rounded-full bg-violet-500/20 blur-2xl" />
+      <div className="absolute -inset-10 rounded-full bg-accent/30 blur-3xl" />
+      <div className="absolute inset-4 rounded-full bg-primary/20 blur-2xl" />
       <img
         src={starFrame}
         alt=""
