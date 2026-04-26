@@ -1,122 +1,108 @@
-## Objectif
+## Audit complet du projet
 
-Donner à Nex une vraie initiative : il pousse des **notifications natives OS** (PC + mobile, même app fermée) pour rappeler les events de l'agenda et faire des suggestions proactives, en analysant en arrière-plan ton agenda + tes mémoires.
-
----
-
-## 1. Vraies notifs OS — Web Push (VAPID)
-
-### a. Service worker minimal
-- Création de `public/sw.js` : il ne fait **que** recevoir les pushes et afficher la notif (`self.addEventListener('push', …)`) + gérer le clic (`notificationclick` → ouvre `actionUrl`).
-- Pas de `vite-plugin-pwa`, pas de cache, pas de précaching → zéro risque de casser le preview Lovable. SW enregistré uniquement hors iframe / hors host preview (garde standard).
-- Manifeste déjà présent (`public/manifest.webmanifest`) → suffisant pour l'install mobile.
-
-### b. Clés VAPID
-- Génération d'une paire VAPID **une fois** dans une edge function utilitaire `vapid-init` (générée via `web-push` npm dans Deno) → on stocke `VAPID_PUBLIC_KEY` et `VAPID_PRIVATE_KEY` comme secrets Lovable Cloud (j'utiliserai `add_secret` au moment de l'implémentation).
-- Public key exposée via une edge fonction `vapid-public-key` (lecture publique).
-
-### c. Table `push_subscriptions`
-```
-id uuid pk
-user_id uuid
-endpoint text unique
-p256dh text
-auth text
-user_agent text
-created_at, last_used_at
-```
-RLS : user voit/insère/supprime les siennes ; admin lit tout.
-
-### d. Flow d'abonnement côté client
-- Nouveau composant `NotificationsPermissionCard` dans **Settings** → bouton « Activer les notifications système » qui :
-  1. Demande `Notification.requestPermission()`.
-  2. `navigator.serviceWorker.register('/sw.js')`.
-  3. `pushManager.subscribe({ applicationServerKey: VAPID_PUBLIC })`.
-  4. Envoie la subscription à l'edge function `push-subscribe` qui upsert dans la table.
-- Détection auto du support (Safari iOS ≥ 16.4 nécessite que l'app soit **installée à l'écran d'accueil** d'abord — un message clair explique cette étape).
-
-### e. Edge function `push-send`
-- Reçoit `{ user_id, title, body, url, icon }`.
-- Récupère toutes les subscriptions du user.
-- Utilise `npm:web-push` pour signer et envoyer chaque push avec les VAPID keys.
-- Supprime automatiquement les subscriptions expirées (status 410/404).
-
-### f. Intégration au `notificationService` existant
-- Ajout d'une méthode `notifyPushed(input)` qui :
-  - Crée la notif dans la liste locale (comme aujourd'hui).
-  - Si la notif vient d'un push serveur (ou si elle est programmée et que l'app n'est pas focus), elle ne re-toast pas en double.
-- Le hook `useNotifications` reste inchangé pour les composants UI.
+Voici tout ce qui ne va pas, classé par gravité, avec ce qui consomme tes crédits IA Lovable et ce qui ne s'enregistre nulle part.
 
 ---
 
-## 2. IA proactive — cron serveur toutes les 20 min
+### 🔴 PRIORITÉ 1 — Persistance manquante (perte de données au refresh)
 
-### a. Edge function `proactive-tick` (cron)
-Pour **chaque user** ayant au moins une push subscription active :
+**1. Historique de chat (Page principale `/`)**
 
-1. **Rappels d'agenda intelligents (smart timing)**  
-   Lit `schedule_events` des prochaines 4h. Pour chaque event pas encore notifié :
-   - Si `location` non vide et ≠ "maison/home/chez moi" → rappel **30 min avant**.
-   - Si type détecté "examen / contrôle / interro / entretien / RDV médical" → **45 min avant**.
-   - Si event court (<30 min, type "appel/call") → **5 min avant**.
-   - Sinon → **15 min avant** (défaut).
-   - Tag `notified_at` stocké dans une nouvelle table `event_notifications(event_id, kind, sent_at)` pour ne pas spammer.
-   - Pousse via `push-send` : « ⏰ Cours de maths dans 15 min — Salle B204 ».
+- Fichier : `src/pages/Index.tsx` ligne 130 → `useState<ChatMessage[]>([])`
+- Problème : **les messages ne sont stockés QUE en mémoire React**. Tu rafraîchis la page → tout est perdu.
+- La sidebar « projets » sauve un snapshot, mais en mémoire aussi (voir point 2).
+- **Correction proposée** : créer une table `conversations` + `chat_messages` en DB, charger la dernière conversation au mount, sauver chaque message à l'envoi/réception.
 
-2. **Suggestions proactives (LLM léger)**  
-   - Une fois par tranche de 4h max par user (anti-spam).
-   - Construit un mini-contexte : 5 derniers `user_memories`, events des 24h passées + 24h à venir, dernière `conversation_summary`.
-   - Appel `google/gemini-2.5-flash-lite` (cheap) avec un prompt « Propose AU PLUS UNE suggestion utile et concrète OU réponds {none:true} si rien d'utile à dire maintenant. Format JSON strict. ».
-   - Si suggestion → push : « 💡 Suggestion de Nex : … » avec lien `/notifications`.
-   - Coût plafonné via les crédits utilisateur (le user paie ses propres suggestions, comme le chat).
+**2. Projets sauvegardés (sidebar "Mes chats")**
 
-### b. pg_cron
-- Job `proactive-tick-every-20-min` créé via insert SQL (pas migration, contient l'anon key) :
-  ```
-  */20 * * * *  →  net.http_post(.../proactive-tick)
-  ```
-- Activation `pg_cron` + `pg_net` si pas déjà actif.
+- Fichier : `src/contexts/ProjectsProvider.tsx` ligne 33 → `useState<SavedProject[]>([])`
+- Problème : **aucune persistance, même pas localStorage**. Tu fermes l'onglet → tous tes chats sauvegardés disparaissent.
+- **Correction proposée** : nouvelle table `saved_projects (id, user_id, category, name, data jsonb, created_at, updated_at)` avec RLS user, et synchro depuis le provider.
 
-### c. Préférences utilisateur (Settings)
-Nouveau bloc dans `MemorySection`/`RecurringScheduleSection` ou section dédiée :
-- Toggle global « Notifications système »
-- Toggle « Rappels d'agenda automatiques »
-- Toggle « Suggestions proactives de Nex »
-- Plage horaire de silence (réutilise les `quietHours` déjà dans `notificationService` + on les sync vers `user_settings.notification_prefs` côté DB pour que le cron les respecte).
+**3. WhatsApp — contacts et messages**
+
+- on abandonne le projet whatsapp pour l'instant 
+
+**4. Notifications**
+
+- Fichier : `src/services/notificationService.ts` lignes 43-44 → localStorage
+- Problème : pas synchro entre appareils. Mais comme les push web sont par-device, c'est moins grave.
+- **Correction proposée** : créer table `app_notifications` et migrer (optionnel — à valider).
 
 ---
 
-## 3. Heure courante pour l'IA (rappel — déjà en place)
+### 🟠 PRIORITÉ 2 — Incohérences (données dupliquées ou contradictoires)
 
-Le système prompt injecte déjà l'heure locale + timezone (`buildSystemPrompt` dans `ai-orchestrator`). Rien à refaire ici, juste vérifier que `proactive-tick` fait pareil quand il appelle le LLM.
+**5. Agenda : double source de vérité**
 
----
+- `src/services/scheduleService.ts` → localStorage (`app_schedule_events`)
+- Table DB `schedule_events` → utilisée par `twinMemoryService` (tools de l'IA)
+- `Index.tsx` ligne 215-224 → fait un merge des deux et déduplique à la volée. Fragile.
+- Conséquence : un event créé par l'IA n'apparaît pas dans `scheduleService` local et inversement. Le widget calendrier risque de montrer des choses différentes selon d'où on vient.
+- **Correction proposée** : **supprimer entièrement `scheduleService` localStorage** et faire passer TOUTES les opérations (add/remove/list) par la DB via `twinMemoryService` / `scheduleEventsService`. Une seule source de vérité.
 
-## 4. Récap des fichiers
+**6. Trois systèmes de chat IA en parallèle**
 
-**Nouveaux**
-- `public/sw.js` — service worker push-only
-- `src/services/pushService.ts` — subscribe/unsubscribe + détection support
-- `src/components/settings/NotificationsPermissionCard.tsx`
-- `src/components/settings/ProactivePreferencesCard.tsx`
-- `supabase/functions/vapid-public-key/index.ts`
-- `supabase/functions/push-subscribe/index.ts`
-- `supabase/functions/push-send/index.ts`
-- `supabase/functions/proactive-tick/index.ts`
-- Migration : tables `push_subscriptions`, `event_notifications` + RLS + colonne `proactive_last_run_at` sur `user_settings`.
-
-**Modifiés**
-- `src/services/notificationService.ts` — sync prefs DB + flag « pushed »
-- `src/pages/Settings.tsx` — ajout des 2 cartes
-- `src/main.tsx` — register SW (avec garde iframe/preview)
-
-**Secrets à demander**
-- `VAPID_PUBLIC_KEY` + `VAPID_PRIVATE_KEY` (je les générerai et te donnerai la commande pour les ajouter, ou je les générerai dans une edge function utilitaire et te demanderai juste de les coller).
+- `supabase/functions/ai-chat/index.ts` — modèle `google/gemini-3-flash-preview` (semble obsolète, utilisé nulle part dans `src/services/`)
+- `supabase/functions/ai-orchestrator/index.ts` — **le vrai chat actif**, appelé par `chatService.ts`
+- `supabase/functions/twin-chat/index.ts` — chat séparé du « voice mode », appelé par `TwinVoiceProvider`
+- **Correction proposée** : vérifier si `ai-chat` est encore référencé. Si non → la supprimer. Économise de la maintenance et évite que quelqu'un l'appelle par erreur.
 
 ---
 
-## Limites honnêtes
-- **iOS Safari** : les Web Push marchent **uniquement** si l'utilisateur a d'abord ajouté l'app à l'écran d'accueil (PWA installée). Une étape claire sera affichée sur iPhone.
-- **Desktop** : marche partout (Chrome, Edge, Firefox, Safari macOS).
-- **Quand l'app est fermée** : ça marche tant que l'OS / le navigateur tourne en arrière-plan (cas normal).
-- Le cron toutes les 20 min veut dire que la précision d'un rappel « 15 min avant » sera entre 15 et 35 min avant (acceptable). Si tu veux pile à la minute on passe à 5 min mais ça multiplie les invocations.
+### 💸 PRIORITÉ 3 — Usages IA Lovable (ce qui consomme tes crédits)
+
+Voici **toutes** les fonctions qui appellent `LOVABLE_API_KEY` :
+
+
+| Edge function               | Modèle                                                              | Quand c'est appelé                             | Coût estimé         |
+| --------------------------- | ------------------------------------------------------------------- | ---------------------------------------------- | ------------------- |
+| `ai-orchestrator`           | `gemini-3-flash-preview` (ou `gemini-3.1-pro-preview` si deepThink) | À chaque message de chat                       | 🔴 Élevé            |
+| `ai-chat`                   | `gemini-3-flash-preview`                                            | Probablement plus utilisé (à confirmer)        | ⚪ Inactif ?         |
+| `twin-chat`                 | `gemini-2.5-flash`                                                  | Mode appel vocal                               | 🟠 Moyen            |
+| `voice-transcribe`          | `gemini-2.5-flash`                                                  | Chaque message vocal                           | 🟠 Moyen            |
+| `proactive-tick`            | `gemini-2.5-flash-lite`                                             | **Cron toutes les 20 min, pour CHAQUE user**   | 🔴 Élevé en continu |
+| `translate`                 | `gemini-2.5-flash-lite`                                             | Traduction news (à chaque load si langue ≠ FR) | 🟠 Moyen            |
+| `organize-documents`        | `gemini-2.5-flash`                                                  | Quand tu tries des fichiers                    | 🟢 Ponctuel         |
+| `explain-organization`      | `gemini-2.5-flash-lite`                                             | Après tri                                      | 🟢 Ponctuel         |
+| `rules-from-prompt`         | `gemini-2.5-flash`                                                  | Création règles tri                            | 🟢 Ponctuel         |
+| `video-editor-agent`        | `gemini-2.5-flash`                                                  | Éditeur vidéo                                  | 🟢 Ponctuel         |
+| `video-command-from-prompt` | `gemini-2.5-flash-lite`                                             | Éditeur vidéo                                  | 🟢 Ponctuel         |
+| `explain-video-edit`        | `gemini-2.5-flash-lite`                                             | Éditeur vidéo                                  | 🟢 Ponctuel         |
+| `ai-orchestrator` (image)   | `gemini-2.5-flash-image`                                            | Génération images                              | 🟠 Moyen            |
+
+
+**Recommandations crédits** :
+
+- ✅ **Vérifier que `ai-chat` n'est plus appelée** et la supprimer.
+- ⚠️ Le cron `proactive-tick` toutes les 20 min × tous les users = **gros poste de dépense silencieux**. À surveiller / rendre désactivable per-user (déjà partiellement fait via `proactive_prefs`, à vérifier que c'est bien respecté).
+- ⚠️ `translate` peut tourner à chaque load des news — vérifier qu'il y a bien un cache.
+
+---
+
+### 🟡 PRIORITÉ 4 — Petits problèmes RLS/DB
+
+**7. Table `event_notifications` sans DELETE/UPDATE pour les users**
+
+- Impossible pour un user de réinitialiser ses notifs envoyées → si bug, le cron ne re-notifie jamais.
+- **Correction** : ajouter policies DELETE pour `auth.uid() = user_id`.
+
+**8. Mock du service news**
+
+- `mockNewsService` : actus statiques fake. Pas un vrai bug mais à savoir.
+- **Correction** (optionnel) : brancher `news-feed` edge function (déjà déployée).
+
+---
+
+### 📋 Plan d'exécution proposé
+
+Si tu valides, je vais faire dans cet ordre :
+
+1. **Migration SQL** : créer `conversations` + `chat_messages` (avec RLS), créer `saved_projects` (avec RLS), ajouter policies DELETE manquantes sur `event_notifications`.
+2. **Persistance chat** : modifier `Index.tsx` + `chatService` pour charger/sauver les messages depuis la DB, créer une nouvelle conversation au "Nouveau chat".
+3. **Persistance projets** : modifier `ProjectsProvider.tsx` pour synchro DB.
+4. **Unifier l'agenda** : supprimer `scheduleService` localStorage, faire passer tous les usages (Index, widget, voice mode) par `twinMemoryService` (DB).
+5. **Nettoyage** : vérifier `ai-chat` et la supprimer si inutilisée.
+6. **(Optionnel)** : WhatsApp en DB, notifications en DB — à valider avec toi car gros chantier.
+
+Dis-moi si tu veux que j'attaque tout, ou seulement certains points (par ex. juste 1+2+4 = persistance chat + agenda unifié, ce qui couvre 80% du problème).

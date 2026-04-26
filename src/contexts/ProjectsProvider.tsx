@@ -1,4 +1,5 @@
-import { createContext, useCallback, useContext, useMemo, useState, ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 export type ProjectCategory =
   | "ai-tools"
@@ -32,6 +33,36 @@ const ProjectsContext = createContext<ProjectsContextValue | null>(null);
 export function ProjectsProvider({ children }: { children: ReactNode }) {
   const [projects, setProjects] = useState<SavedProject[]>([]);
 
+  // Charge les projets sauvegardés depuis la DB au mount + à chaque changement d'auth.
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) { if (active) setProjects([]); return; }
+        const { data, error } = await supabase
+          .from("saved_projects")
+          .select("id, category, name, data, created_at, updated_at")
+          .order("updated_at", { ascending: false });
+        if (error) throw error;
+        if (!active) return;
+        setProjects((data ?? []).map((r) => ({
+          id: r.id,
+          category: r.category as ProjectCategory,
+          name: r.name,
+          data: r.data,
+          createdAt: new Date(r.created_at).getTime(),
+          updatedAt: new Date(r.updated_at).getTime(),
+        })));
+      } catch (e) {
+        console.warn("[projects] load failed", e);
+      }
+    };
+    load();
+    const { data: sub } = supabase.auth.onAuthStateChange(() => { load(); });
+    return () => { active = false; sub.subscription.unsubscribe(); };
+  }, []);
+
   const list = useCallback(
     (category: ProjectCategory) =>
       projects
@@ -52,6 +83,22 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
         data,
       };
       setProjects((prev) => [proj, ...prev]);
+      // Persistance DB en best-effort (n'attend pas pour l'UX).
+      (async () => {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) return;
+          await supabase.from("saved_projects").insert({
+            id: proj.id,
+            user_id: user.id,
+            category: proj.category,
+            name: proj.name,
+            data: (proj.data ?? {}) as never,
+          } as never);
+        } catch (e) {
+          console.warn("[projects] save failed", e);
+        }
+      })();
       return proj;
     },
     []
@@ -64,12 +111,29 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
           p.id === id ? { ...p, ...patch, updatedAt: Date.now() } : p
         )
       );
+      (async () => {
+        try {
+          const update: { name?: string; data?: never } = {};
+          if (patch.name !== undefined) update.name = patch.name;
+          if (patch.data !== undefined) update.data = patch.data as unknown as never;
+          await supabase.from("saved_projects").update(update as never).eq("id", id);
+        } catch (e) {
+          console.warn("[projects] update failed", e);
+        }
+      })();
     },
     []
   );
 
   const remove = useCallback((id: string) => {
     setProjects((prev) => prev.filter((p) => p.id !== id));
+    (async () => {
+      try {
+        await supabase.from("saved_projects").delete().eq("id", id);
+      } catch (e) {
+        console.warn("[projects] remove failed", e);
+      }
+    })();
   }, []);
 
   const get = useCallback(

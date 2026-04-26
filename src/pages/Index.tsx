@@ -6,6 +6,7 @@ import { ChatInput } from "@/components/chatbot/ChatInput";
 import { SuggestionPills } from "@/components/chatbot/SuggestionPills";
 import { ChatMessageItem } from "@/components/chatbot/ChatMessage";
 import { chatService, ChatMessage, ChatAttachment, APP_CATALOG, localAgentService, twinMemoryService, googleCalendarService } from "@/services";
+import { conversationService } from "@/services/conversationService";
 import { Expand, Minimize2, Settings2, Sparkles, MessageSquarePlus, Trash2, SlidersHorizontal, PhoneCall } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useSettings } from "@/contexts/SettingsProvider";
@@ -136,6 +137,10 @@ export default function Index() {
   const messagesRef = useRef<ChatMessage[]>([]);
   useEffect(() => { messagesRef.current = messages; }, [messages]);
 
+  // ID de la conversation persistée actuellement chargée.
+  // null = aucune (sera créée au premier message envoyé).
+  const conversationIdRef = useRef<string | null>(null);
+
   // Cache l'état "Google Calendar connecté ?" pour éviter d'appeler `status` à chaque message.
   // Null = pas encore vérifié, true/false sinon.
   const gcalConnectedRef = useRef<boolean | null>(null);
@@ -153,21 +158,18 @@ export default function Index() {
     return /\b(agenda|calendrier|planning|emploi du temps|rendez[-\s]?vous|rdv|prochain|évén?ements?|events?|aujourd['’]hui|demain|cette semaine|prochaine semaine|ce week[-\s]?end|ce mois|libre|disponible|réuni(?:on|ons)|schedule)\b/i.test(text);
   };
 
-  /** Charge les événements depuis Supabase + ceux du localStorage, dédupliqués. */
+  /** Charge les événements depuis le scheduleService (qui est maintenant adossé à la DB). */
   const buildScheduleForAI = async (
     userText: string,
   ): Promise<{ title: string; start_iso: string; end_iso?: string; location?: string; notes?: string }[]> => {
-    const local = scheduleService.getAll().map((e) => ({
-      title: e.title,
-      start_iso: e.start_iso,
-      end_iso: e.end_iso,
-      location: e.location,
-      notes: e.notes,
-    }));
-
     // Si la requête ne concerne pas l'agenda, on évite tout aller-retour réseau
-    // et on se contente du localStorage (comportement actuel).
-    if (!looksAgendaRelated(userText)) return local;
+    // et on retourne ce qu'on a déjà en cache.
+    if (!looksAgendaRelated(userText)) {
+      return scheduleService.getAll().map((e) => ({
+        title: e.title, start_iso: e.start_iso, end_iso: e.end_iso,
+        location: e.location, notes: e.notes,
+      }));
+    }
 
     // 1) Pull Google Calendar (silencieux, max 1×/2 min) si connecté.
     try {
@@ -197,11 +199,10 @@ export default function Index() {
       console.warn("[gcal sync] skipped", e);
     }
 
-    // 2) Lis les événements depuis Supabase (45 jours autour d'aujourd'hui).
-    let dbEvents: { title: string; start_iso: string; end_iso?: string; location?: string; notes?: string }[] = [];
+    // 2) Lis directement depuis la DB (frais après le pull GCal éventuel).
     try {
       const rows = await twinMemoryService.listEvents(45);
-      dbEvents = rows.map((r) => ({
+      return rows.map((r) => ({
         title: r.title,
         start_iso: r.start_iso,
         end_iso: r.end_iso ?? undefined,
@@ -209,19 +210,12 @@ export default function Index() {
         notes: r.notes ?? undefined,
       }));
     } catch (e) {
-      console.warn("[schedule] DB read failed", e);
+      console.warn("[schedule] DB read failed, falling back to cache", e);
+      return scheduleService.getAll().map((e) => ({
+        title: e.title, start_iso: e.start_iso, end_iso: e.end_iso,
+        location: e.location, notes: e.notes,
+      }));
     }
-
-    // 3) Fusion + dédup (clé = title|start_iso, insensible à la casse).
-    const seen = new Set<string>();
-    const merged: typeof dbEvents = [];
-    for (const ev of [...dbEvents, ...local]) {
-      const key = `${ev.title.trim().toLowerCase()}|${ev.start_iso}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      merged.push(ev);
-    }
-    return merged;
   };
 
   // Track fullscreen state
@@ -246,6 +240,25 @@ export default function Index() {
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   useEffect(() => scrollToBottom(), [messages]);
 
+  // Au mount : charge la dernière conversation de l'utilisateur (s'il en a une).
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const list = await conversationService.list();
+        if (!active || list.length === 0) return;
+        const latest = list[0];
+        const msgs = await conversationService.getMessages(latest.id);
+        if (!active) return;
+        conversationIdRef.current = latest.id;
+        setMessages(msgs);
+      } catch (e) {
+        console.warn("[chat] load latest conversation failed", e);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
+
   // Sidebar → recharge un chat depuis l'historique
   useEffect(() => {
     const onLoad = (e: Event) => {
@@ -263,6 +276,7 @@ export default function Index() {
       abortRef.current?.abort();
       setIsLoading(false);
       setMessages([]);
+      conversationIdRef.current = null;
     };
     window.addEventListener("nex:loadChat", onLoad as EventListener);
     window.addEventListener("nex:newChat", onNew as EventListener);
@@ -424,10 +438,24 @@ export default function Index() {
 
     abortRef.current = new AbortController();
 
+    // ─── Persistance : crée la conversation au premier message + sauve le user msg ───
+    (async () => {
+      try {
+        if (!conversationIdRef.current) {
+          const conv = await conversationService.create();
+          conversationIdRef.current = conv.id;
+        }
+        await conversationService.addMessage(conversationIdRef.current, userMsg);
+      } catch (e) {
+        console.warn("[chat] persist user message failed", e);
+      }
+    })();
+
     // Construit l'agenda (localStorage + Supabase + pull GCal si pertinent).
     const scheduleForAI = await buildScheduleForAI(content);
 
     let accumulated = "";
+    let lastWidgets: import("@/services/types").ChatWidget[] | undefined;
     await chatService.streamChat({
       messages: historyForAI,
       onDelta: (chunk) => {
@@ -437,6 +465,7 @@ export default function Index() {
         );
       },
       onWidgets: (widgets) => {
+        lastWidgets = widgets;
         setMessages((prev) =>
           prev.map((m) => (m.id === assistantId ? { ...m, widgets } : m))
         );
@@ -453,6 +482,22 @@ export default function Index() {
             actionUrl: "/",
           });
         }
+        // Persiste la réponse complète de l'assistant en DB.
+        (async () => {
+          try {
+            const convId = conversationIdRef.current;
+            if (!convId || !accumulated.trim()) return;
+            await conversationService.addMessage(convId, {
+              id: assistantId,
+              role: "assistant",
+              content: accumulated,
+              widgets: lastWidgets,
+              createdAt: Date.now(),
+            });
+          } catch (e) {
+            console.warn("[chat] persist assistant message failed", e);
+          }
+        })();
       },
       onError: (err) => {
         setIsLoading(false);
@@ -498,6 +543,7 @@ export default function Index() {
     abortRef.current?.abort();
     setIsLoading(false);
     setMessages([]);
+    conversationIdRef.current = null;
   };
 
   return (
