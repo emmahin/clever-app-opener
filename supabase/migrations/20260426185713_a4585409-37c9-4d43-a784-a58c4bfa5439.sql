@@ -1,0 +1,1 @@
+ALTER TABLE public.chat_messages ALTER COLUMN position TYPE bigint;
