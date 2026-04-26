@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import galaxyOrb from "@/assets/voice-orb-galaxy.png";
+import starFrame from "@/assets/star-frame-violet.png";
 
 interface ChatOrbProps {
   isLoading?: boolean;
@@ -18,20 +18,17 @@ export function ChatOrb({ isLoading = false }: ChatOrbProps) {
 
   return (
     <div className="relative w-48 h-48 flex items-center justify-center">
-      {/* Outer halo blends into background */}
-      <div className="absolute -inset-10 rounded-full bg-violet-600/30 blur-3xl" />
+      {/* Soft violet/fuchsia halo behind the frame */}
+      <div className="absolute -inset-10 rounded-full bg-fuchsia-500/30 blur-3xl" />
+      <div className="absolute inset-4 rounded-full bg-violet-500/20 blur-2xl" />
       <img
-        src={galaxyOrb}
+        src={starFrame}
         alt=""
         className={cn(
-          "relative w-full h-full object-cover transition-all duration-500",
+          "relative w-full h-full object-contain transition-all duration-500 mix-blend-screen",
           pulsing && "scale-105"
         )}
         style={{
-          WebkitMaskImage:
-            "radial-gradient(circle at center, black 45%, transparent 75%)",
-          maskImage:
-            "radial-gradient(circle at center, black 45%, transparent 75%)",
           animation: "spin 30s linear infinite",
         }}
       />
