@@ -2,3 +2,6 @@ project_id = "kxatgsgucvvnzohstkxu"
 
 [functions.organize-documents]
 verify_jwt = false
+
+[functions.gcal-oauth-callback]
+verify_jwt = false

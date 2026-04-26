@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Sparkles, Mic, Phone, PhoneOff, Plus, Trash2, Calendar, Brain, Loader2, Eraser } from "lucide-react";
+import { Sparkles, Mic, Phone, PhoneOff, Plus, Trash2, Calendar, Brain, Loader2, Eraser, RefreshCw, Link2, Unlink, Upload } from "lucide-react";
 import { Sidebar } from "@/components/chatbot/Sidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
-import { twinMemoryService, type UserMemory, type ScheduleEventDB, type MemoryCategory } from "@/services";
+import { twinMemoryService, googleCalendarService, type UserMemory, type ScheduleEventDB, type MemoryCategory, type GCalStatus } from "@/services";
 import { useTwinVoiceContext } from "@/contexts/TwinVoiceProvider";
 
 const CATEGORY_LABEL: Record<MemoryCategory, string> = {
@@ -35,6 +35,21 @@ export default function Twin() {
 
   const [newMem, setNewMem] = useState({ category: "habit" as MemoryCategory, content: "" });
   const [newEvent, setNewEvent] = useState({ title: "", start_iso: "", location: "" });
+
+  // ─── Google Calendar ───
+  const [gcalStatus, setGcalStatus] = useState<GCalStatus | null>(null);
+  const [gcalBusy, setGcalBusy] = useState(false);
+
+  const refreshGcalStatus = useCallback(async () => {
+    try {
+      const s = await googleCalendarService.getStatus();
+      setGcalStatus(s);
+    } catch (e) {
+      console.warn("gcal status failed", e);
+    }
+  }, []);
+
+  useEffect(() => { refreshGcalStatus(); }, [refreshGcalStatus]);
 
   // ─── Load memories + events ───
   const refreshAll = useCallback(async () => {
@@ -105,10 +120,20 @@ export default function Twin() {
     }
     try {
       const iso = new Date(newEvent.start_iso).toISOString();
-      await twinMemoryService.addEvent({ title: newEvent.title.trim(), start_iso: iso, location: newEvent.location || undefined, source: "manual" });
+      const created = await twinMemoryService.addEvent({ title: newEvent.title.trim(), start_iso: iso, location: newEvent.location || undefined, source: "manual" });
       setNewEvent({ title: "", start_iso: "", location: "" });
       await refreshAll();
       toast.success("Événement ajouté");
+      // Push auto vers Google si connecté
+      if (gcalStatus?.connected) {
+        try {
+          await googleCalendarService.pushEvent(created.id);
+          await refreshAll();
+          toast.success("Synchronisé avec Google Calendar");
+        } catch (e: any) {
+          toast.error("Push Google échoué : " + (e?.message || "inconnu"));
+        }
+      }
     } catch (err: any) {
       toast.error(err?.message || "Échec d'ajout d'événement");
     }
@@ -119,6 +144,57 @@ export default function Twin() {
       await twinMemoryService.deleteEvent(id);
       setEvents((e) => e.filter((x) => x.id !== id));
     } catch (err: any) { toast.error(err?.message || "Échec de suppression"); }
+  };
+
+  // ─── Google Calendar actions ───
+  const onConnectGoogle = async () => {
+    setGcalBusy(true);
+    try {
+      await googleCalendarService.connect(); // redirige vers Google
+    } catch (e: any) {
+      toast.error(e?.message || "Connexion impossible");
+      setGcalBusy(false);
+    }
+  };
+
+  const onDisconnectGoogle = async () => {
+    if (!confirm("Déconnecter Google Calendar ?")) return;
+    setGcalBusy(true);
+    try {
+      await googleCalendarService.disconnect();
+      await refreshGcalStatus();
+      toast.success("Google Calendar déconnecté");
+    } catch (e: any) {
+      toast.error(e?.message || "Déconnexion impossible");
+    } finally {
+      setGcalBusy(false);
+    }
+  };
+
+  const onPullGoogle = async () => {
+    setGcalBusy(true);
+    try {
+      const r = await googleCalendarService.pull();
+      await refreshAll();
+      toast.success(`Importé : ${r.imported}, mis à jour : ${r.updated}`);
+    } catch (e: any) {
+      toast.error(e?.message || "Import impossible");
+    } finally {
+      setGcalBusy(false);
+    }
+  };
+
+  const onPushOne = async (eventId: string) => {
+    setGcalBusy(true);
+    try {
+      await googleCalendarService.pushEvent(eventId);
+      await refreshAll();
+      toast.success("Envoyé vers Google");
+    } catch (e: any) {
+      toast.error(e?.message || "Push échoué");
+    } finally {
+      setGcalBusy(false);
+    }
   };
 
   const groupedMemories = useMemo(() => {
@@ -326,6 +402,48 @@ export default function Twin() {
             {/* Agenda */}
             <TabsContent value="schedule" className="mt-4">
               <div className="rounded-2xl bg-white/5 border border-white/10 p-4 md:p-6">
+                {/* Bandeau Google Calendar */}
+                <div className="mb-5 rounded-xl bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-white/10 p-4">
+                  {gcalStatus?.connected ? (
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-lg bg-emerald-500/20 text-emerald-300 flex items-center justify-center flex-shrink-0">
+                          <Link2 className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium text-white truncate">Google Calendar connecté</div>
+                          <div className="text-xs text-white/55 truncate">{gcalStatus.google_email}</div>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button onClick={onPullGoogle} disabled={gcalBusy} size="sm" variant="outline" className="bg-white/5 border-white/15 text-white hover:bg-white/10">
+                          {gcalBusy ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5 mr-1.5" />}
+                          Importer
+                        </Button>
+                        <Button onClick={onDisconnectGoogle} disabled={gcalBusy} size="sm" variant="outline" className="bg-white/5 border-white/15 text-white hover:bg-red-500/20 hover:border-red-400/40">
+                          <Unlink className="w-3.5 h-3.5 mr-1.5" /> Déconnecter
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-lg bg-blue-500/20 text-blue-300 flex items-center justify-center flex-shrink-0">
+                          <Calendar className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium text-white">Synchroniser avec Google Calendar</div>
+                          <div className="text-xs text-white/55">Connecte ton compte Google pour pousser et importer tes événements.</div>
+                        </div>
+                      </div>
+                      <Button onClick={onConnectGoogle} disabled={gcalBusy} size="sm" className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white">
+                        {gcalBusy ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Link2 className="w-3.5 h-3.5 mr-1.5" />}
+                        Connecter Google
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-[1fr_220px_1fr_auto] gap-2 mb-5">
                   <Input
                     value={newEvent.title}
@@ -368,10 +486,22 @@ export default function Twin() {
                             <div className="text-[10px] text-white/50">{d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</div>
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium text-white truncate">{e.title}</div>
+                            <div className="text-sm font-medium text-white truncate flex items-center gap-2">
+                              <span className="truncate">{e.title}</span>
+                              {e.google_event_id && (
+                                <span title="Synchronisé avec Google Calendar" className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 flex-shrink-0">
+                                  <Link2 className="w-2.5 h-2.5" /> Google
+                                </span>
+                              )}
+                            </div>
                             {e.location && <div className="text-xs text-white/55 truncate">📍 {e.location}</div>}
                             {e.source === "ai" && <div className="text-[10px] text-purple-300 mt-0.5">Ajouté par votre double</div>}
                           </div>
+                          {gcalStatus?.connected && !e.google_event_id && (
+                            <button onClick={() => onPushOne(e.id)} disabled={gcalBusy} title="Envoyer vers Google Calendar" className="opacity-0 group-hover:opacity-100 p-1.5 rounded hover:bg-blue-500/20 text-blue-300 transition">
+                              <Upload className="w-4 h-4" />
+                            </button>
+                          )}
                           <button onClick={() => deleteEvent(e.id)} className="opacity-0 group-hover:opacity-100 p-1.5 rounded hover:bg-red-500/20 text-red-300 transition">
                             <Trash2 className="w-4 h-4" />
                           </button>
