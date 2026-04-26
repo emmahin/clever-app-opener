@@ -161,6 +161,30 @@ export type Database = {
         }
         Relationships: []
       }
+      event_notifications: {
+        Row: {
+          event_id: string
+          id: string
+          kind: string
+          sent_at: string
+          user_id: string
+        }
+        Insert: {
+          event_id: string
+          id?: string
+          kind?: string
+          sent_at?: string
+          user_id: string
+        }
+        Update: {
+          event_id?: string
+          id?: string
+          kind?: string
+          sent_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       google_oauth_tokens: {
         Row: {
           access_token: string
@@ -218,6 +242,39 @@ export type Database = {
           email?: string | null
           id?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          id: string
+          last_used_at: string
+          p256dh: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          last_used_at?: string
+          p256dh: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          last_used_at?: string
+          p256dh?: string
+          user_agent?: string | null
+          user_id?: string
         }
         Relationships: []
       }
@@ -440,6 +497,8 @@ export type Database = {
           detail_level: string
           language: string
           notification_prefs: Json
+          proactive_last_run_at: string | null
+          proactive_prefs: Json
           school_zone: string
           typewriter: boolean
           updated_at: string
@@ -451,6 +510,8 @@ export type Database = {
           detail_level?: string
           language?: string
           notification_prefs?: Json
+          proactive_last_run_at?: string | null
+          proactive_prefs?: Json
           school_zone?: string
           typewriter?: boolean
           updated_at?: string
@@ -462,6 +523,8 @@ export type Database = {
           detail_level?: string
           language?: string
           notification_prefs?: Json
+          proactive_last_run_at?: string | null
+          proactive_prefs?: Json
           school_zone?: string
           typewriter?: boolean
           updated_at?: string
