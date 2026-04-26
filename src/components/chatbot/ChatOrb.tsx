@@ -25,7 +25,7 @@ export function ChatOrb({ isLoading = false }: ChatOrbProps) {
         src={starFrame}
         alt=""
         className={cn(
-          "relative w-full h-full object-contain transition-all duration-500 mix-blend-screen",
+          "relative w-full h-full object-contain transition-all duration-500",
           pulsing && "scale-105"
         )}
         style={{
