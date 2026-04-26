@@ -19,9 +19,9 @@ interface Props {
 }
 
 const DAY_MS = 86_400_000;
-const HOUR_PX = 64;             // height of one hour row (agrandi)
-const START_HOUR = 6;           // grid starts at 06:00
-const END_HOUR = 24;            // grid ends at 24:00 (exclusive)
+const HOUR_PX = 32;             // height of one hour row (compact)
+const START_HOUR = 8;           // grid starts at 08:00
+const END_HOUR = 22;            // grid ends at 22:00 (exclusive)
 const TOTAL_HOURS = END_HOUR - START_HOUR;
 
 function startOfDay(d: Date): Date {
