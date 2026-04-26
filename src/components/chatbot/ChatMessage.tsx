@@ -5,7 +5,7 @@ import { ThinkingIndicator } from "./ThinkingIndicator";
 import ReactMarkdown from "react-markdown";
 import { useSettings } from "@/contexts/SettingsProvider";
 import { useState } from "react";
-import { Copy, Check, RotateCcw, Pencil, X, Send } from "lucide-react";
+import { Copy, Check, RotateCcw, Pencil, X, Send, Reply } from "lucide-react";
 import { toast } from "sonner";
 
 interface ChatMessageProps {
@@ -149,6 +149,18 @@ export function ChatMessageItem({ message, isThinking, onRegenerate, onEditAndRe
             className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
           >
             {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+          </button>
+          <button
+            onClick={() => {
+              window.dispatchEvent(
+                new CustomEvent("nex:quoteReply", { detail: { text: message.content } }),
+              );
+            }}
+            title="Répondre"
+            aria-label="Répondre à ce message"
+            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
+          >
+            <Reply className="w-3.5 h-3.5" />
           </button>
           {isUser && onEditAndResend && (
             <button
