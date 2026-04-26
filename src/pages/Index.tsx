@@ -7,6 +7,7 @@ import { SuggestionPills } from "@/components/chatbot/SuggestionPills";
 import { ChatMessageItem } from "@/components/chatbot/ChatMessage";
 import { chatService, ChatMessage, ChatAttachment, APP_CATALOG, localAgentService, twinMemoryService, googleCalendarService } from "@/services";
 import { conversationService } from "@/services/conversationService";
+import { moodService } from "@/services/moodService";
 import { Expand, Minimize2, Settings2, Sparkles, MessageSquarePlus, Trash2, SlidersHorizontal, PhoneCall } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useSettings } from "@/contexts/SettingsProvider";
@@ -446,6 +447,12 @@ export default function Index() {
           conversationIdRef.current = conv.id;
         }
         await conversationService.addMessage(conversationIdRef.current, userMsg);
+        // Mémoire émotionnelle : tag l'humeur en arrière-plan (jamais bloquant).
+        moodService.tagMessage({
+          messageId: userMsg.id,
+          conversationId: conversationIdRef.current,
+          content: userMsg.content,
+        });
       } catch (e) {
         console.warn("[chat] persist user message failed", e);
       }
