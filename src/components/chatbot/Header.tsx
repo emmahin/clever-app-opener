@@ -1,5 +1,5 @@
-import { User, LogOut, Settings as SettingsIcon, Coins, Shield, Infinity as InfinityIcon, Calendar } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { User, LogOut, Settings as SettingsIcon, Coins, Shield, Infinity as InfinityIcon, Calendar, ArrowLeft } from "lucide-react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { NotificationBell } from "./NotificationBell";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
@@ -21,10 +21,28 @@ export function Header(_props: HeaderProps = {}) {
   const { user, signOut } = useAuth();
   const { isAdmin } = useIsAdmin();
   const navigate = useNavigate();
+  const location = useLocation();
+  // Le bouton retour est masqué sur l'accueil (rien à quitter).
+  const showBack = location.pathname !== "/";
+  const goBack = () => {
+    // Si on a un historique applicatif, on revient en arrière, sinon on rentre à l'accueil.
+    if (window.history.length > 1) navigate(-1);
+    else navigate("/");
+  };
   return (
     <header
       className="fixed top-0 left-0 md:[left:var(--sidebar-w,280px)] md:transition-[left] md:duration-300 right-0 h-14 flex items-center justify-end pl-14 pr-3 md:px-6 gap-2 z-40"
       style={{ background: "linear-gradient(90deg, hsl(0, 0%, 4%, 0.95), hsl(275, 70%, 22%, 0.95))" }}>
+      {showBack && (
+        <button
+          onClick={goBack}
+          title="Retour"
+          aria-label="Retour"
+          className="mr-auto w-9 h-9 rounded-lg bg-white/20 flex items-center justify-center text-white hover:bg-white/25 transition-colors"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+      )}
       {/* Right actions */}
       <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
         <button
