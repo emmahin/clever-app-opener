@@ -3,7 +3,6 @@ import { Sidebar } from "@/components/chatbot/Sidebar";
 import { Header } from "@/components/chatbot/Header";
 import { ChatOrb } from "@/components/chatbot/ChatOrb";
 import { ChatInput } from "@/components/chatbot/ChatInput";
-import { TwinCallModal } from "@/components/chatbot/TwinCallModal";
 import { SuggestionPills } from "@/components/chatbot/SuggestionPills";
 import { ChatMessageItem } from "@/components/chatbot/ChatMessage";
 import { chatService, ChatMessage, ChatAttachment, APP_CATALOG, localAgentService } from "@/services";
@@ -131,7 +130,6 @@ export default function Index() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [voiceCallOpen, setVoiceCallOpen] = useState(false);
-  const [twinCallOpen, setTwinCallOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -531,7 +529,6 @@ export default function Index() {
                 onSend={sendMessage}
                 disabled={isLoading}
                 onOpenVoiceCall={() => setVoiceCallOpen(true)}
-                onOpenTwinCall={() => setTwinCallOpen(true)}
               />
 
               {/* Suggestions */}
@@ -553,7 +550,6 @@ export default function Index() {
 
       </main>
       <VoiceCallMode open={voiceCallOpen} onClose={() => setVoiceCallOpen(false)} />
-      <TwinCallModal open={twinCallOpen} onClose={() => setTwinCallOpen(false)} />
     </div>
   );
 }
