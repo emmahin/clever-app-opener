@@ -554,6 +554,7 @@ export default function Index() {
     abortRef.current?.abort();
     setIsLoading(false);
     setMessages([]);
+    conversationIdRef.current = null;
   };
 
   return (
