@@ -186,6 +186,10 @@ export function VoiceCallMode({ open, onClose }: Props) {
         messages: llmMessagesRef.current,
         memoriesContext: memoriesContextRef.current,
         eventsContext: eventsContextRef.current,
+        timezone: (() => {
+          try { return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; }
+          catch { return "UTC"; }
+        })(),
       },
     });
     if (error) throw new Error(error.message || "Échec IA");
