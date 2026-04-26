@@ -197,48 +197,6 @@ export type Database = {
         }
         Relationships: []
       }
-      ical_subscriptions: {
-        Row: {
-          created_at: string
-          events_count: number
-          id: string
-          is_active: boolean
-          label: string
-          last_error: string | null
-          last_synced_at: string | null
-          provider: string
-          updated_at: string
-          url: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          events_count?: number
-          id?: string
-          is_active?: boolean
-          label?: string
-          last_error?: string | null
-          last_synced_at?: string | null
-          provider?: string
-          updated_at?: string
-          url: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          events_count?: number
-          id?: string
-          is_active?: boolean
-          label?: string
-          last_error?: string | null
-          last_synced_at?: string | null
-          provider?: string
-          updated_at?: string
-          url?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       profiles: {
         Row: {
           created_at: string
@@ -322,7 +280,6 @@ export type Database = {
           external_provider: string | null
           external_uid: string | null
           google_event_id: string | null
-          ical_subscription_id: string | null
           id: string
           location: string | null
           notes: string | null
@@ -340,7 +297,6 @@ export type Database = {
           external_provider?: string | null
           external_uid?: string | null
           google_event_id?: string | null
-          ical_subscription_id?: string | null
           id?: string
           location?: string | null
           notes?: string | null
@@ -358,7 +314,6 @@ export type Database = {
           external_provider?: string | null
           external_uid?: string | null
           google_event_id?: string | null
-          ical_subscription_id?: string | null
           id?: string
           location?: string | null
           notes?: string | null
@@ -370,13 +325,6 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "schedule_events_ical_subscription_id_fkey"
-            columns: ["ical_subscription_id"]
-            isOneToOne: false
-            referencedRelation: "ical_subscriptions"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "schedule_events_recurring_rule_id_fkey"
             columns: ["recurring_rule_id"]
