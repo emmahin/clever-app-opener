@@ -470,6 +470,10 @@ export default function Index() {
     // Construit l'agenda (localStorage + Supabase + pull GCal si pertinent).
     const scheduleForAI = await buildScheduleForAI(content);
 
+    // Récupère la tendance émotionnelle récente pour adapter le ton de l'IA.
+    // Silencieux : si rien (pas assez de data), on envoie null.
+    const moodContext = await moodService.recentContext(7).catch(() => null);
+
     let accumulated = "";
     let lastWidgets: import("@/services/types").ChatWidget[] | undefined;
     await chatService.streamChat({
@@ -550,6 +554,7 @@ export default function Index() {
       deepThink: options?.deepThink,
       forceTool: options?.forceTool ?? null,
       schedule: scheduleForAI,
+      moodContext,
     });
   };
 
