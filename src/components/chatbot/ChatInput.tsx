@@ -50,6 +50,28 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
   const isRecordingRef = useRef(false);
   useEffect(() => { isRecordingRef.current = isRecording; }, [isRecording]);
 
+  // Écoute "Répondre" depuis une bulle de message : on pré-remplit l'input avec une citation.
+  useEffect(() => {
+    const onQuote = (e: Event) => {
+      const detail = (e as CustomEvent<{ text: string }>).detail;
+      if (!detail?.text) return;
+      const quoted = detail.text
+        .split("\n")
+        .map((l) => `> ${l}`)
+        .join("\n");
+      setValue((v) => (v ? `${v}\n\n${quoted}\n\n` : `${quoted}\n\n`));
+      setTimeout(() => {
+        const ta = textareaRef.current;
+        if (ta) {
+          ta.focus();
+          ta.setSelectionRange(ta.value.length, ta.value.length);
+        }
+      }, 0);
+    };
+    window.addEventListener("nex:quoteReply", onQuote as EventListener);
+    return () => window.removeEventListener("nex:quoteReply", onQuote as EventListener);
+  }, []);
+
   // Visualisation audio + dur\u00e9e
   const [recordSeconds, setRecordSeconds] = useState(0);
   const [waveform, setWaveform] = useState<number[]>(Array(28).fill(0));
