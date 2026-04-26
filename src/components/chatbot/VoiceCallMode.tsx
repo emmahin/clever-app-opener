@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Mic, X, Loader2, Volume2, PhoneOff } from "lucide-react";
-import { voiceService, chatService } from "@/services";
+import { voiceService } from "@/services";
+import { supabase } from "@/integrations/supabase/client";
+import { twinMemoryService, type MemoryCategory } from "@/services";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useSettings } from "@/contexts/SettingsProvider";
 import { toast } from "sonner";
@@ -17,6 +19,15 @@ const LANG_TO_BCP47: Record<string, string> = {
   fr: "fr-FR", en: "en-US", es: "es-ES", de: "de-DE",
 };
 
+const CATEGORY_LABEL: Record<MemoryCategory, string> = {
+  habit: "Habitude",
+  preference: "Préférence",
+  goal: "Objectif",
+  fact: "Fait",
+  emotion: "Émotion",
+  relationship: "Relation",
+};
+
 export function VoiceCallMode({ open, onClose }: Props) {
   const { t, lang } = useLanguage();
   const { settings } = useSettings();
@@ -31,9 +42,43 @@ export function VoiceCallMode({ open, onClose }: Props) {
   const vadRafRef = useRef<number | null>(null);
   const silenceStartRef = useRef<number | null>(null);
   const speechDetectedRef = useRef<boolean>(false);
+  // Contexte du double numérique : mémoires + agenda chargés à l'ouverture
+  const memoriesContextRef = useRef<string>("");
+  const eventsContextRef = useRef<string>("");
+  // Historique LLM enrichi avec tool_calls (séparé de l'historique d'affichage)
+  const llmMessagesRef = useRef<{ role: "user" | "assistant" | "tool"; content: string; tool_call_id?: string; tool_calls?: any[] }[]>([]);
 
   useEffect(() => { phaseRef.current = phase; }, [phase]);
   useEffect(() => { historyRef.current = history; }, [history]);
+
+  // Charge mémoire + agenda à l'ouverture pour fournir le contexte au double
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const [memories, events] = await Promise.all([
+          twinMemoryService.listMemories(),
+          twinMemoryService.listEvents(60),
+        ]);
+        if (cancelled) return;
+        memoriesContextRef.current = memories
+          .slice(0, 30)
+          .map((m) => `- [${CATEGORY_LABEL[m.category]}] ${m.content}`)
+          .join("\n");
+        eventsContextRef.current = events
+          .slice(0, 15)
+          .map((e) => {
+            const d = new Date(e.start_iso);
+            return `- ${d.toLocaleString("fr-FR")} : ${e.title}${e.location ? ` (${e.location})` : ""}`;
+          })
+          .join("\n");
+      } catch (err) {
+        console.warn("[VoiceCallMode] context load failed", err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [open]);
 
   const stopAll = useCallback(() => {
     closedRef.current = true;
@@ -79,22 +124,78 @@ export function VoiceCallMode({ open, onClose }: Props) {
     });
   }, [lang]);
 
-  const askAI = useCallback(async (userText: string) => {
-    return new Promise<string>((resolve, reject) => {
-      let acc = "";
-      chatService.streamChat({
-        messages: [...historyRef.current, { role: "user", content: userText }],
-        lang,
-        detailLevel: "short",
-        customInstructions: settings.customInstructions,
-        aiName: settings.aiName,
-        onDelta: (c) => { acc += c; },
-        onWidgets: () => {},
-        onDone: () => resolve(acc.trim()),
-        onError: (e) => reject(e),
-      });
+  // Exécute les tool calls renvoyés par le double (mémoire + agenda)
+  const executeTool = useCallback(async (name: string, args: any): Promise<string> => {
+    try {
+      if (name === "remember_fact") {
+        const valid: MemoryCategory[] = ["habit", "preference", "goal", "fact", "emotion", "relationship"];
+        const cat = (valid.includes(args.category) ? args.category : "fact") as MemoryCategory;
+        await twinMemoryService.addMemory({
+          category: cat,
+          content: String(args.content || "").trim(),
+          importance: Math.min(5, Math.max(1, Number(args.importance) || 3)),
+          source: "voice",
+        });
+        return `OK, mémorisé (${cat}).`;
+      }
+      if (name === "add_schedule_event") {
+        const start = new Date(args.start_iso);
+        if (isNaN(start.getTime())) return "Date invalide.";
+        await twinMemoryService.addEvent({
+          title: String(args.title || "").trim() || "Événement",
+          start_iso: start.toISOString(),
+          end_iso: args.end_iso ? new Date(args.end_iso).toISOString() : undefined,
+          location: args.location,
+          notes: args.notes,
+          source: "ai",
+        });
+        return `Événement ajouté pour le ${start.toLocaleString("fr-FR")}.`;
+      }
+      return `Tool inconnu: ${name}`;
+    } catch (e: any) {
+      return `Erreur tool ${name}: ${e?.message || "inconnue"}`;
+    }
+  }, []);
+
+  // Appel récursif du double via twin-chat (gère le tool calling)
+  const callTwinChat = useCallback(async (): Promise<string> => {
+    const { data, error } = await supabase.functions.invoke("twin-chat", {
+      body: {
+        messages: llmMessagesRef.current,
+        memoriesContext: memoriesContextRef.current,
+        eventsContext: eventsContextRef.current,
+      },
     });
-  }, [lang, settings.customInstructions, settings.aiName]);
+    if (error) throw new Error(error.message || "Échec IA");
+    if (data?.error) throw new Error(data.error);
+    const message = data?.message;
+    if (!message) throw new Error("Réponse vide");
+
+    if (Array.isArray(message.tool_calls) && message.tool_calls.length > 0) {
+      llmMessagesRef.current.push({
+        role: "assistant",
+        content: message.content || "",
+        tool_calls: message.tool_calls,
+      });
+      for (const call of message.tool_calls) {
+        const name = call.function?.name;
+        let args: any = {};
+        try { args = JSON.parse(call.function?.arguments || "{}"); } catch { /* ignore */ }
+        const result = await executeTool(name, args);
+        llmMessagesRef.current.push({ role: "tool", tool_call_id: call.id, content: result });
+      }
+      return await callTwinChat();
+    }
+
+    const text: string = message.content || "";
+    llmMessagesRef.current.push({ role: "assistant", content: text });
+    return text;
+  }, [executeTool]);
+
+  const askAI = useCallback(async (userText: string) => {
+    llmMessagesRef.current.push({ role: "user", content: userText });
+    return await callTwinChat();
+  }, [callTwinChat]);
 
   const stopVAD = useCallback(() => {
     if (vadRafRef.current) cancelAnimationFrame(vadRafRef.current);
@@ -211,6 +312,7 @@ export function VoiceCallMode({ open, onClose }: Props) {
       closedRef.current = false;
       setHistory([]);
       setPartial("");
+      llmMessagesRef.current = [];
       runTurn();
     } else {
       stopAll();
@@ -244,8 +346,9 @@ export function VoiceCallMode({ open, onClose }: Props) {
 
       {/* Title */}
       <div className="text-center">
-        <p className="text-xs uppercase tracking-widest text-muted-foreground">{t("voiceCallTitle")}</p>
+        <p className="text-xs uppercase tracking-widest text-muted-foreground">Double numérique</p>
         <h2 className="text-2xl font-semibold mt-1">{settings.aiName || "Jarvis"}</h2>
+        <p className="text-xs text-muted-foreground mt-1">Avec accès à votre mémoire & agenda</p>
       </div>
 
       {/* Orb */}
