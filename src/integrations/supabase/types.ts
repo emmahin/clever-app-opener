@@ -221,6 +221,57 @@ export type Database = {
         }
         Relationships: []
       }
+      recurring_schedule_rules: {
+        Row: {
+          active_from: string
+          active_until: string | null
+          created_at: string
+          day_of_week: number
+          end_time: string | null
+          id: string
+          is_active: boolean
+          location: string | null
+          notes: string | null
+          skip_school_holidays: boolean
+          start_time: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active_from?: string
+          active_until?: string | null
+          created_at?: string
+          day_of_week: number
+          end_time?: string | null
+          id?: string
+          is_active?: boolean
+          location?: string | null
+          notes?: string | null
+          skip_school_holidays?: boolean
+          start_time: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active_from?: string
+          active_until?: string | null
+          created_at?: string
+          day_of_week?: number
+          end_time?: string | null
+          id?: string
+          is_active?: boolean
+          location?: string | null
+          notes?: string | null
+          skip_school_holidays?: boolean
+          start_time?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       schedule_events: {
         Row: {
           created_at: string
@@ -231,6 +282,7 @@ export type Database = {
           id: string
           location: string | null
           notes: string | null
+          recurring_rule_id: string | null
           source: string
           start_iso: string
           title: string
@@ -246,6 +298,7 @@ export type Database = {
           id?: string
           location?: string | null
           notes?: string | null
+          recurring_rule_id?: string | null
           source?: string
           start_iso: string
           title: string
@@ -261,13 +314,22 @@ export type Database = {
           id?: string
           location?: string | null
           notes?: string | null
+          recurring_rule_id?: string | null
           source?: string
           start_iso?: string
           title?: string
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "schedule_events_recurring_rule_id_fkey"
+            columns: ["recurring_rule_id"]
+            isOneToOne: false
+            referencedRelation: "recurring_schedule_rules"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_credits: {
         Row: {
@@ -375,6 +437,7 @@ export type Database = {
           detail_level: string
           language: string
           notification_prefs: Json
+          school_zone: string
           typewriter: boolean
           updated_at: string
           user_id: string
@@ -385,6 +448,7 @@ export type Database = {
           detail_level?: string
           language?: string
           notification_prefs?: Json
+          school_zone?: string
           typewriter?: boolean
           updated_at?: string
           user_id: string
@@ -395,6 +459,7 @@ export type Database = {
           detail_level?: string
           language?: string
           notification_prefs?: Json
+          school_zone?: string
           typewriter?: boolean
           updated_at?: string
           user_id?: string
