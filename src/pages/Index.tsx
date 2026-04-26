@@ -3,6 +3,7 @@ import { Sidebar } from "@/components/chatbot/Sidebar";
 import { Header } from "@/components/chatbot/Header";
 import { ChatOrb } from "@/components/chatbot/ChatOrb";
 import { ChatInput } from "@/components/chatbot/ChatInput";
+import { TwinCallModal } from "@/components/chatbot/TwinCallModal";
 import { SuggestionPills } from "@/components/chatbot/SuggestionPills";
 import { ChatMessageItem } from "@/components/chatbot/ChatMessage";
 import { chatService, ChatMessage, ChatAttachment, APP_CATALOG, localAgentService } from "@/services";
@@ -130,6 +131,7 @@ export default function Index() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [voiceCallOpen, setVoiceCallOpen] = useState(false);
+  const [twinCallOpen, setTwinCallOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -525,7 +527,12 @@ export default function Index() {
           {/* Input area */}
           <div className="absolute bottom-0 left-0 right-0 px-3 md:px-6 pb-4 md:pb-6 pt-3 bg-gradient-to-t from-black/80 via-black/40 to-transparent" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
             <div className="max-w-3xl mx-auto">
-              <ChatInput onSend={sendMessage} disabled={isLoading} onOpenVoiceCall={() => setVoiceCallOpen(true)} />
+              <ChatInput
+                onSend={sendMessage}
+                disabled={isLoading}
+                onOpenVoiceCall={() => setVoiceCallOpen(true)}
+                onOpenTwinCall={() => setTwinCallOpen(true)}
+              />
 
               {/* Suggestions */}
               <div className="mt-3 md:mt-4">
@@ -546,6 +553,7 @@ export default function Index() {
 
       </main>
       <VoiceCallMode open={voiceCallOpen} onClose={() => setVoiceCallOpen(false)} />
+      <TwinCallModal open={twinCallOpen} onClose={() => setTwinCallOpen(false)} />
     </div>
   );
 }

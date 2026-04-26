@@ -2,12 +2,13 @@ import { Sidebar } from "@/components/chatbot/Sidebar";
 import { Header } from "@/components/chatbot/Header";
 import { useSettings, DetailLevel } from "@/contexts/SettingsProvider";
 import { useLanguage, LANGS, Lang } from "@/i18n/LanguageProvider";
-import { Settings as SettingsIcon, Globe, Sparkles, MessageSquare, Trash2, RotateCcw, Check, Bell, Monitor, ChevronDown } from "lucide-react";
+import { Settings as SettingsIcon, Globe, Sparkles, MessageSquare, Trash2, RotateCcw, Check, Bell, Monitor, ChevronDown, Brain } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useNotificationPrefs } from "@/hooks/useNotifications";
 import { NotificationType } from "@/services/notificationService";
 import { LocalAgentSection } from "@/components/chatbot/LocalAgentSection";
+import { MemorySection } from "@/components/settings/MemorySection";
 
 export default function Settings() {
   const { settings, update, reset } = useSettings();
@@ -143,6 +144,15 @@ export default function Settings() {
                 </button>
               </div>
             </div>
+          </Section>
+
+          {/* Mémoire & habitudes (double numérique) */}
+          <Section
+            icon={<Brain className="w-5 h-5" />}
+            title="Mémoire & habitudes"
+            description="Ce que ton double numérique sait de toi pendant les appels vocaux. Ajoute, modifie ou supprime ce que tu veux."
+          >
+            <MemorySection />
           </Section>
 
           {/* Notifications */}

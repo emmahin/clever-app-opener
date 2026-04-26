@@ -19,7 +19,7 @@ import Auth from "./pages/Auth.tsx";
 import Install from "./pages/Install.tsx";
 import Billing from "./pages/Billing.tsx";
 import AdminUsers from "./pages/AdminUsers.tsx";
-import Twin from "./pages/Twin.tsx";
+import Agenda from "./pages/Agenda.tsx";
 import { AuthGuard } from "@/components/AuthGuard";
 import { RootErrorBoundary } from "@/components/RootErrorBoundary";
 
@@ -48,7 +48,7 @@ const App = () => (
             <Route path="/notifications" element={<AuthGuard><Notifications /></AuthGuard>} />
             <Route path="/billing" element={<AuthGuard><Billing /></AuthGuard>} />
             <Route path="/admin/users" element={<AuthGuard><AdminUsers /></AuthGuard>} />
-            <Route path="/twin" element={<AuthGuard><Twin /></AuthGuard>} />
+            <Route path="/agenda" element={<AuthGuard><Agenda /></AuthGuard>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

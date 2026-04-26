@@ -23,9 +23,11 @@ interface ChatInputProps {
   ) => void;
   disabled?: boolean;
   onOpenVoiceCall?: () => void;
+  /** Ouvre l'appel vocal du double numérique (avec mémoire + agenda). */
+  onOpenTwinCall?: () => void;
 }
 
-export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps) {
+export function ChatInput({ onSend, disabled, onOpenVoiceCall, onOpenTwinCall }: ChatInputProps) {
   const { t } = useLanguage();
   const [value, setValue] = useState("");
   const [isRecording, setIsRecording] = useState(false);
@@ -630,6 +632,26 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
                 </div>
               </TooltipContent>
             </Tooltip>
+            {onOpenTwinCall && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={onOpenTwinCall}
+                    className="w-10 h-10 rounded-full flex items-center justify-center hover:scale-105 transition-transform shadow-lg shadow-purple-500/40"
+                    style={{ background: "linear-gradient(135deg, hsl(280 90% 55%), hsl(320 90% 55%))" }}
+                    aria-label="Appeler mon double numérique"
+                  >
+                    <Sparkles className="w-5 h-5 text-white" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Double numérique (vocal)</span>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            )}
             </div>
           </TooltipProvider>
         </div>
