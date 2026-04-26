@@ -257,7 +257,7 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
   return (
     <div className="relative">
       <div
-        className="glass rounded-2xl p-4 shadow-elegant"
+        className="rounded-2xl p-4 shadow-elegant border border-primary/25 backdrop-blur-xl bg-gradient-to-br from-primary/15 via-accent/10 to-fuchsia-500/15"
         onDragOver={(e) => e.preventDefault()}
         onDrop={onDrop}
       >
