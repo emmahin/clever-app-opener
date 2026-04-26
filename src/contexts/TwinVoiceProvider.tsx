@@ -1,5 +1,5 @@
 import { createContext, useContext, ReactNode, useCallback, useRef, useState } from "react";
-import { useConversation } from "@elevenlabs/react";
+import { ConversationProvider, useConversation } from "@elevenlabs/react";
 import { supabase } from "@/integrations/supabase/client";
 import { twinMemoryService, type MemoryCategory } from "@/services";
 
@@ -26,7 +26,7 @@ interface TwinVoiceContextValue {
 
 const TwinVoiceContext = createContext<TwinVoiceContextValue | null>(null);
 
-export function TwinVoiceProvider({ children }: { children: ReactNode }) {
+function TwinVoiceProviderInner({ children }: { children: ReactNode }) {
   const [isCallActive, setIsCallActive] = useState(false);
   const [transcript, setTranscript] = useState<TwinTurn[]>([]);
   const [interim] = useState("");
@@ -175,6 +175,14 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
   };
 
   return <TwinVoiceContext.Provider value={value}>{children}</TwinVoiceContext.Provider>;
+}
+
+export function TwinVoiceProvider({ children }: { children: ReactNode }) {
+  return (
+    <ConversationProvider>
+      <TwinVoiceProviderInner>{children}</TwinVoiceProviderInner>
+    </ConversationProvider>
+  );
 }
 
 export function useTwinVoiceContext() {
