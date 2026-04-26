@@ -42,6 +42,7 @@ function buildSystemPrompt(opts: {
   schedule?: Array<{ title: string; start_iso: string; end_iso?: string; location?: string; notes?: string }>;
   timezone?: string;
   scheduleRelevant?: boolean;
+  moodContext?: { dominantMood: string; trend: string; topThemes: string[]; sampleSize: number } | null;
 }): string {
   const name = LANG_NAMES[opts.lang] || "français";
   const detail = DETAIL_STYLES[opts.detailLevel || "normal"] || DETAIL_STYLES.normal;
@@ -86,6 +87,14 @@ function buildSystemPrompt(opts: {
     ? `\n\nEMPLOI DU TEMPS (${sched.length} évt) :\n` +
       sched.map((e) => `- ${e.start_iso}${e.end_iso ? `→${e.end_iso}` : ""}: ${e.title}${e.location ? ` @${e.location}` : ""}`).join("\n")
     : "";
+  // Tendance émotionnelle récente (mémoire émotionnelle).
+  // On reste discret : on adapte le ton sans jamais nommer explicitement l'humeur ni faire de "diagnostic".
+  const moodBlock = (opts.moodContext && opts.moodContext.sampleSize >= 3)
+    ? `\n\nMÉMOIRE ÉMOTIONNELLE (7 derniers jours, ${opts.moodContext.sampleSize} messages analysés) :
+- Humeur dominante observée : ${opts.moodContext.dominantMood} (tendance : ${opts.moodContext.trend})
+- Sujets récurrents : ${opts.moodContext.topThemes.length ? opts.moodContext.topThemes.join(", ") : "non identifiés"}
+ADAPTATION : ajuste subtilement ton ton à cet état émotionnel. Si "stressed/anxious/sad/tired", sois plus doux, posé et rassurant. Si "joyful/excited", sois énergique et célébratoire. Si "frustrated/angry", sois calme et concis. Ne mentionne JAMAIS explicitement cette analyse à l'utilisateur sauf s'il le demande.`
+    : "";
   const webHint = opts.webSearch
     ? `\n\nMODE RECHERCHE WEB ACTIVÉ : utilise OBLIGATOIREMENT l'outil web_search pour appuyer ta réponse sur des sources web fraîches. Cite les sources dans ta réponse.`
     : "";
@@ -99,7 +108,7 @@ function buildSystemPrompt(opts: {
 ${aiIdentity}
 LANGUE DE RÉPONSE : détecte automatiquement la langue du DERNIER message de l'utilisateur et réponds STRICTEMENT dans cette même langue, en markdown. N'utilise JAMAIS la langue de l'interface (${name}) pour décider — uniquement la langue du message reçu. Si l'utilisateur change de langue, change avec lui.
 Heure locale: ${nowLocalReadable} (${tz}, ${tzOffsetStr}). UTC: ${nowIsoUtc}.
-Quand l'utilisateur dit une heure, c'est l'heure LOCALE. Format ISO 8601 avec offset ${tzOffsetStr} (jamais "Z").${schedBlock}
+Quand l'utilisateur dit une heure, c'est l'heure LOCALE. Format ISO 8601 avec offset ${tzOffsetStr} (jamais "Z").${schedBlock}${moodBlock}
 
 RÈGLES OUTILS (n'utilise un outil QUE si la demande l'exige) :
 - Données fraîches/web/actu/finance → fetch_news / fetch_stocks / web_search.
