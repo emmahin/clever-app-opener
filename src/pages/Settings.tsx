@@ -2,7 +2,7 @@ import { Sidebar } from "@/components/chatbot/Sidebar";
 import { Header } from "@/components/chatbot/Header";
 import { useSettings, DetailLevel } from "@/contexts/SettingsProvider";
 import { useLanguage, LANGS, Lang } from "@/i18n/LanguageProvider";
-import { Settings as SettingsIcon, Globe, Sparkles, MessageSquare, Trash2, RotateCcw, Check, Bell, Monitor, ChevronDown, Brain, CalendarClock, GraduationCap } from "lucide-react";
+import { Settings as SettingsIcon, Globe, Sparkles, MessageSquare, Trash2, RotateCcw, Check, Bell, Monitor, ChevronDown, Brain, CalendarClock } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useNotificationPrefs } from "@/hooks/useNotifications";
@@ -10,7 +10,6 @@ import { NotificationType } from "@/services/notificationService";
 import { LocalAgentSection } from "@/components/chatbot/LocalAgentSection";
 import { MemorySection } from "@/components/settings/MemorySection";
 import { RecurringScheduleSection } from "@/components/settings/RecurringScheduleSection";
-import { IcalSubscriptionsSection } from "@/components/settings/IcalSubscriptionsSection";
 
 export default function Settings() {
   const { settings, update, reset } = useSettings();
@@ -164,15 +163,6 @@ export default function Settings() {
             description="Tes cours, sport, réunions hebdomadaires. L'IA complète automatiquement les 7 prochains jours et saute les vacances scolaires."
           >
             <RecurringScheduleSection />
-          </Section>
-
-          {/* Pronote / iCal */}
-          <Section
-            icon={<GraduationCap className="w-5 h-5" />}
-            title="Pronote & autres calendriers iCal"
-            description="Connecte ton calendrier Pronote (lien iCal) ou tout autre flux iCal. Synchronisé automatiquement toutes les heures dans ton agenda."
-          >
-            <IcalSubscriptionsSection />
           </Section>
 
           {/* Notifications */}
