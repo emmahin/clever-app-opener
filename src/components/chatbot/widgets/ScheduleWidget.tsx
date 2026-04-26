@@ -171,7 +171,7 @@ export function ScheduleWidget({
       : `${days[0].toLocaleDateString([], { day: "numeric", month: "short" })} – ${days[6].toLocaleDateString([], { day: "numeric", month: "short", year: "numeric" })}`;
 
   return (
-    <div className="rounded-xl border border-violet-500/40 bg-gradient-to-br from-violet-900/25 to-fuchsia-900/15 p-4 md:p-5 w-full max-w-[1100px]">
+    <div className="rounded-xl border border-violet-500/40 bg-gradient-to-br from-violet-900/25 to-fuchsia-900/15 p-4 md:p-5 w-full">
       {/* Header */}
       <div className="flex items-center justify-between gap-2 mb-3">
         <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
