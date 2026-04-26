@@ -1255,7 +1255,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages, lang, detailLevel, customInstructions, aiName, attachments, webSearch, deepThink, forceTool, schedule } = await req.json();
+    const { messages, lang, detailLevel, customInstructions, aiName, attachments, webSearch, deepThink, forceTool, schedule, timezone } = await req.json();
     if (!Array.isArray(messages)) {
       return new Response(JSON.stringify({ error: "messages must be an array" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -1348,6 +1348,7 @@ Deno.serve(async (req) => {
             forceTool: typeof forceTool === "string" ? forceTool : null,
             schedule: Array.isArray(schedule) ? schedule : [],
             scheduleRelevant: needsScheduleContext(userText),
+            timezone: typeof timezone === "string" ? timezone : "UTC",
           });
           const pastedVideoUrl = extractVideoUrl(userText);
           if (pastedVideoUrl) {
