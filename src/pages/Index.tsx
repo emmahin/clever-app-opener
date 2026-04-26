@@ -5,7 +5,7 @@ import { ChatOrb } from "@/components/chatbot/ChatOrb";
 import { ChatInput } from "@/components/chatbot/ChatInput";
 import { SuggestionPills } from "@/components/chatbot/SuggestionPills";
 import { ChatMessageItem } from "@/components/chatbot/ChatMessage";
-import { chatService, ChatMessage, ChatAttachment, APP_CATALOG, localAgentService } from "@/services";
+import { chatService, ChatMessage, ChatAttachment, APP_CATALOG, localAgentService, twinMemoryService, googleCalendarService } from "@/services";
 import { Expand, Minimize2, Settings2, Sparkles, MessageSquarePlus, Trash2, SlidersHorizontal, PhoneCall } from "lucide-react";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { useSettings } from "@/contexts/SettingsProvider";
