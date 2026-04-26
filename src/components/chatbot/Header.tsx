@@ -24,7 +24,7 @@ export function Header(_props: HeaderProps = {}) {
   return (
     <header
       className="fixed top-0 left-0 md:[left:var(--sidebar-w,280px)] md:transition-[left] md:duration-300 right-0 h-14 flex items-center justify-end pl-14 pr-3 md:px-6 gap-2 z-40"
-      style={{ background: "linear-gradient(90deg, hsl(0, 0%, 4%, 0.95), hsl(275, 85%, 45%, 0.95))" }}>
+      style={{ background: "linear-gradient(90deg, hsl(0, 0%, 4%, 0.95), hsl(275, 70%, 22%, 0.95))" }}>
       {/* Right actions */}
       <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
         <button
