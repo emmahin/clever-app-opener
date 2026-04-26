@@ -32,4 +32,6 @@ export type {
   ConversationSummary,
   ScheduleEventDB,
 } from "./twinMemoryService";
+export { googleCalendarService } from "./googleCalendarService";
+export type { GCalStatus, GCalSyncResult } from "./googleCalendarService";
 export * from "./types";
