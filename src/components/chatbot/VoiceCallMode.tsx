@@ -18,6 +18,58 @@ interface Props {
   onClose: () => void;
   /** Appelé pour chaque nouveau tour de parole (utilisateur ou IA) afin de l'enregistrer dans le chat. */
   onTurn?: (turn: VoiceTurn) => void;
+  /**
+   * Appelé quand on détecte que l'utilisateur a demandé vocalement quelque chose
+   * d'affichable (agenda, actus, marchés, paramètres…). Le parent peut alors
+   * minimiser l'overlay et afficher le widget correspondant dans le chat.
+   * Retourner `true` pour signaler que l'intention a été prise en charge
+   * (le composant déclenchera alors `setMinimized(true)` automatiquement).
+   */
+  onVoiceIntent?: (intent: VoiceIntent) => boolean | void;
+}
+
+export type VoiceIntent =
+  | { kind: "agenda"; rangeLabel?: string }
+  | { kind: "news" }
+  | { kind: "stocks" }
+  | { kind: "settings" }
+  | { kind: "notifications" };
+
+/**
+ * Détecte si la requête vocale demande l'affichage de quelque chose
+ * (agenda, actus, marchés…). Retourne l'intention ou `null`.
+ * On reste volontairement permissif : "montre-moi mon agenda", "c'est quoi mon
+ * agenda", "qu'est-ce que j'ai aujourd'hui", "les news", "le cours du Bitcoin"…
+ */
+function detectVoiceIntent(text: string): VoiceIntent | null {
+  const t = text.toLowerCase();
+  // Agenda / planning
+  if (/\b(agenda|calendrier|planning|emploi du temps|rendez[-\s]?vous|rdv|prochain|évén?ements?|aujourd['’]hui|demain|cette semaine|prochaine semaine|ce week[-\s]?end|ce mois|libre|disponible|réuni(?:on|ons))\b/.test(t)) {
+    let rangeLabel: string | undefined;
+    if (/\baujourd['’]hui\b/.test(t)) rangeLabel = "Aujourd'hui";
+    else if (/\bdemain\b/.test(t)) rangeLabel = "Demain";
+    else if (/\bcette semaine\b/.test(t)) rangeLabel = "Cette semaine";
+    else if (/\bce week[-\s]?end\b/.test(t)) rangeLabel = "Ce week-end";
+    else if (/\bce mois\b/.test(t)) rangeLabel = "Ce mois";
+    return { kind: "agenda", rangeLabel };
+  }
+  // News
+  if (/\b(actu(?:s|alit[ée]s?)?|news|nouvelles|infos?|journal)\b/.test(t)) {
+    return { kind: "news" };
+  }
+  // Bourse / marchés
+  if (/\b(bourse|march[ée]s?|stock|action|cac\s?40|nasdaq|s&p|bitcoin|crypto|cours)\b/.test(t)) {
+    return { kind: "stocks" };
+  }
+  // Notifications
+  if (/\b(notifications?|alertes?)\b/.test(t)) {
+    return { kind: "notifications" };
+  }
+  // Paramètres
+  if (/\b(param[èe]tres?|r[ée]glages?|settings?|pr[ée]f[ée]rences?)\b/.test(t)) {
+    return { kind: "settings" };
+  }
+  return null;
 }
 
 const CATEGORY_LABEL: Record<MemoryCategory, string> = {
@@ -29,7 +81,7 @@ const CATEGORY_LABEL: Record<MemoryCategory, string> = {
   relationship: "Relation",
 };
 
-export function VoiceCallMode({ open, onClose, onTurn }: Props) {
+export function VoiceCallMode({ open, onClose, onTurn, onVoiceIntent }: Props) {
   const { t } = useLanguage();
   const {
     isCallActive,
@@ -57,7 +109,19 @@ export function VoiceCallMode({ open, onClose, onTurn }: Props) {
     if (last.id === lastTurnIdRef.current) return;
     lastTurnIdRef.current = last.id;
     onTurn({ id: last.id, role: last.role, text: last.text, ts: last.ts });
-  }, [transcript, onTurn]);
+    // Détection d'intention SUR LES MESSAGES UTILISATEUR uniquement.
+    // Si une intention "affichable" est détectée, on minimise l'overlay
+    // pour que l'utilisateur voie immédiatement le widget injecté dans le chat.
+    if (last.role === "user" && onVoiceIntent) {
+      const intent = detectVoiceIntent(last.text);
+      if (intent) {
+        const handled = onVoiceIntent(intent);
+        if (handled !== false) {
+          setMinimized(true);
+        }
+      }
+    }
+  }, [transcript, onTurn, onVoiceIntent]);
 
   // Charge le contexte mémoire/agenda à l'ouverture
   useEffect(() => {
