@@ -1,108 +1,64 @@
-## Audit complet du projet
+# Plan — Diagnostic de la clé OpenAI
 
-Voici tout ce qui ne va pas, classé par gravité, avec ce qui consomme tes crédits IA Lovable et ce qui ne s'enregistre nulle part.
+## Objectif
 
----
+Créer un outil pour voir exactement à quoi votre clé `OPENAI_API_KEY` (celle de platform.openai.com, avec ses règles de projet) a accès : liste des modèles, accès Whisper, accès TTS, accès Chat Completions.
 
-### 🔴 PRIORITÉ 1 — Persistance manquante (perte de données au refresh)
+## Ce qui existe déjà (rappel)
 
-**1. Historique de chat (Page principale `/`)**
+- `**voice-tts**` = seule fonction qui parle directement à `api.openai.com` avec votre clé. C'est elle qui plante avec `model_not_found`.
+- Tout le reste (chat, transcription, traduction…) passe par **Lovable AI Gateway**, donc ne touche pas à votre clé OpenAI.
+- Aucune fonction d'introspection n'existe.
 
-- Fichier : `src/pages/Index.tsx` ligne 130 → `useState<ChatMessage[]>([])`
-- Problème : **les messages ne sont stockés QUE en mémoire React**. Tu rafraîchis la page → tout est perdu.
-- La sidebar « projets » sauve un snapshot, mais en mémoire aussi (voir point 2).
-- **Correction proposée** : créer une table `conversations` + `chat_messages` en DB, charger la dernière conversation au mount, sauver chaque message à l'envoi/réception.
+## Ce qu'on va construire
 
-**2. Projets sauvegardés (sidebar "Mes chats")**
+### 1. Nouvelle edge function `openai-diagnostics`
 
-- Fichier : `src/contexts/ProjectsProvider.tsx` ligne 33 → `useState<SavedProject[]>([])`
-- Problème : **aucune persistance, même pas localStorage**. Tu fermes l'onglet → tous tes chats sauvegardés disparaissent.
-- **Correction proposée** : nouvelle table `saved_projects (id, user_id, category, name, data jsonb, created_at, updated_at)` avec RLS user, et synchro depuis le provider.
+Fichier : `supabase/functions/openai-diagnostics/index.ts`
 
-**3. WhatsApp — contacts et messages**
+Appelle directement l'API OpenAI avec votre `OPENAI_API_KEY` (jamais Lovable AI Gateway) et retourne un rapport JSON :
 
-- on abandonne le projet whatsapp pour l'instant 
+- `**GET /v1/models**` → liste complète des modèles accessibles à la clé, regroupés par famille :
+  - Chat (`gpt-4o`, `gpt-4o-mini`, `gpt-4-turbo`, `gpt-3.5-*`, `o1-*`, `gpt-5-*`…)
+  - Audio TTS (`tts-1`, `tts-1-hd`, `gpt-4o-mini-tts`…)
+  - Audio STT / Whisper (`whisper-1`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`…)
+  - Embeddings, Images, Moderation, Realtime, autres
+- **Tests d'accès réels** (probe minimal pour distinguer "listé" vs "vraiment utilisable") :
+  - Test Whisper : POST minimal sur `/v1/audio/transcriptions` avec un mini buffer audio silencieux → on regarde si on récupère 200, 401, 403 ou `model_not_found`.
+  - Test TTS : POST sur `/v1/audio/speech` avec `tts-1` + 1 mot → idem.
+  - Test Chat : POST sur `/v1/chat/completions` avec `gpt-4o-mini` + 1 token max.
+- Renvoie pour chaque test : `{ ok: boolean, status: number, errorCode?: string, errorMessage?: string }`.
 
-**4. Notifications**
+Auth : la fonction exige un JWT utilisateur valide (lecture du header `Authorization`) pour éviter qu'un visiteur anonyme l'utilise pour pinger OpenAI à votre place.
 
-- Fichier : `src/services/notificationService.ts` lignes 43-44 → localStorage
-- Problème : pas synchro entre appareils. Mais comme les push web sont par-device, c'est moins grave.
-- **Correction proposée** : créer table `app_notifications` et migrer (optionnel — à valider).
+### 2. Nouvelle page front `/openai-diagnostics`
 
----
+Fichier : `src/pages/OpenAIDiagnostics.tsx` + route ajoutée dans `src/App.tsx`.
 
-### 🟠 PRIORITÉ 2 — Incohérences (données dupliquées ou contradictoires)
+Interface simple (shadcn `Card` + `Badge` + `Button`) , accessible meme sans être logué (pour l'instant) :
 
-**5. Agenda : double source de vérité**
+- Bouton **« Lancer le diagnostic »** qui appelle `supabase.functions.invoke("openai-diagnostics")`.
+- Affichage :
+  - **Bandeau de capacités** : 4 badges colorés (Chat / Whisper / TTS / Embeddings) → vert si accessible, rouge sinon, avec le message d'erreur OpenAI exact en tooltip.
+  - **Tableau des modèles** : liste complète retournée par `/v1/models`, groupée par catégorie, avec ID + date de création + propriétaire.
+  - **Détails bruts** : section pliable avec la réponse JSON complète pour debug.
+- État de chargement et gestion d'erreur propre (clé absente, 401, réseau).
 
-- `src/services/scheduleService.ts` → localStorage (`app_schedule_events`)
-- Table DB `schedule_events` → utilisée par `twinMemoryService` (tools de l'IA)
-- `Index.tsx` ligne 215-224 → fait un merge des deux et déduplique à la volée. Fragile.
-- Conséquence : un event créé par l'IA n'apparaît pas dans `scheduleService` local et inversement. Le widget calendrier risque de montrer des choses différentes selon d'où on vient.
-- **Correction proposée** : **supprimer entièrement `scheduleService` localStorage** et faire passer TOUTES les opérations (add/remove/list) par la DB via `twinMemoryService` / `scheduleEventsService`. Une seule source de vérité.
+### 3. Accès à la page
 
-**6. Trois systèmes de chat IA en parallèle**
+Ajouter un lien discret dans la sidebar (ou via une URL directe `/openai-diagnostics`). Dites-moi votre préférence si vous voulez un emplacement précis — sinon je la mets en accès direct par URL + lien dans Settings.
 
-- `supabase/functions/ai-chat/index.ts` — modèle `google/gemini-3-flash-preview` (semble obsolète, utilisé nulle part dans `src/services/`)
-- `supabase/functions/ai-orchestrator/index.ts` — **le vrai chat actif**, appelé par `chatService.ts`
-- `supabase/functions/twin-chat/index.ts` — chat séparé du « voice mode », appelé par `TwinVoiceProvider`
-- **Correction proposée** : vérifier si `ai-chat` est encore référencé. Si non → la supprimer. Économise de la maintenance et évite que quelqu'un l'appelle par erreur.
+## Détails techniques
 
----
+- Pas de modification de `voice-tts` dans ce plan — on traite d'abord le diagnostic. Une fois que vous saurez quels modèles TTS sont réellement accessibles à votre clé, on ajustera `voice-tts` pour n'utiliser que ceux-là (ou on basculera la transcription vers Whisper si vous y avez accès).
+- Aucune utilisation du Lovable AI Gateway dans cette nouvelle fonction.
+- CORS standard, `verify_jwt = false` côté config (la fonction valide le JWT manuellement) — cohérent avec les autres fonctions du projet.
+- Aucune migration DB nécessaire.
 
-### 💸 PRIORITÉ 3 — Usages IA Lovable (ce qui consomme tes crédits)
+## Livrable
 
-Voici **toutes** les fonctions qui appellent `LOVABLE_API_KEY` :
+Après approbation :
 
-
-| Edge function               | Modèle                                                              | Quand c'est appelé                             | Coût estimé         |
-| --------------------------- | ------------------------------------------------------------------- | ---------------------------------------------- | ------------------- |
-| `ai-orchestrator`           | `gemini-3-flash-preview` (ou `gemini-3.1-pro-preview` si deepThink) | À chaque message de chat                       | 🔴 Élevé            |
-| `ai-chat`                   | `gemini-3-flash-preview`                                            | Probablement plus utilisé (à confirmer)        | ⚪ Inactif ?         |
-| `twin-chat`                 | `gemini-2.5-flash`                                                  | Mode appel vocal                               | 🟠 Moyen            |
-| `voice-transcribe`          | `gemini-2.5-flash`                                                  | Chaque message vocal                           | 🟠 Moyen            |
-| `proactive-tick`            | `gemini-2.5-flash-lite`                                             | **Cron toutes les 20 min, pour CHAQUE user**   | 🔴 Élevé en continu |
-| `translate`                 | `gemini-2.5-flash-lite`                                             | Traduction news (à chaque load si langue ≠ FR) | 🟠 Moyen            |
-| `organize-documents`        | `gemini-2.5-flash`                                                  | Quand tu tries des fichiers                    | 🟢 Ponctuel         |
-| `explain-organization`      | `gemini-2.5-flash-lite`                                             | Après tri                                      | 🟢 Ponctuel         |
-| `rules-from-prompt`         | `gemini-2.5-flash`                                                  | Création règles tri                            | 🟢 Ponctuel         |
-| `video-editor-agent`        | `gemini-2.5-flash`                                                  | Éditeur vidéo                                  | 🟢 Ponctuel         |
-| `video-command-from-prompt` | `gemini-2.5-flash-lite`                                             | Éditeur vidéo                                  | 🟢 Ponctuel         |
-| `explain-video-edit`        | `gemini-2.5-flash-lite`                                             | Éditeur vidéo                                  | 🟢 Ponctuel         |
-| `ai-orchestrator` (image)   | `gemini-2.5-flash-image`                                            | Génération images                              | 🟠 Moyen            |
-
-
-**Recommandations crédits** :
-
-- ✅ **Vérifier que `ai-chat` n'est plus appelée** et la supprimer.
-- ⚠️ Le cron `proactive-tick` toutes les 20 min × tous les users = **gros poste de dépense silencieux**. À surveiller / rendre désactivable per-user (déjà partiellement fait via `proactive_prefs`, à vérifier que c'est bien respecté).
-- ⚠️ `translate` peut tourner à chaque load des news — vérifier qu'il y a bien un cache.
-
----
-
-### 🟡 PRIORITÉ 4 — Petits problèmes RLS/DB
-
-**7. Table `event_notifications` sans DELETE/UPDATE pour les users**
-
-- Impossible pour un user de réinitialiser ses notifs envoyées → si bug, le cron ne re-notifie jamais.
-- **Correction** : ajouter policies DELETE pour `auth.uid() = user_id`.
-
-**8. Mock du service news**
-
-- `mockNewsService` : actus statiques fake. Pas un vrai bug mais à savoir.
-- **Correction** (optionnel) : brancher `news-feed` edge function (déjà déployée).
-
----
-
-### 📋 Plan d'exécution proposé
-
-Si tu valides, je vais faire dans cet ordre :
-
-1. **Migration SQL** : créer `conversations` + `chat_messages` (avec RLS), créer `saved_projects` (avec RLS), ajouter policies DELETE manquantes sur `event_notifications`.
-2. **Persistance chat** : modifier `Index.tsx` + `chatService` pour charger/sauver les messages depuis la DB, créer une nouvelle conversation au "Nouveau chat".
-3. **Persistance projets** : modifier `ProjectsProvider.tsx` pour synchro DB.
-4. **Unifier l'agenda** : supprimer `scheduleService` localStorage, faire passer tous les usages (Index, widget, voice mode) par `twinMemoryService` (DB).
-5. **Nettoyage** : vérifier `ai-chat` et la supprimer si inutilisée.
-6. **(Optionnel)** : WhatsApp en DB, notifications en DB — à valider avec toi car gros chantier.
-
-Dis-moi si tu veux que j'attaque tout, ou seulement certains points (par ex. juste 1+2+4 = persistance chat + agenda unifié, ce qui couvre 80% du problème).
+1. Edge function `openai-diagnostics` déployée.
+2. Page `/openai-diagnostics` accessible et fonctionnelle.
+3. Vous pourrez voir en un clic : liste exacte des modèles + statut Whisper/TTS/Chat derrière votre clé.
