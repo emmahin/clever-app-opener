@@ -371,4 +371,4 @@ export const VoiceCallMode = forwardRef<HTMLDivElement, Props>(function VoiceCal
       </div>
     </div>
   );
-}
+});
