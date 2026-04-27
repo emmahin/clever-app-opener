@@ -44,13 +44,16 @@ export type VoiceIntent =
  */
 function detectVoiceIntent(text: string): VoiceIntent | null {
   const t = text.toLowerCase();
-  const wantsDirectRoute = /\b(ouvre|ouvrir|va|aller|redirige|redirection|am[eè]ne|acc[eè]de|page|menu)\b/.test(t);
+  const wantsDirectRoute = /\b(ouvre|ouvrir|va|vas|aller|redirige|redirection|am[eè]ne|emm[eè]ne|acc[eè]de|affiche|montrer?|montre|page|menu)\b/.test(t);
   const routes: Array<{ path: string; label: string; re: RegExp }> = [
     { path: "/dashboard", label: "Tableau de bord", re: /\b(tableau de bord|dashboard)\b/ },
     { path: "/analytics", label: "Analytics", re: /\b(analytics|analyses?|statistiques?|stats)\b/ },
     { path: "/documents", label: "Documents", re: /\b(documents?|fichiers?)\b/ },
     { path: "/video", label: "Éditeur vidéo", re: /\b(vid[ée]o|montage|[ée]diteur vid[ée]o)\b/ },
     { path: "/billing", label: "Facturation", re: /\b(facturation|abonnement|billing|cr[ée]dits?)\b/ },
+    { path: "/agenda", label: "Agenda", re: /\b(agenda|calendrier|planning|emploi du temps)\b/ },
+    { path: "/settings", label: "Paramètres", re: /\b(param[èe]tres?|r[ée]glages?|settings?|pr[ée]f[ée]rences?)\b/ },
+    { path: "/notifications", label: "Notifications", re: /\b(notifications?|alertes?)\b/ },
   ];
   const directRoute = routes.find((route) => route.re.test(t));
   if (directRoute && wantsDirectRoute) {
@@ -116,32 +119,36 @@ export function VoiceCallMode({ open, onClose, onTurn, onVoiceIntent }: Props) {
   const [minimized, setMinimized] = useState(false);
   const memoriesContextRef = useRef<string>("");
   const eventsContextRef = useRef<string>("");
-  const lastSentSigRef = useRef<string | null>(null);
+  const sentTurnSigsRef = useRef<Map<string, string>>(new Map());
   const handledIntentIdsRef = useRef<Set<string>>(new Set());
 
   // Notifie le parent à chaque nouveau turn (user ou assistant) — pour persistance dans le chat
   useEffect(() => {
-    if (!onTurn || transcript.length === 0) return;
-    const last = transcript[transcript.length - 1];
-    // En streaming, le message assistant est inséré vide puis enrichi.
-    // On ignore tant qu'il n'a pas de texte, et on renvoie la version mise à
-    // jour à chaque changement de contenu (le parent dédoublonne par id).
-    if (!last.text || !last.text.trim()) return;
-    const sig = `${last.id}:${last.text.length}`;
-    if (sig === lastSentSigRef.current) return;
-    lastSentSigRef.current = sig;
-    onTurn({ id: last.id, role: last.role, text: last.text, ts: last.ts });
-    // Détection d'intention SUR LES MESSAGES UTILISATEUR uniquement.
-    // Si une intention "affichable" est détectée, on minimise l'overlay
-    // pour que l'utilisateur voie immédiatement le widget injecté dans le chat.
-    if (
-      last.role === "user" &&
-      onVoiceIntent &&
-      !handledIntentIdsRef.current.has(last.id)
-    ) {
-      handledIntentIdsRef.current.add(last.id);
-      const intent = detectVoiceIntent(last.text);
-      if (intent) {
+    if (transcript.length === 0) return;
+
+    // Important : React peut regrouper l'ajout du message utilisateur et du
+    // message assistant vide. Si on ne regarde que le dernier élément, on rate
+    // alors complètement l'intention utilisateur, donc plus aucune redirection.
+    transcript.forEach((turn) => {
+      const text = turn.text?.trim();
+      if (!text) return;
+
+      if (onTurn) {
+        const sig = `${turn.id}:${text.length}`;
+        if (sentTurnSigsRef.current.get(turn.id) !== sig) {
+          sentTurnSigsRef.current.set(turn.id, sig);
+          onTurn({ id: turn.id, role: turn.role, text: turn.text, ts: turn.ts });
+        }
+      }
+
+      // Détection d'intention SUR TOUS les messages utilisateur non traités,
+      // même s'ils ne sont déjà plus le dernier message du transcript.
+      if (turn.role !== "user" || !onVoiceIntent || handledIntentIdsRef.current.has(turn.id)) return;
+      handledIntentIdsRef.current.add(turn.id);
+      const intent = detectVoiceIntent(turn.text);
+      if (!intent) return;
+
+      try {
         const handled = onVoiceIntent(intent);
         if (handled instanceof Promise) {
           setMinimized(true);
@@ -149,8 +156,10 @@ export function VoiceCallMode({ open, onClose, onTurn, onVoiceIntent }: Props) {
         } else if (handled !== false) {
           setMinimized(true);
         }
+      } catch (err) {
+        console.warn("[VoiceCallMode] voice intent failed", err);
       }
-    }
+    });
   }, [transcript, onTurn, onVoiceIntent]);
 
   // Charge le contexte mémoire/agenda à l'ouverture
