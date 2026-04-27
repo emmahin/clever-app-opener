@@ -147,22 +147,47 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
       monitorCtxRef.current = ctx;
       const src = ctx.createMediaStreamSource(stream);
       const analyser = ctx.createAnalyser();
-      analyser.fftSize = 1024;
+      // FFT plus grosse = meilleure résolution de la mesure RMS sur la trame.
+      analyser.fftSize = 2048;
+      analyser.smoothingTimeConstant = 0; // on lisse nous-mêmes, plus précisément
       src.connect(analyser);
       const buf = new Uint8Array(analyser.fftSize);
-      let smoothed = 0;
+      // Deux niveaux de lissage :
+      //  - attack très rapide (montée quasi instantanée → réactif aux pics de voix)
+      //  - release plus doux (descente progressive → barre lisible)
+      let displayed = 0;
+      // Plancher de bruit dynamique : on apprend en continu le niveau de
+      // silence ambiant, et on l'utilise comme zéro de l'indicateur. Sans ça
+      // un faible bruit de fond fait croire que le micro "entend" quelque chose.
+      let noiseFloor = 0.005;
       const tick = () => {
         if (!monitorCtxRef.current) return;
         analyser.getByteTimeDomainData(buf);
         let sum = 0;
+        let peak = 0;
         for (let i = 0; i < buf.length; i++) {
           const v = (buf[i] - 128) / 128;
           sum += v * v;
+          const av = Math.abs(v);
+          if (av > peak) peak = av;
         }
         const rms = Math.sqrt(sum / buf.length);
-        const norm = Math.min(1, rms * 3.2);
-        smoothed = smoothed * 0.7 + norm * 0.3;
-        setAudioLevel(smoothed);
+        // Apprentissage du plancher de bruit : si le RMS courant est sous
+        // le plancher actuel, on s'y adapte rapidement (silence). Sinon, on
+        // remonte très lentement pour ne pas absorber la voix elle-même.
+        if (rms < noiseFloor) noiseFloor = noiseFloor * 0.9 + rms * 0.1;
+        else noiseFloor = noiseFloor * 0.999 + rms * 0.001;
+        // On combine RMS (énergie moyenne) et peak (transitoires des consonnes)
+        // pour mieux refléter ce que Whisper entend réellement.
+        const energy = Math.max(0, rms - noiseFloor * 1.5);
+        // Échelle perceptuelle (racine carrée) : la barre bouge dès qu'on
+        // chuchote, sans saturer dès qu'on parle normalement.
+        const norm = Math.min(1, Math.sqrt(energy * 12) + peak * 0.25);
+        // Attack rapide / release lente : la barre suit instantanément les
+        // mots et redescend doucement entre les syllabes.
+        if (norm > displayed) displayed = displayed * 0.3 + norm * 0.7;
+        else displayed = displayed * 0.85 + norm * 0.15;
+        setAudioLevel(displayed);
         monitorRafRef.current = requestAnimationFrame(tick);
       };
       monitorRafRef.current = requestAnimationFrame(tick);
