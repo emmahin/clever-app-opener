@@ -38,13 +38,11 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini-tts",
+        model: "tts-1",
         voice: selectedVoice,
         input: text.slice(0, 4000),
         response_format: "mp3",
         speed: 1.0,
-        instructions:
-          "Parle en français avec une voix chaleureuse, naturelle et conversationnelle, comme dans une vraie discussion. Intonations vivantes mais calmes.",
       }),
     });
 
