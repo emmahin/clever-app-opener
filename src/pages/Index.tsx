@@ -486,6 +486,23 @@ export default function Index() {
     // Silencieux : si rien (pas assez de data), on envoie null.
     const moodContext = await moodService.recentContext(7).catch(() => null);
 
+    // ─── Mémoires + Insights : on récupère, compacte, tronque AVANT envoi ───
+    // Économie tokens : top 8 mémoires (par importance), insight tronqué 110 chars,
+    // contenu mémoire tronqué 90 chars. Total ≤ ~250 tokens injectés au prompt.
+    const [memoriesRaw, insightsRaw] = await Promise.all([
+      twinMemoryService.listMemories().catch(() => []),
+      moodService.listInsights(3).catch(() => []),
+    ]);
+    const memories = memoriesRaw.slice(0, 8).map((m) => ({
+      category: m.category,
+      content: m.content.slice(0, 90),
+      importance: m.importance,
+    }));
+    const insights = insightsRaw.slice(0, 3).map((i) => ({
+      category: i.category,
+      insight: i.insight.slice(0, 110),
+    }));
+
     let accumulated = "";
     let lastWidgets: import("@/services/types").ChatWidget[] | undefined;
     await chatService.streamChat({
@@ -567,6 +584,8 @@ export default function Index() {
       forceTool: options?.forceTool ?? null,
       schedule: scheduleForAI,
       moodContext,
+      memories,
+      insights,
     });
   };
 
