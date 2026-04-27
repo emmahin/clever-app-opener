@@ -260,7 +260,7 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
           voices.find((v) => v.lang.toLowerCase().startsWith("fr")) ||
           null;
         utterance.lang = "fr-FR";
-        utterance.rate = 1.25;
+        utterance.rate = 1.12;
         utterance.pitch = 1.08;
         utterance.volume = 1;
         currentUtteranceRef.current = utterance;
@@ -300,7 +300,7 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
         audio.muted = false;
         audio.preload = "auto";
         // Vitesse de lecture accélérée pour une élocution plus dynamique.
-        audio.playbackRate = 1.25;
+        audio.playbackRate = 1.12;
         currentAudioRef.current = audio;
         // L'indicateur de niveau audio reste piloté par le moniteur micro
         // permanent (voir startMicMonitor) — l'utilisateur voit en continu si
