@@ -263,6 +263,8 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
         const blob = await resp.blob();
         const audioUrl = URL.createObjectURL(blob);
         const audio = new Audio(audioUrl);
+        audio.volume = 1;
+        audio.muted = false;
         currentAudioRef.current = audio;
         // Branche un analyser sur la sortie TTS pour piloter `audioLevel` pendant la parole.
         let ttsCtx: AudioContext | null = null;
