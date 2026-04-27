@@ -4,7 +4,7 @@
  * Architecture (zéro abonnement payant) :
  *   1. STT (parole→texte)  : voiceService (edge function `voice-transcribe`, Gemini via Lovable AI)
  *   2. LLM (texte→réponse) : edge function `ai-orchestrator` — MÊMES mémoires/insights que le chat texte
- *   3. TTS (texte→parole)  : OpenAI tts-1 (voix « nova ») via edge function `voice-tts`
+ *   3. TTS (texte→parole)  : ElevenLabs via edge function `voice-tts`, avec repli navigateur
  *
  * On garde EXACTEMENT la même API publique (`useTwinVoiceContext`) pour ne rien
  * casser dans VoiceCallMode et ailleurs.
@@ -70,6 +70,7 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
   const audioCtxRef = useRef<AudioContext | null>(null);
   const conversationHistoryRef = useRef<{ role: "user" | "assistant"; content: string }[]>([]);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const currentUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const interruptedRef = useRef<boolean>(false);
   const bargeInStreamRef = useRef<MediaStream | null>(null);
   const bargeInCtxRef = useRef<AudioContext | null>(null);
@@ -139,6 +140,10 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
         currentAudioRef.current.pause();
         currentAudioRef.current.src = "";
         currentAudioRef.current = null;
+      }
+      if (currentUtteranceRef.current && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+        currentUtteranceRef.current = null;
       }
     } catch { /* ignore */ }
   }, []);
