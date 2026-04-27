@@ -276,6 +276,7 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
         const audio = new Audio(audioUrl);
         audio.volume = 1;
         audio.muted = false;
+        audio.preload = "auto";
         currentAudioRef.current = audio;
         // Branche un analyser sur la sortie TTS pour piloter `audioLevel` pendant la parole.
         let ttsCtx: AudioContext | null = null;
@@ -296,7 +297,11 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
           stopAudioLevel();
           audioLevelCleanupRef.current = () => { try { ttsCtx?.close(); } catch { /* ignore */ } };
           runAnalyserLoop(analyser);
-        } catch { /* ignore — fallback : pas de visualisation TTS */ }
+        } catch {
+          // Si le wiring échoue, on s'assure que rien ne bloque le son natif.
+          try { ttsCtx?.close(); } catch { /* ignore */ }
+          ttsCtx = null;
+        }
         const cleanup = () => {
           URL.revokeObjectURL(audioUrl);
           if (currentAudioRef.current === audio) currentAudioRef.current = null;
@@ -306,12 +311,25 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
         };
         audio.onended = cleanup;
         audio.onerror = cleanup;
-        await audio.play().catch(cleanup);
-        startBargeInDetector(() => {
-          interruptedRef.current = true;
-          try { audio.pause(); } catch { /* ignore */ }
+        try {
+          await audio.play();
+        } catch (err) {
+          console.warn("[TTS] play failed", err);
           cleanup();
-        });
+          return;
+        }
+        // On attend un court délai après le début effectif de la lecture avant
+        // d'armer le détecteur d'interruption — ça évite que le tout premier
+        // pic du HP (avant stabilisation de l'echo-cancellation) ne soit
+        // interprété comme une parole utilisateur.
+        window.setTimeout(() => {
+          if (currentAudioRef.current !== audio) return;
+          startBargeInDetector(() => {
+            interruptedRef.current = true;
+            try { audio.pause(); } catch { /* ignore */ }
+            cleanup();
+          });
+        }, 350);
       } catch (e) {
         console.error("TTS speak error:", e);
         if (!speakWithBrowserVoice()) resolve();
