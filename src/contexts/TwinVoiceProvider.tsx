@@ -381,10 +381,12 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
     // vraiment terminé sa phrase, plutôt que de couper à la moindre micro-pause.
     // Sans ça, on transcrit des bouts de phrase incomplets et l'IA répond à
     // côté (voire dans une autre langue si l'audio est trop court/silencieux).
-    const SILENCE_THRESHOLD = 0.022;       // RMS sous lequel on considère "silence"
-    const SILENCE_DURATION_MS = 1200;      // 1.2s de silence consécutif = fin de phrase
-    const MAX_DURATION_MS = 20000;         // sécurité : 20s max par tour
-    const MIN_SPEECH_MS = 500;             // exige au moins 0.5s de voix réelle avant d'accepter une fin
+    // Seuils ajustés pour mieux capter les phrases longues, les voix calmes
+    // et les hésitations sans couper l'utilisateur en plein milieu.
+    const SILENCE_THRESHOLD = 0.018;       // un peu plus permissif (capte voix faibles)
+    const SILENCE_DURATION_MS = 1500;      // 1.5s de silence = fin de phrase (laisse le temps de réfléchir)
+    const MAX_DURATION_MS = 30000;         // 30s max par tour (phrases longues OK)
+    const MIN_SPEECH_MS = 400;             // au moins 0.4s de voix réelle
     // Délai d'attente AVANT la première parole : on laisse l'utilisateur le
     // temps de réfléchir avant de parler. S'il ne dit rien du tout, on
     // re-déclenche un cycle propre (aucune transcription bidon envoyée).
