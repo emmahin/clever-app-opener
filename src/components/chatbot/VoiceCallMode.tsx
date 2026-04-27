@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { X, PhoneOff } from "lucide-react";
+import { X, PhoneOff, Minimize2, Mic } from "lucide-react";
 import { useTwinVoiceContext } from "@/contexts/TwinVoiceProvider";
 import { twinMemoryService, type MemoryCategory } from "@/services";
 import { useLanguage } from "@/i18n/LanguageProvider";
@@ -43,6 +43,9 @@ export function VoiceCallMode({ open, onClose, onTurn }: Props) {
   } = useTwinVoiceContext();
 
   const [starting, setStarting] = useState(false);
+  // Permet de masquer l'overlay plein écran tout en GARDANT l'appel actif
+  // (l'utilisateur revient au menu principal mais Lia continue à parler/écouter).
+  const [minimized, setMinimized] = useState(false);
   const memoriesContextRef = useRef<string>("");
   const eventsContextRef = useRef<string>("");
   const lastTurnIdRef = useRef<string | null>(null);
@@ -114,6 +117,11 @@ export function VoiceCallMode({ open, onClose, onTurn }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  // Quand on ferme l'overlay, on remet aussi l'état "non minimisé" pour le prochain appel.
+  useEffect(() => {
+    if (!open) setMinimized(false);
+  }, [open]);
+
   if (!open) return null;
 
   const phase: "idle" | "listening" | "thinking" | "speaking" =
@@ -123,8 +131,51 @@ export function VoiceCallMode({ open, onClose, onTurn }: Props) {
   const BAR_COUNT = 7;
   const baseHeights = [0.45, 0.7, 0.9, 1, 0.9, 0.7, 0.45];
 
+  // ─── Mode RÉDUIT : pastille flottante en bas à droite, l'appel reste actif ───
+  if (minimized) {
+    const ringColor =
+      phase === "speaking" ? "hsl(150 80% 60%)"
+        : phase === "thinking" ? "hsl(45 95% 60%)"
+        : "hsl(var(--primary))";
+    return (
+      <button
+        type="button"
+        onClick={() => setMinimized(false)}
+        className="fixed bottom-6 right-6 z-[100] flex items-center gap-3 px-4 py-3 rounded-full shadow-2xl bg-background/95 backdrop-blur-xl border border-border/60 hover:scale-[1.03] transition-transform"
+        title={t("voiceExpand") || "Reprendre l'appel"}
+        aria-label={t("voiceExpand") || "Reprendre l'appel"}
+      >
+        <span
+          className="relative w-9 h-9 rounded-full flex items-center justify-center"
+          style={{ background: `radial-gradient(circle, ${ringColor} 0%, transparent 70%)` }}
+        >
+          <Mic className="w-4 h-4 text-foreground" />
+          <span
+            className="absolute inset-0 rounded-full animate-ping"
+            style={{ background: ringColor, opacity: 0.25 }}
+          />
+        </span>
+        <span className="text-sm font-medium text-foreground">
+          {phase === "speaking" ? (t("voiceSpeaking") || "Lia parle…")
+            : phase === "thinking" ? (t("voiceThinking") || "Réflexion…")
+            : (t("voiceListening") || "À l'écoute")}
+        </span>
+      </button>
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-[100] bg-background/95 backdrop-blur-2xl flex flex-col items-center justify-between py-12 px-6">
+      {/* Bouton "Réduire" : revient au menu principal SANS couper l'appel. */}
+      <button
+        onClick={() => setMinimized(true)}
+        className="absolute top-6 left-6 w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center"
+        aria-label={t("voiceMinimize") || "Réduire"}
+        title={t("voiceMinimize") || "Réduire"}
+      >
+        <Minimize2 className="w-5 h-5" />
+      </button>
+      {/* Bouton "Fermer" : ferme l'overlay (l'appel sera coupé par le cleanup useEffect). */}
       <button
         onClick={onClose}
         className="absolute top-6 right-6 w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center"
