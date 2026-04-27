@@ -117,7 +117,6 @@ export function VoiceCallMode({ open, onClose, onTurn }: Props) {
 
   if (!open) return null;
 
-  const lastAssistant = [...transcript].reverse().find((m) => m.role === "assistant")?.text;
   const lastUser = [...transcript].reverse().find((m) => m.role === "user")?.text;
 
   const phase: "idle" | "listening" | "thinking" | "speaking" =
