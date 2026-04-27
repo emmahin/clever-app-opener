@@ -57,7 +57,7 @@ Deno.serve(async (req) => {
           voice: selectedVoice,
           input: text.slice(0, 4000),
           response_format: "mp3",
-          speed: 1.0,
+          speed: 1.35,
         }),
       });
 
