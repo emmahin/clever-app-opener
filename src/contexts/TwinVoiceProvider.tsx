@@ -4,7 +4,7 @@
  * Architecture (zéro abonnement payant) :
  *   1. STT (parole→texte)  : voiceService (edge function `voice-transcribe`, Gemini via Lovable AI)
  *   2. LLM (texte→réponse) : edge function `ai-orchestrator` — MÊMES mémoires/insights que le chat texte
- *   3. TTS (texte→parole)  : OpenAI tts-1 (voix « nova ») via edge function `voice-tts`
+ *   3. TTS (texte→parole)  : ElevenLabs via edge function `voice-tts`, avec repli navigateur
  *
  * On garde EXACTEMENT la même API publique (`useTwinVoiceContext`) pour ne rien
  * casser dans VoiceCallMode et ailleurs.
@@ -70,6 +70,7 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
   const audioCtxRef = useRef<AudioContext | null>(null);
   const conversationHistoryRef = useRef<{ role: "user" | "assistant"; content: string }[]>([]);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const currentUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const interruptedRef = useRef<boolean>(false);
   const bargeInStreamRef = useRef<MediaStream | null>(null);
   const bargeInCtxRef = useRef<AudioContext | null>(null);
@@ -140,6 +141,10 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
         currentAudioRef.current.src = "";
         currentAudioRef.current = null;
       }
+      if (currentUtteranceRef.current && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+        currentUtteranceRef.current = null;
+      }
     } catch { /* ignore */ }
   }, []);
 
@@ -202,6 +207,42 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
   const speak = useCallback((text: string): Promise<void> => {
     return new Promise(async (resolve) => {
       if (!text.trim()) return resolve();
+      const speakWithBrowserVoice = () => {
+        if (!("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) return false;
+        stopAudioLevel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        const voices = window.speechSynthesis.getVoices();
+        utterance.voice =
+          voices.find((v) => v.lang.toLowerCase().startsWith("fr") && /female|femme|hortense|amelie|audrey|julie|marie|thomas/i.test(v.name)) ||
+          voices.find((v) => v.lang.toLowerCase().startsWith("fr")) ||
+          null;
+        utterance.lang = "fr-FR";
+        utterance.rate = 0.96;
+        utterance.pitch = 1.08;
+        utterance.volume = 1;
+        currentUtteranceRef.current = utterance;
+        let syntheticLevelTimer: number | null = window.setInterval(() => {
+          setAudioLevel(0.18 + Math.random() * 0.45);
+        }, 90);
+        const cleanup = () => {
+          if (syntheticLevelTimer != null) window.clearInterval(syntheticLevelTimer);
+          syntheticLevelTimer = null;
+          currentUtteranceRef.current = null;
+          stopBargeInDetector();
+          stopAudioLevel();
+          resolve();
+        };
+        utterance.onend = cleanup;
+        utterance.onerror = cleanup;
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(utterance);
+        startBargeInDetector(() => {
+          interruptedRef.current = true;
+          window.speechSynthesis.cancel();
+          cleanup();
+        });
+        return true;
+      };
       try {
         const { data: { session } } = await supabase.auth.getSession();
         const token = session?.access_token || (import.meta as any).env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -248,10 +289,10 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
         });
       } catch (e) {
         console.error("TTS speak error:", e);
-        resolve();
+        if (!speakWithBrowserVoice()) resolve();
       }
     });
-  }, [startBargeInDetector, stopBargeInDetector, runAnalyserLoop, stopAudioLevel]);
+  }, [startBargeInDetector, stopBargeInDetector, runAnalyserLoop, stopAudioLevel, setAudioLevel]);
 
   /** Détecte la fin de la parole via volume RMS, puis stoppe l'enregistrement. */
   const recordUntilSilence = useCallback(async (): Promise<string> => {
@@ -441,7 +482,8 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
       providersRef.current.onError?.("Microphone refusé.");
       return;
     }
-    // (Plus besoin de pré-charger les voix navigateur, on utilise OpenAI TTS.)
+    // Précharge les voix navigateur pour le repli local si le service TTS externe refuse la requête.
+    try { window.speechSynthesis?.getVoices(); } catch { /* ignore */ }
     cycleAbortRef.current = { aborted: false };
     conversationHistoryRef.current = [];
     setIsCallActive(true);
@@ -458,6 +500,8 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
     try {
       currentAudioRef.current?.pause();
       currentAudioRef.current = null;
+      window.speechSynthesis?.cancel();
+      currentUtteranceRef.current = null;
     } catch { /* ignore */ }
     try {
       // Si un enregistrement est en cours, on coupe le micro brutalement

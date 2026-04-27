@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
       const errText = await response.text();
       console.error("ElevenLabs TTS error:", response.status, errText);
       return new Response(JSON.stringify({ error: "TTS failed", details: errText }), {
-        status: response.status === 429 ? 429 : 500,
+        status: response.status === 429 || response.status === 401 || response.status === 403 ? response.status : 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
