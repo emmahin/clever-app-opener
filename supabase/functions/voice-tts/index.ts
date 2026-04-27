@@ -4,8 +4,8 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Voix ElevenLabs « Sarah » — naturelle, multilingue (FR inclus).
-const DEFAULT_VOICE_ID = "EXAVITQu4vr4xnSDxMaL";
+// Voix ElevenLabs « Brian » — la plus naturelle/conversationnelle (FR inclus).
+const DEFAULT_VOICE_ID = "nPczCjzI2devNBz1zQrb";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -38,11 +38,11 @@ Deno.serve(async (req) => {
         },
         body: JSON.stringify({
           text: text.slice(0, 4000),
-          model_id: "eleven_turbo_v2_5",
+          model_id: "eleven_multilingual_v2",
           voice_settings: {
-            stability: 0.45,
-            similarity_boost: 0.75,
-            style: 0.3,
+            stability: 0.5,
+            similarity_boost: 0.8,
+            style: 0.4,
             use_speaker_boost: true,
           },
         }),
