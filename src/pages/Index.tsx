@@ -5,7 +5,7 @@ import { ChatOrb } from "@/components/chatbot/ChatOrb";
 import { ChatInput } from "@/components/chatbot/ChatInput";
 import { SuggestionPills } from "@/components/chatbot/SuggestionPills";
 import { ChatMessageItem } from "@/components/chatbot/ChatMessage";
-import { chatService, ChatMessage, ChatAttachment, APP_CATALOG, localAgentService, twinMemoryService, googleCalendarService } from "@/services";
+import { chatService, ChatMessage, ChatAttachment, APP_CATALOG, localAgentService, twinMemoryService, googleCalendarService, newsService, stockService } from "@/services";
 import { conversationService } from "@/services/conversationService";
 import { moodService } from "@/services/moodService";
 import { Expand, Minimize2, Settings2, Sparkles, MessageSquarePlus, Trash2, SlidersHorizontal, PhoneCall } from "lucide-react";
@@ -812,11 +812,24 @@ export default function Index() {
             }
           })();
         }}
-        onVoiceIntent={(intent) => {
+        onVoiceIntent={async (intent) => {
           // L'utilisateur a demandé vocalement à voir quelque chose.
           // → On revient au menu principal (overlay vocal minimisé) et on
           //   injecte un message assistant avec le widget approprié, OU on
           //   navigue vers la page dédiée. L'appel reste actif en arrière-plan.
+          const persistVoiceAssistant = async (assistantMsg: ChatMessage, label: string) => {
+            try {
+              if (!conversationIdRef.current) {
+                const conv = await conversationService.create();
+                conversationIdRef.current = conv.id;
+              }
+              await conversationService.addMessage(conversationIdRef.current, assistantMsg);
+            } catch (e) { console.warn(`[voice] persist ${label} widget failed`, e); }
+          };
+          if (intent.kind === "route") {
+            navigate(intent.path);
+            return true;
+          }
           if (intent.kind === "agenda") {
             // Calcule la fenêtre selon le label.
             const now = new Date();
@@ -844,19 +857,37 @@ export default function Index() {
               }],
             };
             setMessages((prev) => [...prev, assistantMsg]);
-            (async () => {
-              try {
-                if (!conversationIdRef.current) {
-                  const conv = await conversationService.create();
-                  conversationIdRef.current = conv.id;
-                }
-                await conversationService.addMessage(conversationIdRef.current, assistantMsg);
-              } catch (e) { console.warn("[voice] persist agenda widget failed", e); }
-            })();
+            void persistVoiceAssistant(assistantMsg, "agenda");
             return true;
           }
-          if (intent.kind === "news") { navigate("/"); return true; }
-          if (intent.kind === "stocks") { navigate("/"); return true; }
+          if (intent.kind === "news") {
+            navigate("/");
+            const items = await newsService.getLatest();
+            const assistantMsg: ChatMessage = {
+              id: crypto.randomUUID(),
+              role: "assistant",
+              content: items.length ? "Voici les dernières actus :" : "Je n'ai pas réussi à récupérer les actus pour le moment.",
+              createdAt: Date.now(),
+              widgets: items.length ? [{ type: "news", items }] : undefined,
+            };
+            setMessages((prev) => [...prev, assistantMsg]);
+            void persistVoiceAssistant(assistantMsg, "news");
+            return true;
+          }
+          if (intent.kind === "stocks") {
+            navigate("/");
+            const items = await stockService.getTrending();
+            const assistantMsg: ChatMessage = {
+              id: crypto.randomUUID(),
+              role: "assistant",
+              content: items.length ? "Voici les marchés :" : "Je n'ai pas réussi à récupérer les marchés pour le moment.",
+              createdAt: Date.now(),
+              widgets: items.length ? [{ type: "stocks", items }] : undefined,
+            };
+            setMessages((prev) => [...prev, assistantMsg]);
+            void persistVoiceAssistant(assistantMsg, "stocks");
+            return true;
+          }
           if (intent.kind === "notifications") { navigate("/notifications"); return true; }
           if (intent.kind === "settings") { navigate("/settings"); return true; }
           return false;
