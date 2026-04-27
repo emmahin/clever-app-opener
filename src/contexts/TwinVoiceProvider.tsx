@@ -4,7 +4,7 @@
  * Architecture (zéro abonnement payant) :
  *   1. STT (parole→texte)  : voiceService (edge function `voice-transcribe`, Gemini via Lovable AI)
  *   2. LLM (texte→réponse) : edge function `ai-orchestrator` — MÊMES mémoires/insights que le chat texte
- *   3. TTS (texte→parole)  : window.speechSynthesis (navigateur, 0€)
+ *   3. TTS (texte→parole)  : OpenAI tts-1 (voix « nova ») via edge function `voice-tts`
  *
  * On garde EXACTEMENT la même API publique (`useTwinVoiceContext`) pour ne rien
  * casser dans VoiceCallMode et ailleurs.
@@ -43,8 +43,8 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
   const [transcript, setTranscript] = useState<TwinTurn[]>([]);
   const [interim] = useState("");
   const [phase, setPhase] = useState<"idle" | "listening" | "thinking" | "speaking">("idle");
-  // SpeechSynthesis dispo partout (Chrome, Safari, Firefox, Edge). Micro requis aussi.
-  const supported = typeof window !== "undefined" && "speechSynthesis" in window && !!navigator?.mediaDevices?.getUserMedia;
+  // Micro + lecture audio HTML5 requis (dispo partout).
+  const supported = typeof window !== "undefined" && !!navigator?.mediaDevices?.getUserMedia;
 
   // Providers fournis par la page Twin (mémoires + agenda)
   const providersRef = useRef<{
@@ -64,22 +64,37 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
   const cycleAbortRef = useRef<{ aborted: boolean }>({ aborted: false });
   const audioCtxRef = useRef<AudioContext | null>(null);
   const conversationHistoryRef = useRef<{ role: "user" | "assistant"; content: string }[]>([]);
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const speak = useCallback((text: string): Promise<void> => {
-    return new Promise((resolve) => {
-      if (!("speechSynthesis" in window) || !text.trim()) return resolve();
-      try { window.speechSynthesis.cancel(); } catch { /* ignore */ }
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = "fr-FR";
-      u.rate = 1.05;
-      u.pitch = 1.0;
-      // Choisir une voix française si dispo
-      const voices = window.speechSynthesis.getVoices();
-      const fr = voices.find((v) => v.lang?.startsWith("fr"));
-      if (fr) u.voice = fr;
-      u.onend = () => resolve();
-      u.onerror = () => resolve();
-      window.speechSynthesis.speak(u);
+    return new Promise(async (resolve) => {
+      if (!text.trim()) return resolve();
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token || (import.meta as any).env.VITE_SUPABASE_PUBLISHABLE_KEY;
+        const url = `${(import.meta as any).env.VITE_SUPABASE_URL}/functions/v1/voice-tts`;
+        const resp = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ text }),
+        });
+        if (!resp.ok) throw new Error(`TTS HTTP ${resp.status}`);
+        const blob = await resp.blob();
+        const audioUrl = URL.createObjectURL(blob);
+        const audio = new Audio(audioUrl);
+        currentAudioRef.current = audio;
+        const cleanup = () => {
+          URL.revokeObjectURL(audioUrl);
+          if (currentAudioRef.current === audio) currentAudioRef.current = null;
+          resolve();
+        };
+        audio.onended = cleanup;
+        audio.onerror = cleanup;
+        await audio.play().catch(cleanup);
+      } catch (e) {
+        console.error("TTS speak error:", e);
+        resolve();
+      }
     });
   }, []);
 
@@ -255,7 +270,7 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
       providersRef.current.onError?.("Microphone refusé.");
       return;
     }
-    try { window.speechSynthesis.getVoices(); } catch { /* ignore */ }
+    // (Plus besoin de pré-charger les voix navigateur, on utilise OpenAI TTS.)
     cycleAbortRef.current = { aborted: false };
     conversationHistoryRef.current = [];
     setIsCallActive(true);
@@ -267,7 +282,10 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
     cycleAbortRef.current.aborted = true;
     setIsCallActive(false);
     setPhase("idle");
-    try { window.speechSynthesis.cancel(); } catch { /* ignore */ }
+    try {
+      currentAudioRef.current?.pause();
+      currentAudioRef.current = null;
+    } catch { /* ignore */ }
     try {
       // Si un enregistrement est en cours, on coupe le micro brutalement
       const stream = webVoiceService.getStream();
