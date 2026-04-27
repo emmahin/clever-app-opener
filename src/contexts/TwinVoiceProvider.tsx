@@ -109,27 +109,21 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
   const bargeInStreamRef = useRef<MediaStream | null>(null);
   const bargeInCtxRef = useRef<AudioContext | null>(null);
   const bargeInRafRef = useRef<number | null>(null);
+  // Cache du contexte mémoire/insights/humeur pour la durée d'un appel : on
+  // ne le recharge PAS à chaque tour (gain ~300-800ms avant que Lia réfléchisse).
+  const callContextCacheRef = useRef<{
+    memories: any[];
+    insights: any[];
+    moodCtx: any;
+    loadedAt: number;
+  } | null>(null);
+  // Réutilise un seul HTMLAudioElement entre les phrases pour éviter la
+ // re-allocation/recréation qui cause un micro-blanc entre 2 segments TTS.
+  const ttsAudioElRef = useRef<HTMLAudioElement | null>(null);
   /** Joue un petit "bip" pour signaler que l'IA recommence à écouter. */
   const playListenCue = useCallback(() => {
-    try {
-      const Ctx = (window.AudioContext || (window as any).webkitAudioContext);
-      if (!Ctx) return;
-      const ctx = new Ctx();
-      const now = ctx.currentTime;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine";
-      // Petit "ding" doux à deux notes
-      osc.frequency.setValueAtTime(880, now);
-      osc.frequency.exponentialRampToValueAtTime(1320, now + 0.12);
-      gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.exponentialRampToValueAtTime(0.18, now + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
-      osc.connect(gain).connect(ctx.destination);
-      osc.start(now);
-      osc.stop(now + 0.25);
-      setTimeout(() => { try { ctx.close(); } catch { /* ignore */ } }, 400);
-    } catch { /* ignore */ }
+    // Bip désactivé : il introduisait une latence audible et un AudioContext
+    // jetable à chaque tour. La fluidité prime sur le feedback sonore.
   }, []);
 
   /** Stoppe toute mesure de niveau en cours. */
@@ -437,17 +431,23 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
     onDelta?: (chunk: string) => void,
   ): Promise<string> => {
     // Récupère mémoires + insights compactés (mêmes règles d'économie de tokens que le chat texte)
-    const [memoriesRaw, insightsRaw, moodCtx] = await Promise.all([
-      twinMemoryService.listMemories().catch(() => []),
-      moodService.listInsights(3).catch(() => []),
-      moodService.recentContext(7).catch(() => null),
-    ]);
-    const memories = memoriesRaw.slice(0, 8).map((m) => ({
-      category: m.category, content: m.content.slice(0, 90), importance: m.importance,
-    }));
-    const insights = insightsRaw.slice(0, 3).map((i) => ({
-      category: i.category, insight: i.insight.slice(0, 110),
-    }));
+    // Charge le contexte UNE SEULE FOIS par appel (mise en cache).
+    // Économie : 300-800ms de latence évitée à chaque tour.
+    if (!callContextCacheRef.current || Date.now() - callContextCacheRef.current.loadedAt > 5 * 60 * 1000) {
+      const [memoriesRaw, insightsRaw, moodCtx] = await Promise.all([
+        twinMemoryService.listMemories().catch(() => []),
+        moodService.listInsights(3).catch(() => []),
+        moodService.recentContext(7).catch(() => null),
+      ]);
+      const memories = memoriesRaw.slice(0, 8).map((m) => ({
+        category: m.category, content: m.content.slice(0, 90), importance: m.importance,
+      }));
+      const insights = insightsRaw.slice(0, 3).map((i) => ({
+        category: i.category, insight: i.insight.slice(0, 110),
+      }));
+      callContextCacheRef.current = { memories, insights, moodCtx, loadedAt: Date.now() };
+    }
+    const { memories, insights, moodCtx } = callContextCacheRef.current;
 
     conversationHistoryRef.current.push({ role: "user", content: userText });
 
@@ -480,18 +480,32 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
     let full = "";
     // Tampon pour découper en phrases au fil de l'eau.
     let sentenceBuf = "";
+    let firstChunkSent = false;
     const MIN_SENTENCE_LEN = 12; // évite de TTS-er "Ok." tout seul
     const flushSentences = (force = false) => {
       // Cherche une fin de phrase : . ! ? … suivi d'un espace ou fin.
       // On n'envoie que si la phrase a un minimum de contenu pour limiter
       // le nombre d'appels TTS et garder une intonation naturelle.
+      // Premier segment : on accepte aussi une virgule ou un saut sur >= 18
+      // caractères pour que Lia commence à parler quasi instantanément.
+      if (!firstChunkSent && !force) {
+        const earlyMatch = sentenceBuf.match(/^([^.!?…,]{18,}?[,.!?…])\s/);
+        if (earlyMatch) {
+          const s = earlyMatch[1].trim();
+          onSentence?.(s);
+          sentenceBuf = sentenceBuf.slice(earlyMatch[0].length);
+          firstChunkSent = true;
+        }
+      }
       const re = /([^.!?…]+[.!?…]+)(\s+|$)/g;
       let lastIdx = 0;
       let m: RegExpExecArray | null;
       while ((m = re.exec(sentenceBuf)) !== null) {
         const s = m[1].trim();
-        if (s.length >= MIN_SENTENCE_LEN) {
+        const minLen = firstChunkSent ? MIN_SENTENCE_LEN : 4;
+        if (s.length >= minLen) {
           onSentence?.(s);
+          firstChunkSent = true;
           lastIdx = re.lastIndex;
         }
       }
@@ -499,6 +513,7 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
       if (force && sentenceBuf.trim().length > 0) {
         onSentence?.(sentenceBuf.trim());
         sentenceBuf = "";
+        firstChunkSent = true;
       }
     };
     while (true) {
@@ -564,6 +579,7 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
       const ttsQueue: string[] = [];
       let ttsRunning = false;
       let firstSpoken = false;
+      let drainResolveOnIdle: (() => void) | null = null;
       const drainQueue = async () => {
         if (ttsRunning) return;
         ttsRunning = true;
@@ -576,6 +592,7 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
           await speak(next);
         }
         ttsRunning = false;
+        if (drainResolveOnIdle) { drainResolveOnIdle(); drainResolveOnIdle = null; }
       };
 
       // ID de message assistant qu'on met à jour au fur et à mesure du stream.
@@ -610,10 +627,10 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
       // Garantit que le texte final est bien complet dans le transcript.
       setTranscript((prev) => prev.map((m) => m.id === assistantId ? { ...m, text: answer } : m));
 
-      // Attend la fin de la file TTS (les dernières phrases sont peut-être
-      // encore en lecture).
-      while ((ttsRunning || ttsQueue.length > 0) && !cycleAbortRef.current.aborted) {
-        await new Promise((r) => setTimeout(r, 100));
+      // Attend la fin de la file TTS via une promesse (au lieu d'un polling
+      // 100ms qui ajoutait de la latence avant la réécoute).
+      if ((ttsRunning || ttsQueue.length > 0) && !cycleAbortRef.current.aborted) {
+        await new Promise<void>((resolve) => { drainResolveOnIdle = resolve; });
       }
       if (cycleAbortRef.current.aborted) break;
 
@@ -645,6 +662,7 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
     try { window.speechSynthesis?.getVoices(); } catch { /* ignore */ }
     cycleAbortRef.current = { aborted: false };
     conversationHistoryRef.current = [];
+    callContextCacheRef.current = null;
     setIsCallActive(true);
     setAudioLevel(0);
     // Lance la boucle (non-bloquant)
