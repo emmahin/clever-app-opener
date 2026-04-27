@@ -19,21 +19,21 @@ Deno.serve(async (req) => {
       );
     }
 
-    const url = `https://api.elevenlabs.io/v1/convai/conversation/token?agent_id=${AGENT_ID}`;
+    const url = `https://api.elevenlabs.io/v1/convai/conversation/get-signed-url?agent_id=${AGENT_ID}`;
     const r = await fetch(url, { headers: { "xi-api-key": apiKey } });
 
     if (!r.ok) {
       const text = await r.text();
       console.error("[elevenlabs-agent-token] upstream error", r.status, text);
       return new Response(
-        JSON.stringify({ error: "Failed to get ElevenLabs token", details: text }),
+        JSON.stringify({ error: "Failed to get ElevenLabs signed URL", details: text }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
     const data = await r.json();
     return new Response(
-      JSON.stringify({ token: data.token, agentId: AGENT_ID }),
+      JSON.stringify({ signedUrl: data.signed_url, agentId: AGENT_ID }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (e) {
