@@ -43,9 +43,20 @@ async function transcribeWithWhisper(base64Audio: string, mime: string): Promise
   // sur des audios courts ou bruités, ce qui faisait répondre l'IA dans la
   // mauvaise langue. L'app est francophone côté UX vocale.
   fd.append("language", "fr");
-  // Petit prompt d'amorce qui ancre le contexte FR conversationnel et réduit
-  // les hallucinations connues (« Sous-titres réalisés par… »).
-  fd.append("prompt", "Conversation en français avec un coach personnel.");
+  // Prompt d'amorce enrichi : ancre le contexte FR conversationnel, donne du
+  // vocabulaire usuel (agenda, actus, paramètres, notifications, Lia, etc.) et
+  // réduit les hallucinations connues (« Sous-titres réalisés par… »).
+  fd.append(
+    "prompt",
+    "Conversation orale informelle en français avec Lia, mon coach personnel. Je parle de mon agenda, mes rendez-vous, mes habitudes, mes objectifs, mes émotions, mes actus, mes actions, mes notifications, mes paramètres, mon humeur, mes projets. Style oral naturel avec hésitations (euh, ben, bah, hum)."
+  );
+  // temperature=0 : Whisper n'invente plus de mots quand il est incertain ;
+  // il préfère un blanc à une hallucination. Crucial pour les fins de phrase
+  // ou audio bruité.
+  fd.append("temperature", "0");
+  // verbose_json : on récupère les segments avec score de confiance pour
+  // filtrer ceux qui sont probablement du bruit/silence mal interprété.
+  fd.append("response_format", "verbose_json");
 
   const r = await fetch("https://api.openai.com/v1/audio/transcriptions", {
     method: "POST",
@@ -61,6 +72,26 @@ async function transcribeWithWhisper(base64Audio: string, mime: string): Promise
     throw err;
   }
   const data = await r.json();
+  // Avec verbose_json on a `segments[]` avec `avg_logprob`, `no_speech_prob`,
+  // `compression_ratio`. On rejette les segments qui ressemblent à du bruit :
+  //  - no_speech_prob > 0.6 : Whisper pense que c'est du silence
+  //  - avg_logprob < -1.0   : confiance très basse, probable hallucination
+  //  - compression_ratio > 2.4 : texte répétitif (boucle d'hallucination type
+  //    « Sous-titres réalisés par… »)
+  if (Array.isArray(data?.segments) && data.segments.length > 0) {
+    const kept = data.segments
+      .filter((s: any) => {
+        if (typeof s?.no_speech_prob === "number" && s.no_speech_prob > 0.6) return false;
+        if (typeof s?.avg_logprob === "number" && s.avg_logprob < -1.0) return false;
+        if (typeof s?.compression_ratio === "number" && s.compression_ratio > 2.4) return false;
+        return true;
+      })
+      .map((s: any) => (typeof s?.text === "string" ? s.text : ""))
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
+    return { text: kept };
+  }
   return { text: typeof data?.text === "string" ? data.text.trim() : "" };
 }
 
