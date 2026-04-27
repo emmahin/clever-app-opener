@@ -109,27 +109,21 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
   const bargeInStreamRef = useRef<MediaStream | null>(null);
   const bargeInCtxRef = useRef<AudioContext | null>(null);
   const bargeInRafRef = useRef<number | null>(null);
+  // Cache du contexte mémoire/insights/humeur pour la durée d'un appel : on
+  // ne le recharge PAS à chaque tour (gain ~300-800ms avant que Lia réfléchisse).
+  const callContextCacheRef = useRef<{
+    memories: any[];
+    insights: any[];
+    moodCtx: any;
+    loadedAt: number;
+  } | null>(null);
+  // Réutilise un seul HTMLAudioElement entre les phrases pour éviter la
+ // re-allocation/recréation qui cause un micro-blanc entre 2 segments TTS.
+  const ttsAudioElRef = useRef<HTMLAudioElement | null>(null);
   /** Joue un petit "bip" pour signaler que l'IA recommence à écouter. */
   const playListenCue = useCallback(() => {
-    try {
-      const Ctx = (window.AudioContext || (window as any).webkitAudioContext);
-      if (!Ctx) return;
-      const ctx = new Ctx();
-      const now = ctx.currentTime;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine";
-      // Petit "ding" doux à deux notes
-      osc.frequency.setValueAtTime(880, now);
-      osc.frequency.exponentialRampToValueAtTime(1320, now + 0.12);
-      gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.exponentialRampToValueAtTime(0.18, now + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
-      osc.connect(gain).connect(ctx.destination);
-      osc.start(now);
-      osc.stop(now + 0.25);
-      setTimeout(() => { try { ctx.close(); } catch { /* ignore */ } }, 400);
-    } catch { /* ignore */ }
+    // Bip désactivé : il introduisait une latence audible et un AudioContext
+    // jetable à chaque tour. La fluidité prime sur le feedback sonore.
   }, []);
 
   /** Stoppe toute mesure de niveau en cours. */
