@@ -181,12 +181,18 @@ async function probeTts(apiKey: string, keyUsed: string, keyLabel: string, model
 
 async function probeWhisper(apiKey: string, keyUsed: string, keyLabel: string, model: string): Promise<ProbeResult> {
   try {
-    const wavHeader = new Uint8Array([
-      0x52, 0x49, 0x46, 0x46, 0x24, 0x00, 0x00, 0x00, 0x57, 0x41, 0x56, 0x45,
-      0x66, 0x6d, 0x74, 0x20, 0x10, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00,
-      0x44, 0xac, 0x00, 0x00, 0x88, 0x58, 0x01, 0x00, 0x02, 0x00, 0x10, 0x00,
-      0x64, 0x61, 0x74, 0x61, 0x00, 0x00, 0x00, 0x00,
-    ]);
+    // Vrai WAV PCM 16-bit, 16 kHz, 1 s de silence — Whisper accepte (assez long pour ne pas
+    // déclencher "audio too short", et c'est bien du contenu audio valide).
+    const sr = 16000;
+    const samples = sr; // 1 s
+    const dataSize = samples * 2;
+    const wavHeader = new Uint8Array(44 + dataSize);
+    const dv = new DataView(wavHeader.buffer);
+    const w = (off: number, s: string) => { for (let i = 0; i < s.length; i++) wavHeader[off + i] = s.charCodeAt(i); };
+    w(0, "RIFF"); dv.setUint32(4, 36 + dataSize, true);
+    w(8, "WAVEfmt "); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
+    dv.setUint32(24, sr, true); dv.setUint32(28, sr * 2, true); dv.setUint16(32, 2, true); dv.setUint16(34, 16, true);
+    w(36, "data"); dv.setUint32(40, dataSize, true);
     const fd = new FormData();
     fd.append("file", new Blob([wavHeader], { type: "audio/wav" }), "ping.wav");
     fd.append("model", model);
