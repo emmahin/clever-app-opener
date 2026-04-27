@@ -248,11 +248,14 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
         utterance.onerror = cleanup;
         window.speechSynthesis.cancel();
         window.speechSynthesis.speak(utterance);
-        startBargeInDetector(() => {
-          interruptedRef.current = true;
-          try { window.speechSynthesis.cancel(); } catch { /* ignore */ }
-          cleanup();
-        });
+        window.setTimeout(() => {
+          if (currentUtteranceRef.current !== utterance) return;
+          startBargeInDetector(() => {
+            interruptedRef.current = true;
+            try { window.speechSynthesis.cancel(); } catch { /* ignore */ }
+            cleanup();
+          });
+        }, 350);
         return true;
       };
       try {
