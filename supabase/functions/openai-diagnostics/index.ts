@@ -215,12 +215,12 @@ async function probeWhisper(apiKey: string, keyUsed: string, keyLabel: string, m
 }
 
 async function probeCodex(apiKey: string, keyUsed: string, keyLabel: string, model: string): Promise<ProbeResult> {
-  // Les modèles codex de la famille gpt-5.x s'appellent comme du chat.
+  // Les modèles codex/reasoning (gpt-5.x-codex) s'appellent via /v1/responses, pas /chat/completions.
   try {
-    const r = await fetch(`${OPENAI_BASE}/chat/completions`, {
+    const r = await fetch(`${OPENAI_BASE}/responses`, {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model, messages: [{ role: "user", content: "print('ping')" }], max_tokens: 1 }),
+      body: JSON.stringify({ model, input: "ping", max_output_tokens: 16 }),
     });
     if (r.ok) { await r.text(); return { ok: true, status: r.status, modelTested: model, keyUsed, keyLabel }; }
     const j = await r.json().catch(() => ({}));
