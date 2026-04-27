@@ -498,8 +498,17 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
     return webVoiceService.stopAndTranscribe();
   }, [runAnalyserLoop, stopAudioLevel]);
 
-  /** Appelle ai-orchestrator en streaming, accumule, retourne la réponse complète. */
-  const askAI = useCallback(async (userText: string): Promise<string> => {
+  /**
+   * Appelle ai-orchestrator en streaming.
+   * `onSentence` est appelé à chaque phrase complète (pour démarrer le TTS
+   * en parallèle, pendant que le LLM continue d'écrire). Retourne la réponse
+   * complète à la fin pour mise à jour du transcript.
+   */
+  const askAI = useCallback(async (
+    userText: string,
+    onSentence?: (sentence: string) => void,
+    onDelta?: (chunk: string) => void,
+  ): Promise<string> => {
     // Récupère mémoires + insights compactés (mêmes règles d'économie de tokens que le chat texte)
     const [memoriesRaw, insightsRaw, moodCtx] = await Promise.all([
       twinMemoryService.listMemories().catch(() => []),
@@ -542,6 +551,29 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
     const decoder = new TextDecoder();
     let buffer = "";
     let full = "";
+    // Tampon pour découper en phrases au fil de l'eau.
+    let sentenceBuf = "";
+    const MIN_SENTENCE_LEN = 12; // évite de TTS-er "Ok." tout seul
+    const flushSentences = (force = false) => {
+      // Cherche une fin de phrase : . ! ? … suivi d'un espace ou fin.
+      // On n'envoie que si la phrase a un minimum de contenu pour limiter
+      // le nombre d'appels TTS et garder une intonation naturelle.
+      const re = /([^.!?…]+[.!?…]+)(\s+|$)/g;
+      let lastIdx = 0;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(sentenceBuf)) !== null) {
+        const s = m[1].trim();
+        if (s.length >= MIN_SENTENCE_LEN) {
+          onSentence?.(s);
+          lastIdx = re.lastIndex;
+        }
+      }
+      if (lastIdx > 0) sentenceBuf = sentenceBuf.slice(lastIdx);
+      if (force && sentenceBuf.trim().length > 0) {
+        onSentence?.(sentenceBuf.trim());
+        sentenceBuf = "";
+      }
+    };
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
@@ -554,10 +586,17 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
         if (!line.startsWith("data: ")) continue;
         try {
           const j = JSON.parse(line.slice(6).trim());
-          if (j.delta) full += j.delta;
+          if (j.delta) {
+            full += j.delta;
+            sentenceBuf += j.delta;
+            onDelta?.(j.delta);
+            flushSentences(false);
+          }
         } catch { /* ignore parse errors mid-stream */ }
       }
     }
+    // Flush du reste (dernière phrase sans ponctuation finale).
+    flushSentences(true);
     conversationHistoryRef.current.push({ role: "assistant", content: full });
     return full.trim();
   }, []);
@@ -587,26 +626,70 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
 
       setTranscript((prev) => [...prev, { id: crypto.randomUUID(), role: "user", text: userText, ts: Date.now() }]);
 
-      // 2. Réflexion
+      // 2. Réflexion + parole en parallèle
+      // On streame la réponse phrase par phrase. Dès qu'une phrase est complète,
+      // on l'envoie à la file TTS qui la lit pendant que le LLM continue
+      // d'écrire la suite. Lia commence donc à parler quasi instantanément.
       setPhase("thinking");
+      interruptedRef.current = false;
+
+      // File d'attente TTS séquentielle.
+      const ttsQueue: string[] = [];
+      let ttsRunning = false;
+      let firstSpoken = false;
+      const drainQueue = async () => {
+        if (ttsRunning) return;
+        ttsRunning = true;
+        while (ttsQueue.length > 0 && !cycleAbortRef.current.aborted) {
+          const next = ttsQueue.shift()!;
+          if (!firstSpoken) {
+            firstSpoken = true;
+            setPhase("speaking");
+          }
+          await speak(next);
+        }
+        ttsRunning = false;
+      };
+
+      // ID de message assistant qu'on met à jour au fur et à mesure du stream.
+      const assistantId = crypto.randomUUID();
+      let assistantText = "";
+      setTranscript((prev) => [...prev, { id: assistantId, role: "assistant", text: "", ts: Date.now() }]);
+
       let answer = "";
       try {
-        answer = await askAI(userText);
+        answer = await askAI(
+          userText,
+          (sentence) => {
+            ttsQueue.push(sentence);
+            void drainQueue();
+          },
+          (chunk) => {
+            assistantText += chunk;
+            setTranscript((prev) => prev.map((m) => m.id === assistantId ? { ...m, text: assistantText } : m));
+          },
+        );
       } catch (e: any) {
         providersRef.current.onError?.(e?.message || "L'IA n'a pas répondu");
         setPhase("idle");
         break;
       }
       if (cycleAbortRef.current.aborted) break;
-      if (!answer) continue;
+      if (!answer) {
+        // Retire le message assistant vide
+        setTranscript((prev) => prev.filter((m) => m.id !== assistantId));
+        continue;
+      }
+      // Garantit que le texte final est bien complet dans le transcript.
+      setTranscript((prev) => prev.map((m) => m.id === assistantId ? { ...m, text: answer } : m));
 
-      setTranscript((prev) => [...prev, { id: crypto.randomUUID(), role: "assistant", text: answer, ts: Date.now() }]);
-
-      // 3. Parole
-      setPhase("speaking");
-      interruptedRef.current = false;
-      await speak(answer);
+      // Attend la fin de la file TTS (les dernières phrases sont peut-être
+      // encore en lecture).
+      while ((ttsRunning || ttsQueue.length > 0) && !cycleAbortRef.current.aborted) {
+        await new Promise((r) => setTimeout(r, 100));
+      }
       if (cycleAbortRef.current.aborted) break;
+
       // Si l'utilisateur a coupé la parole → on enchaîne immédiatement sur l'écoute.
       if (interruptedRef.current) {
         interruptedRef.current = false;
