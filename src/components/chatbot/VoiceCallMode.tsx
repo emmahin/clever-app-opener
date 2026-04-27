@@ -117,7 +117,6 @@ export function VoiceCallMode({ open, onClose, onTurn }: Props) {
 
   if (!open) return null;
 
-  const lastAssistant = [...transcript].reverse().find((m) => m.role === "assistant")?.text;
   const lastUser = [...transcript].reverse().find((m) => m.role === "user")?.text;
 
   const phase: "idle" | "listening" | "thinking" | "speaking" =
@@ -193,7 +192,7 @@ export function VoiceCallMode({ open, onClose, onTurn }: Props) {
             </div>
           )}
           {phase === "speaking" && (
-            <p className="text-lg text-emerald-400 line-clamp-3">{lastAssistant || "…"}</p>
+            <p className="text-lg text-emerald-400">En train de parler…</p>
           )}
           {phase === "idle" && (
             <p className="text-lg text-muted-foreground">{t("voiceIdle")}</p>

@@ -70,6 +70,29 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
   const bargeInCtxRef = useRef<AudioContext | null>(null);
   const bargeInRafRef = useRef<number | null>(null);
 
+  /** Joue un petit "bip" pour signaler que l'IA recommence à écouter. */
+  const playListenCue = useCallback(() => {
+    try {
+      const Ctx = (window.AudioContext || (window as any).webkitAudioContext);
+      if (!Ctx) return;
+      const ctx = new Ctx();
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      // Petit "ding" doux à deux notes
+      osc.frequency.setValueAtTime(880, now);
+      osc.frequency.exponentialRampToValueAtTime(1320, now + 0.12);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.18, now + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.25);
+      setTimeout(() => { try { ctx.close(); } catch { /* ignore */ } }, 400);
+    } catch { /* ignore */ }
+  }, []);
+
   /** Coupe la lecture en cours (utilisé par barge-in). */
   const stopSpeaking = useCallback(() => {
     try {
@@ -301,6 +324,7 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
   const runConversationLoop = useCallback(async () => {
     while (!cycleAbortRef.current.aborted) {
       // 1. Écoute
+      playListenCue();
       setPhase("listening");
       let userText = "";
       try {
@@ -341,7 +365,7 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
       }
     }
     setPhase("idle");
-  }, [askAI, recordUntilSilence, speak]);
+  }, [askAI, recordUntilSilence, speak, playListenCue]);
 
   const status = phase;
 
