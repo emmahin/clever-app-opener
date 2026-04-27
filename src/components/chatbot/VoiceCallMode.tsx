@@ -100,7 +100,8 @@ export function VoiceCallMode({ open, onClose, onTurn, onVoiceIntent }: Props) {
   const [minimized, setMinimized] = useState(false);
   const memoriesContextRef = useRef<string>("");
   const eventsContextRef = useRef<string>("");
-  const lastTurnIdRef = useRef<string | null>(null);
+  const lastSentSigRef = useRef<string | null>(null);
+  const handledIntentIdsRef = useRef<Set<string>>(new Set());
 
   // Notifie le parent à chaque nouveau turn (user ou assistant) — pour persistance dans le chat
   useEffect(() => {
@@ -111,14 +112,18 @@ export function VoiceCallMode({ open, onClose, onTurn, onVoiceIntent }: Props) {
     // jour à chaque changement de contenu (le parent dédoublonne par id).
     if (!last.text || !last.text.trim()) return;
     const sig = `${last.id}:${last.text.length}`;
-    if (sig === lastTurnIdRef.current) return;
-    const isNewTurn = !lastTurnIdRef.current?.startsWith(`${last.id}:`);
-    lastTurnIdRef.current = sig;
+    if (sig === lastSentSigRef.current) return;
+    lastSentSigRef.current = sig;
     onTurn({ id: last.id, role: last.role, text: last.text, ts: last.ts });
     // Détection d'intention SUR LES MESSAGES UTILISATEUR uniquement.
     // Si une intention "affichable" est détectée, on minimise l'overlay
     // pour que l'utilisateur voie immédiatement le widget injecté dans le chat.
-    if (isNewTurn && last.role === "user" && onVoiceIntent) {
+    if (
+      last.role === "user" &&
+      onVoiceIntent &&
+      !handledIntentIdsRef.current.has(last.id)
+    ) {
+      handledIntentIdsRef.current.add(last.id);
       const intent = detectVoiceIntent(last.text);
       if (intent) {
         const handled = onVoiceIntent(intent);
