@@ -19,6 +19,39 @@ import { moodService } from "@/services/moodService";
 export type TwinRole = "user" | "assistant";
 export interface TwinTurn { id: string; role: TwinRole; text: string; ts: number }
 
+/**
+ * Détecte les transcriptions parasites typiques quand l'audio est vide ou
+ * inintelligible. Whisper et Gemini ont tendance à inventer ces phrases
+ * (souvent dans une autre langue) sur du silence/bruit, ce qui faisait
+ * répondre l'IA à côté ou en anglais/japonais.
+ */
+function isLikelySttHallucination(text: string): boolean {
+  const t = text.trim().toLowerCase();
+  if (t.length < 2) return true;
+  // Mots/sons isolés sans contenu réel
+  if (/^[\.\!\?…,;:\-\s]+$/.test(t)) return true;
+  if (/^(merci|thanks|thank you|ok|okay|hum+|euh+|mmh+|ah+)[\.\!\?…\s]*$/i.test(t)) return true;
+  // Hallucinations Whisper célèbres
+  const knownHallucinations = [
+    "sous-titres réalisés",
+    "sous-titrage",
+    "sous-titres",
+    "merci d'avoir regardé",
+    "merci à tous",
+    "thanks for watching",
+    "subtitles by",
+    "amara.org",
+    "御視聴",
+    "ご視聴",
+    "字幕",
+    "感謝",
+    "다음 영상",
+    "구독",
+  ];
+  if (knownHallucinations.some((h) => t.includes(h.toLowerCase()))) return true;
+  return false;
+}
+
 interface TwinVoiceContextValue {
   isCallActive: boolean;
   status: "idle" | "listening" | "thinking" | "speaking";
