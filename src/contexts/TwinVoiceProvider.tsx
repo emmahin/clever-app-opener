@@ -263,12 +263,20 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
         const blob = await resp.blob();
         const audioUrl = URL.createObjectURL(blob);
         const audio = new Audio(audioUrl);
+        audio.volume = 1;
+        audio.muted = false;
         currentAudioRef.current = audio;
         // Branche un analyser sur la sortie TTS pour piloter `audioLevel` pendant la parole.
         let ttsCtx: AudioContext | null = null;
         try {
           const Ctx = (window.AudioContext || (window as any).webkitAudioContext);
           ttsCtx = new Ctx();
+          // IMPORTANT : un AudioContext peut être créé en état "suspended" à cause
+          // de la politique autoplay. Si on branche l'<audio> dessus sans le
+          // reprendre, AUCUN son ne sort des HP même si l'élément joue.
+          if (ttsCtx.state === "suspended") {
+            try { await ttsCtx.resume(); } catch { /* ignore */ }
+          }
           const src = ttsCtx.createMediaElementSource(audio);
           const analyser = ttsCtx.createAnalyser();
           analyser.fftSize = 1024;
