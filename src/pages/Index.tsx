@@ -241,20 +241,32 @@ export default function Index() {
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   useEffect(() => scrollToBottom(), [messages]);
 
-  // Au mount : charge la dernière conversation de l'utilisateur (s'il en a une).
+  // Au mount (= ouverture/connexion) : on démarre TOUJOURS un nouveau chat.
+  // L'ancienne conversation est conservée dans l'historique uniquement si
+  // l'utilisateur a envoyé au moins 4 messages ; sinon elle est supprimée
+  // pour ne pas polluer la sidebar avec des chats vides ou anecdotiques.
   useEffect(() => {
     let active = true;
     (async () => {
       try {
         const list = await conversationService.list();
-        if (!active || list.length === 0) return;
-        const latest = list[0];
-        const msgs = await conversationService.getMessages(latest.id);
         if (!active) return;
-        conversationIdRef.current = latest.id;
-        setMessages(msgs);
+        const latest = list[0];
+        if (latest) {
+          const msgs = await conversationService.getMessages(latest.id);
+          const userCount = msgs.filter((m) => m.role === "user").length;
+          if (userCount < 4) {
+            await conversationService.remove(latest.id).catch((e) =>
+              console.warn("[chat] cleanup short conversation failed", e),
+            );
+          }
+        }
+        if (!active) return;
+        // Toujours repartir d'un chat vierge (la conv DB sera créée au 1er message).
+        conversationIdRef.current = null;
+        setMessages([]);
       } catch (e) {
-        console.warn("[chat] load latest conversation failed", e);
+        console.warn("[chat] init new conversation failed", e);
       }
     })();
     return () => { active = false; };
