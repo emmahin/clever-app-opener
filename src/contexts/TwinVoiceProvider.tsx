@@ -191,11 +191,11 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
     src.connect(analyser);
     const buf = new Uint8Array(analyser.fftSize);
 
-    const SILENCE_THRESHOLD = 0.02;        // RMS sous lequel on considère "silence"
-    const SILENCE_DURATION_MS = 900;       // 0.9s de silence = fin de phrase (plus réactif)
-    const MAX_DURATION_MS = 15000;         // sécurité : 15s max par tour
-    const MIN_SPEECH_MS = 300;             // attend au moins un peu de voix
-    const NO_SPEECH_TIMEOUT_MS = 3500;     // si rien de clair après 3.5s → on coupe quand même
+    const SILENCE_THRESHOLD = 0.018;       // RMS sous lequel on considère "silence" (un peu plus sensible)
+    const SILENCE_DURATION_MS = 500;       // 0.5s de silence = fin de phrase (très réactif)
+    const MAX_DURATION_MS = 12000;         // sécurité : 12s max par tour
+    const MIN_SPEECH_MS = 180;             // attend juste un peu de voix
+    const NO_SPEECH_TIMEOUT_MS = 2200;     // si rien de clair après 2.2s → on coupe quand même
 
     const start = Date.now();
     let lastVoiceAt = Date.now();
