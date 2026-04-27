@@ -43,6 +43,7 @@ type ProbeResult = {
   modelTested?: string;
   keyUsed: string;       // ex: "OPENAI_TTS_API_KEY"
   keyLabel: string;      // ex: "clé_tts"
+  note?: string;         // ex: "modèle auto-sélectionné parmi ceux exposés par la clé"
 };
 
 type ModelEntry = { id: string; created?: number; owned_by?: string };
@@ -57,6 +58,59 @@ function categorize(modelId: string): string {
   if (id.startsWith("dall-e") || id.includes("image")) return "image";
   if (id.startsWith("gpt-") || id.startsWith("o1") || id.startsWith("o3") || id.startsWith("chatgpt")) return "chat";
   return "other";
+}
+
+/**
+ * Choisit le meilleur modèle disponible pour une capacité donnée,
+ * parmi les modèles réellement exposés par la clé.
+ * Retourne null si aucun candidat compatible n'est exposé.
+ */
+function pickModelFor(
+  capability: "chat" | "tts" | "stt" | "embeddings",
+  available: string[],
+): string | null {
+  const ids = available.map((s) => s.toLowerCase());
+  const has = (needle: string) => ids.find((id) => id === needle || id.includes(needle));
+
+  if (capability === "chat") {
+    return (
+      has("gpt-4o-mini") ||
+      has("gpt-4o") ||
+      has("gpt-4.1-mini") ||
+      has("gpt-4.1") ||
+      ids.find((id) => id.startsWith("gpt-")) ||
+      ids.find((id) => id.startsWith("o1") || id.startsWith("o3")) ||
+      null
+    );
+  }
+  if (capability === "tts") {
+    return (
+      has("gpt-4o-mini-tts") ||
+      has("tts-1-hd") ||
+      has("tts-1") ||
+      ids.find((id) => id.includes("tts")) ||
+      null
+    );
+  }
+  if (capability === "stt") {
+    return (
+      has("whisper-1") ||
+      has("gpt-4o-mini-transcribe") ||
+      has("gpt-4o-transcribe") ||
+      ids.find((id) => id.includes("transcribe") || id.startsWith("whisper")) ||
+      null
+    );
+  }
+  if (capability === "embeddings") {
+    return (
+      has("text-embedding-3-small") ||
+      has("text-embedding-3-large") ||
+      has("text-embedding-ada-002") ||
+      ids.find((id) => id.includes("embedding")) ||
+      null
+    );
+  }
+  return null;
 }
 
 async function fetchModelsForKey(apiKey: string) {
@@ -81,8 +135,7 @@ function group(models: ModelEntry[]) {
   return grouped;
 }
 
-async function probeChat(apiKey: string, keyUsed: string, keyLabel: string): Promise<ProbeResult> {
-  const model = "gpt-4o-mini";
+async function probeChat(apiKey: string, keyUsed: string, keyLabel: string, model: string): Promise<ProbeResult> {
   try {
     const r = await fetch(`${OPENAI_BASE}/chat/completions`, {
       method: "POST",
@@ -97,8 +150,7 @@ async function probeChat(apiKey: string, keyUsed: string, keyLabel: string): Pro
   }
 }
 
-async function probeTts(apiKey: string, keyUsed: string, keyLabel: string): Promise<ProbeResult> {
-  const model = "tts-1";
+async function probeTts(apiKey: string, keyUsed: string, keyLabel: string, model: string): Promise<ProbeResult> {
   try {
     const r = await fetch(`${OPENAI_BASE}/audio/speech`, {
       method: "POST",
@@ -113,8 +165,7 @@ async function probeTts(apiKey: string, keyUsed: string, keyLabel: string): Prom
   }
 }
 
-async function probeWhisper(apiKey: string, keyUsed: string, keyLabel: string): Promise<ProbeResult> {
-  const model = "whisper-1";
+async function probeWhisper(apiKey: string, keyUsed: string, keyLabel: string, model: string): Promise<ProbeResult> {
   try {
     const wavHeader = new Uint8Array([
       0x52, 0x49, 0x46, 0x46, 0x24, 0x00, 0x00, 0x00, 0x57, 0x41, 0x56, 0x45,
@@ -143,8 +194,7 @@ async function probeWhisper(apiKey: string, keyUsed: string, keyLabel: string): 
   }
 }
 
-async function probeEmbeddings(apiKey: string, keyUsed: string, keyLabel: string): Promise<ProbeResult> {
-  const model = "text-embedding-3-small";
+async function probeEmbeddings(apiKey: string, keyUsed: string, keyLabel: string, model: string): Promise<ProbeResult> {
   try {
     const r = await fetch(`${OPENAI_BASE}/embeddings`, {
       method: "POST",
@@ -190,19 +240,7 @@ Deno.serve(async (req) => {
     const whisperRes = resolveKey(whisperKey, "OPENAI_WHISPER_API_KEY", "clé_whisper");
     const ttsRes = resolveKey(ttsKey, "OPENAI_TTS_API_KEY", "clé_tts");
 
-    // 1) Probes en parallèle (uniquement les clés présentes)
-    const [chat, embeddings, whisper, tts] = await Promise.all([
-      chatRes ? probeChat(chatRes.key, chatRes.name, chatRes.label)
-              : Promise.resolve<ProbeResult>({ ok: false, status: 0, errorMessage: "Aucune clé chat configurée", keyUsed: "—", keyLabel: "—" }),
-      embRes  ? probeEmbeddings(embRes.key, embRes.name, embRes.label)
-              : Promise.resolve<ProbeResult>({ ok: false, status: 0, errorMessage: "Aucune clé embeddings configurée", keyUsed: "—", keyLabel: "—" }),
-      whisperRes ? probeWhisper(whisperRes.key, whisperRes.name, whisperRes.label)
-                 : Promise.resolve<ProbeResult>({ ok: false, status: 0, errorMessage: "Aucune clé whisper configurée", keyUsed: "—", keyLabel: "—" }),
-      ttsRes ? probeTts(ttsRes.key, ttsRes.name, ttsRes.label)
-             : Promise.resolve<ProbeResult>({ ok: false, status: 0, errorMessage: "Aucune clé TTS configurée", keyUsed: "—", keyLabel: "—" }),
-    ]);
-
-    // 2) /v1/models pour chaque clé distincte (déduplication)
+    // 1) /v1/models pour chaque clé distincte (déduplication) — d'abord, pour pouvoir auto-sélectionner les modèles
     const distinctKeys = new Map<string, { name: string; label: string; key: string }>();
     if (chatKey) distinctKeys.set(chatKey, { name: "OPENAI_API_KEY", label: "clé_chat", key: chatKey });
     if (whisperKey && !distinctKeys.has(whisperKey)) distinctKeys.set(whisperKey, { name: "OPENAI_WHISPER_API_KEY", label: "clé_whisper", key: whisperKey });
@@ -228,6 +266,54 @@ Deno.serve(async (req) => {
       }),
     );
     const modelsByKey = Object.fromEntries(modelsEntries);
+
+    // Helper : récupère la liste des modèles vue par une clé (via son label)
+    const modelsForLabel = (label: string): string[] => {
+      const baseLabel = label.replace(" (fallback)", "");
+      const entry = (modelsByKey as Record<string, { all?: string[] }>)[baseLabel];
+      return entry?.all ?? [];
+    };
+
+    const noModelResult = (cap: string, label: string, keyUsed: string): ProbeResult => ({
+      ok: false,
+      status: 0,
+      errorCode: "no_compatible_model",
+      errorMessage: `Aucun modèle ${cap} exposé par cette clé (vérifie les Model usage limits côté OpenAI).`,
+      keyUsed,
+      keyLabel: label,
+    });
+
+    // 2) Probes en parallèle, avec auto-sélection du modèle disponible pour chaque capacité
+    const [chat, embeddings, whisper, tts] = await Promise.all([
+      (async (): Promise<ProbeResult> => {
+        if (!chatRes) return { ok: false, status: 0, errorMessage: "Aucune clé chat configurée", keyUsed: "—", keyLabel: "—" };
+        const m = pickModelFor("chat", modelsForLabel(chatRes.label));
+        if (!m) return noModelResult("chat", chatRes.label, chatRes.name);
+        const r = await probeChat(chatRes.key, chatRes.name, chatRes.label, m);
+        return { ...r, note: "modèle auto-sélectionné parmi ceux exposés par la clé" };
+      })(),
+      (async (): Promise<ProbeResult> => {
+        if (!embRes) return { ok: false, status: 0, errorMessage: "Aucune clé embeddings configurée", keyUsed: "—", keyLabel: "—" };
+        const m = pickModelFor("embeddings", modelsForLabel(embRes.label));
+        if (!m) return noModelResult("embeddings", embRes.label, embRes.name);
+        const r = await probeEmbeddings(embRes.key, embRes.name, embRes.label, m);
+        return { ...r, note: "modèle auto-sélectionné parmi ceux exposés par la clé" };
+      })(),
+      (async (): Promise<ProbeResult> => {
+        if (!whisperRes) return { ok: false, status: 0, errorMessage: "Aucune clé whisper configurée", keyUsed: "—", keyLabel: "—" };
+        const m = pickModelFor("stt", modelsForLabel(whisperRes.label));
+        if (!m) return noModelResult("transcription (STT)", whisperRes.label, whisperRes.name);
+        const r = await probeWhisper(whisperRes.key, whisperRes.name, whisperRes.label, m);
+        return { ...r, note: "modèle auto-sélectionné parmi ceux exposés par la clé" };
+      })(),
+      (async (): Promise<ProbeResult> => {
+        if (!ttsRes) return { ok: false, status: 0, errorMessage: "Aucune clé TTS configurée", keyUsed: "—", keyLabel: "—" };
+        const m = pickModelFor("tts", modelsForLabel(ttsRes.label));
+        if (!m) return noModelResult("TTS", ttsRes.label, ttsRes.name);
+        const r = await probeTts(ttsRes.key, ttsRes.name, ttsRes.label, m);
+        return { ...r, note: "modèle auto-sélectionné parmi ceux exposés par la clé" };
+      })(),
+    ]);
 
     return new Response(JSON.stringify({
       ok: true,
