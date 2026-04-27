@@ -5,6 +5,7 @@ import { twinMemoryService, type MemoryCategory } from "@/services";
 import { useSettings } from "@/contexts/SettingsProvider";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { toast } from "sonner";
+import { ChatOrb } from "@/components/chatbot/ChatOrb";
 
 export interface VoiceTurn {
   id: string;
@@ -153,35 +154,23 @@ export function VoiceCallMode({ open, onClose, onTurn }: Props) {
                   : "radial-gradient(circle at center, hsl(270 80% 50% / 0.35), transparent 70%)",
             }}
           />
-          {/* Sphère ronde — remplace la galaxie */}
+          {/* Cercle + étoiles en orbite (même visuel que l'écran d'accueil) */}
           <div
-            className="relative w-full h-full rounded-full transition-all duration-700"
+            className="relative w-full h-full flex items-center justify-center transition-transform duration-700"
             style={{
-              background:
-                "radial-gradient(circle at 35% 30%, #F5B8FF 0%, #C44CFF 38%, #8B2FD9 72%, #4A148C 100%)",
-              boxShadow:
-                "0 0 80px hsl(280 95% 60% / 0.6), inset 0 -30px 60px hsl(280 80% 25% / 0.65), inset 14px 20px 40px hsl(300 100% 90% / 0.4)",
               animation:
                 phase === "listening"
-                  ? "galaxy-listening 3.5s ease-in-out infinite"
+                  ? "galaxy-listening 7s ease-in-out infinite"
                   : phase === "speaking"
-                  ? "galaxy-speaking 2.2s ease-in-out infinite"
+                  ? "galaxy-speaking 5s ease-in-out infinite"
                   : phase === "thinking"
-                  ? "galaxy-thinking 4s ease-in-out infinite"
-                  : "pulse-orb 5s ease-in-out infinite",
+                  ? "galaxy-thinking 8s ease-in-out infinite"
+                  : "galaxy-idle 40s ease-in-out infinite",
             }}
           >
-            {/* Reflet brillant */}
-            <div
-              className="absolute w-20 h-12 rounded-full pointer-events-none"
-              style={{
-                top: "28%",
-                left: "28%",
-                background:
-                  "radial-gradient(ellipse at center, rgba(255,255,255,0.7), transparent 70%)",
-                filter: "blur(3px)",
-              }}
-            />
+            <div className="scale-[1.6]">
+              <ChatOrb isLoading={phase === "thinking"} />
+            </div>
           </div>
         </div>
 
