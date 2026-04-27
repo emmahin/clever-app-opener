@@ -4,7 +4,7 @@
  * Architecture (zéro abonnement payant) :
  *   1. STT (parole→texte)  : voiceService (edge function `voice-transcribe`, Gemini via Lovable AI)
  *   2. LLM (texte→réponse) : edge function `ai-orchestrator` — MÊMES mémoires/insights que le chat texte
- *   3. TTS (texte→parole)  : window.speechSynthesis (navigateur, 0€)
+ *   3. TTS (texte→parole)  : OpenAI tts-1 (voix « nova ») via edge function `voice-tts`
  *
  * On garde EXACTEMENT la même API publique (`useTwinVoiceContext`) pour ne rien
  * casser dans VoiceCallMode et ailleurs.
@@ -43,8 +43,8 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
   const [transcript, setTranscript] = useState<TwinTurn[]>([]);
   const [interim] = useState("");
   const [phase, setPhase] = useState<"idle" | "listening" | "thinking" | "speaking">("idle");
-  // SpeechSynthesis dispo partout (Chrome, Safari, Firefox, Edge). Micro requis aussi.
-  const supported = typeof window !== "undefined" && "speechSynthesis" in window && !!navigator?.mediaDevices?.getUserMedia;
+  // Micro + lecture audio HTML5 requis (dispo partout).
+  const supported = typeof window !== "undefined" && !!navigator?.mediaDevices?.getUserMedia;
 
   // Providers fournis par la page Twin (mémoires + agenda)
   const providersRef = useRef<{
@@ -270,7 +270,7 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
       providersRef.current.onError?.("Microphone refusé.");
       return;
     }
-    try { window.speechSynthesis.getVoices(); } catch { /* ignore */ }
+    // (Plus besoin de pré-charger les voix navigateur, on utilise OpenAI TTS.)
     cycleAbortRef.current = { aborted: false };
     conversationHistoryRef.current = [];
     setIsCallActive(true);
