@@ -58,7 +58,7 @@ interface TwinVoiceContextValue {
   transcript: TwinTurn[];
   interim: string;
   supported: boolean;
-  /** Niveau audio normalisé (0..1) — micro en écoute, sortie TTS en parole. */
+  /** Niveau audio normalisé (0..1) — uniquement le micro pendant l'enregistrement réel. */
   audioLevel: number;
   startCall: () => Promise<void>;
   endCall: () => void;
@@ -109,93 +109,6 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
   const bargeInStreamRef = useRef<MediaStream | null>(null);
   const bargeInCtxRef = useRef<AudioContext | null>(null);
   const bargeInRafRef = useRef<number | null>(null);
-  // Stream micro persistant utilisé pour alimenter l'indicateur de niveau audio
-  // EN CONTINU (écoute, réflexion ET pendant que Lia parle). L'utilisateur voit
-  // ainsi à tout moment si son micro le capte bien.
-  const monitorStreamRef = useRef<MediaStream | null>(null);
-  const monitorCtxRef = useRef<AudioContext | null>(null);
-  const monitorRafRef = useRef<number | null>(null);
-
-  /** Stoppe le moniteur micro permanent. */
-  const stopMicMonitor = useCallback(() => {
-    if (monitorRafRef.current != null) {
-      cancelAnimationFrame(monitorRafRef.current);
-      monitorRafRef.current = null;
-    }
-    try { monitorCtxRef.current?.close(); } catch { /* ignore */ }
-    monitorCtxRef.current = null;
-    try { monitorStreamRef.current?.getTracks().forEach((t) => t.stop()); } catch { /* ignore */ }
-    monitorStreamRef.current = null;
-    setAudioLevel(0);
-  }, []);
-
-  /** Démarre un moniteur micro permanent qui alimente `audioLevel` en continu. */
-  const startMicMonitor = useCallback(async () => {
-    if (monitorStreamRef.current) return; // déjà actif
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          channelCount: 1,
-        } as MediaTrackConstraints,
-      });
-      monitorStreamRef.current = stream;
-      const Ctx = (window.AudioContext || (window as any).webkitAudioContext);
-      const ctx = new Ctx();
-      monitorCtxRef.current = ctx;
-      const src = ctx.createMediaStreamSource(stream);
-      const analyser = ctx.createAnalyser();
-      // FFT plus grosse = meilleure résolution de la mesure RMS sur la trame.
-      analyser.fftSize = 2048;
-      analyser.smoothingTimeConstant = 0; // on lisse nous-mêmes, plus précisément
-      src.connect(analyser);
-      const buf = new Uint8Array(analyser.fftSize);
-      // Deux niveaux de lissage :
-      //  - attack très rapide (montée quasi instantanée → réactif aux pics de voix)
-      //  - release plus doux (descente progressive → barre lisible)
-      let displayed = 0;
-      // Plancher de bruit dynamique : on apprend en continu le niveau de
-      // silence ambiant, et on l'utilise comme zéro de l'indicateur. Sans ça
-      // un faible bruit de fond fait croire que le micro "entend" quelque chose.
-      let noiseFloor = 0.005;
-      const tick = () => {
-        if (!monitorCtxRef.current) return;
-        analyser.getByteTimeDomainData(buf);
-        let sum = 0;
-        let peak = 0;
-        for (let i = 0; i < buf.length; i++) {
-          const v = (buf[i] - 128) / 128;
-          sum += v * v;
-          const av = Math.abs(v);
-          if (av > peak) peak = av;
-        }
-        const rms = Math.sqrt(sum / buf.length);
-        // Apprentissage du plancher de bruit : si le RMS courant est sous
-        // le plancher actuel, on s'y adapte rapidement (silence). Sinon, on
-        // remonte très lentement pour ne pas absorber la voix elle-même.
-        if (rms < noiseFloor) noiseFloor = noiseFloor * 0.9 + rms * 0.1;
-        else noiseFloor = noiseFloor * 0.999 + rms * 0.001;
-        // On combine RMS (énergie moyenne) et peak (transitoires des consonnes)
-        // pour mieux refléter ce que Whisper entend réellement.
-        const energy = Math.max(0, rms - noiseFloor * 1.5);
-        // Échelle perceptuelle (racine carrée) : la barre bouge dès qu'on
-        // chuchote, sans saturer dès qu'on parle normalement.
-        const norm = Math.min(1, Math.sqrt(energy * 12) + peak * 0.25);
-        // Attack rapide / release lente : la barre suit instantanément les
-        // mots et redescend doucement entre les syllabes.
-        if (norm > displayed) displayed = displayed * 0.3 + norm * 0.7;
-        else displayed = displayed * 0.85 + norm * 0.15;
-        setAudioLevel(displayed);
-        monitorRafRef.current = requestAnimationFrame(tick);
-      };
-      monitorRafRef.current = requestAnimationFrame(tick);
-    } catch (e) {
-      console.warn("[mic-monitor] unavailable", e);
-    }
-  }, []);
-
   /** Joue un petit "bip" pour signaler que l'IA recommence à écouter. */
   const playListenCue = useCallback(() => {
     try {
@@ -419,6 +332,7 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
 
   /** Détecte la fin de la parole via volume RMS, puis stoppe l'enregistrement. */
   const recordUntilSilence = useCallback(async (): Promise<string> => {
+    setAudioLevel(0);
     await webVoiceService.startRecording();
     const stream = webVoiceService.getStream();
     if (!stream) {
@@ -431,8 +345,8 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
     analyser.fftSize = 1024;
     src.connect(analyser);
     const buf = new Uint8Array(analyser.fftSize);
-    // L'indicateur visuel est géré par le moniteur permanent (startMicMonitor).
-    // On utilise ici l'analyser uniquement pour la détection de fin de parole.
+    // L'indicateur visuel suit uniquement CET enregistrement actif : dès que
+    // l'enregistrement s'arrête, il retombe à zéro au lieu de rester figé.
 
     // Détection de fin de parole — réglée pour ATTENDRE que l'utilisateur ait
     // vraiment terminé sa phrase, plutôt que de couper à la moindre micro-pause.
@@ -456,6 +370,8 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
     // et non un simple "tic" parasite avant de couper.
     let voicedMs = 0;
     let lastTickAt = start;
+    let displayedLevel = 0;
+    let noiseFloor = 0.005;
 
     await new Promise<void>((resolve) => {
       const tick = () => {
@@ -467,6 +383,14 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
           sum += v * v;
         }
         const rms = Math.sqrt(sum / buf.length);
+        if (rms < noiseFloor) noiseFloor = noiseFloor * 0.9 + rms * 0.1;
+        else noiseFloor = noiseFloor * 0.999 + rms * 0.001;
+        const energy = Math.max(0, rms - noiseFloor * 1.5);
+        const norm = Math.min(1, Math.sqrt(energy * 13));
+        displayedLevel = norm > displayedLevel
+          ? displayedLevel * 0.25 + norm * 0.75
+          : displayedLevel * 0.72 + norm * 0.28;
+        setAudioLevel(webVoiceService.isRecording() ? displayedLevel : 0);
         const now = Date.now();
         const dt = now - lastTickAt;
         lastTickAt = now;
@@ -490,6 +414,7 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
 
     try { ctx.close(); } catch { /* ignore */ }
     audioCtxRef.current = null;
+    setAudioLevel(0);
     // Si on n'a JAMAIS détecté de parole, on ne perd pas un appel STT (qui
     // hallucinerait souvent un "Merci.", "Sous-titres réalisés par...", etc.
     // dans une langue aléatoire) — on stoppe le mediaRecorder et on retourne "".
@@ -721,12 +646,10 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
     cycleAbortRef.current = { aborted: false };
     conversationHistoryRef.current = [];
     setIsCallActive(true);
-    // Démarre le moniteur micro permanent : l'indicateur reflète TON volume
-    // en continu pendant tout l'appel (écoute, réflexion, et parole de Lia).
-    startMicMonitor();
+    setAudioLevel(0);
     // Lance la boucle (non-bloquant)
     runConversationLoop().finally(() => setIsCallActive(false));
-  }, [supported, runConversationLoop, startMicMonitor]);
+  }, [supported, runConversationLoop]);
 
   const endCall = useCallback(() => {
     cycleAbortRef.current.aborted = true;
@@ -734,7 +657,7 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
     setPhase("idle");
     stopBargeInDetector();
     stopAudioLevel();
-    stopMicMonitor();
+    setAudioLevel(0);
     try {
       currentAudioRef.current?.pause();
       currentAudioRef.current = null;
@@ -748,7 +671,7 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
     } catch { /* ignore */ }
     try { audioCtxRef.current?.close(); } catch { /* ignore */ }
     audioCtxRef.current = null;
-  }, [stopBargeInDetector, stopAudioLevel, stopMicMonitor]);
+  }, [stopBargeInDetector, stopAudioLevel]);
 
   const clearTranscript = useCallback(() => {
     setTranscript([]);

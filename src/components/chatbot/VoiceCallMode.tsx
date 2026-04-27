@@ -25,13 +25,14 @@ interface Props {
    * Retourner `true` pour signaler que l'intention a été prise en charge
    * (le composant déclenchera alors `setMinimized(true)` automatiquement).
    */
-  onVoiceIntent?: (intent: VoiceIntent) => boolean | void;
+  onVoiceIntent?: (intent: VoiceIntent) => boolean | void | Promise<boolean | void>;
 }
 
 export type VoiceIntent =
   | { kind: "agenda"; rangeLabel?: string }
   | { kind: "news" }
   | { kind: "stocks" }
+  | { kind: "route"; path: string; label: string }
   | { kind: "settings" }
   | { kind: "notifications" };
 
@@ -43,8 +44,23 @@ export type VoiceIntent =
  */
 function detectVoiceIntent(text: string): VoiceIntent | null {
   const t = text.toLowerCase();
+  const wantsDirectRoute = /\b(ouvre|ouvrir|va|aller|redirige|redirection|am[eè]ne|acc[eè]de|page|menu)\b/.test(t);
+  const routes: Array<{ path: string; label: string; re: RegExp }> = [
+    { path: "/dashboard", label: "Tableau de bord", re: /\b(tableau de bord|dashboard)\b/ },
+    { path: "/analytics", label: "Analytics", re: /\b(analytics|analyses?|statistiques?|stats)\b/ },
+    { path: "/documents", label: "Documents", re: /\b(documents?|fichiers?)\b/ },
+    { path: "/video", label: "Éditeur vidéo", re: /\b(vid[ée]o|montage|[ée]diteur vid[ée]o)\b/ },
+    { path: "/billing", label: "Facturation", re: /\b(facturation|abonnement|billing|cr[ée]dits?)\b/ },
+  ];
+  const directRoute = routes.find((route) => route.re.test(t));
+  if (directRoute && wantsDirectRoute) {
+    return { kind: "route", path: directRoute.path, label: directRoute.label };
+  }
   // Agenda / planning
   if (/\b(agenda|calendrier|planning|emploi du temps|rendez[-\s]?vous|rdv|prochain|évén?ements?|aujourd['’]hui|demain|cette semaine|prochaine semaine|ce week[-\s]?end|ce mois|libre|disponible|réuni(?:on|ons))\b/.test(t)) {
+    if (wantsDirectRoute && /\b(agenda|calendrier|planning|emploi du temps)\b/.test(t)) {
+      return { kind: "route", path: "/agenda", label: "Agenda" };
+    }
     let rangeLabel: string | undefined;
     if (/\baujourd['’]hui\b/.test(t)) rangeLabel = "Aujourd'hui";
     else if (/\bdemain\b/.test(t)) rangeLabel = "Demain";
@@ -63,11 +79,11 @@ function detectVoiceIntent(text: string): VoiceIntent | null {
   }
   // Notifications
   if (/\b(notifications?|alertes?)\b/.test(t)) {
-    return { kind: "notifications" };
+    return wantsDirectRoute ? { kind: "route", path: "/notifications", label: "Notifications" } : { kind: "notifications" };
   }
   // Paramètres
   if (/\b(param[èe]tres?|r[ée]glages?|settings?|pr[ée]f[ée]rences?)\b/.test(t)) {
-    return { kind: "settings" };
+    return wantsDirectRoute ? { kind: "route", path: "/settings", label: "Paramètres" } : { kind: "settings" };
   }
   return null;
 }
@@ -127,7 +143,10 @@ export function VoiceCallMode({ open, onClose, onTurn, onVoiceIntent }: Props) {
       const intent = detectVoiceIntent(last.text);
       if (intent) {
         const handled = onVoiceIntent(intent);
-        if (handled !== false) {
+        if (handled instanceof Promise) {
+          setMinimized(true);
+          handled.catch((err) => console.warn("[VoiceCallMode] voice intent failed", err));
+        } else if (handled !== false) {
           setMinimized(true);
         }
       }
@@ -308,9 +327,9 @@ export function VoiceCallMode({ open, onClose, onTurn, onVoiceIntent }: Props) {
             const envelope = Math.pow(1 - dist, 1.6) * 0.85 + 0.15;
             const t1 = Date.now() / 220 + i * 0.8;
             const wiggle = 0.55 + 0.45 * Math.abs(Math.sin(t1) * Math.cos(t1 * 0.6 + i));
-            const boosted = Math.min(1, audioLevel * 1.6 + 0.04);
+            const boosted = phase === "listening" ? Math.min(1, audioLevel * 1.75) : 0;
             const amp = envelope * wiggle * boosted;
-            const h = 4 + amp * 84;
+            const h = boosted > 0.003 ? 3 + amp * 86 : 2;
             const color =
               phase === "speaking"
                 ? "hsl(150 80% 60%)"
