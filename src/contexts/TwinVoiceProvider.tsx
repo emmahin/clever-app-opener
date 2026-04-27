@@ -286,7 +286,7 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
         lang: "fr",
         // En vocal : réponses COURTES par défaut (économie tokens + meilleure UX vocale).
         detailLevel: "short",
-        customInstructions: "Mode vocal : réponds en 1 à 3 phrases courtes, naturelles, parlées. Pas de markdown, pas de listes, pas d'émojis. NE TERMINE JAMAIS ta réponse par une question de relance du type \"voulez-vous que je modifie votre agenda ?\", \"souhaitez-vous que je…\", \"dites-le moi si…\". Conclus simplement, sans solliciter d'action ni demander confirmation à la fin.",
+        customInstructions: "Mode vocal : réponds en 1 à 3 phrases courtes, naturelles, parlées. Pas de markdown, pas de listes, pas d'émojis. NE TERMINE JAMAIS ta réponse par une question de relance du type \"voulez-vous que je modifie votre agenda ?\", \"souhaitez-vous que je…\", \"dites-le moi si…\". NE TERMINE JAMAIS non plus par des formules de disponibilité ou d'attente du type \"je suis prêt\", \"je suis là\", \"à votre écoute\", \"dites-moi ce que vous voulez\", \"dites-moi ce qu'on fait\", \"je vous écoute\", \"n'hésitez pas\". Pas de relance, pas d'invitation à parler, pas d'offre d'aide finale. Conclus directement sur l'information utile, point final.",
         timezone: (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; } catch { return "UTC"; } })(),
         moodContext: moodCtx,
         memories,
