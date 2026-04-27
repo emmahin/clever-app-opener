@@ -69,44 +69,58 @@ function pickModelFor(
   capability: "chat" | "tts" | "stt" | "embeddings",
   available: string[],
 ): string | null {
+  // On filtre la liste par catégorie réelle pour éviter qu'un modèle TTS comme
+  // « gpt-4o-mini-tts » soit pris pour du chat (car il contient « gpt-4o-mini »).
   const ids = available.map((s) => s.toLowerCase());
-  const has = (needle: string) => ids.find((id) => id === needle || id.includes(needle));
+  const byCat = ids.filter((id) => categorize(id) === (
+    capability === "stt" ? "stt" :
+    capability === "tts" ? "tts" :
+    capability === "embeddings" ? "embeddings" :
+    "chat"
+  ));
+  const exact = (needle: string) => byCat.find((id) => id === needle);
+  const startsWith = (prefix: string) => byCat.find((id) => id.startsWith(prefix));
 
   if (capability === "chat") {
     return (
-      has("gpt-4o-mini") ||
-      has("gpt-4o") ||
-      has("gpt-4.1-mini") ||
-      has("gpt-4.1") ||
-      ids.find((id) => id.startsWith("gpt-")) ||
-      ids.find((id) => id.startsWith("o1") || id.startsWith("o3")) ||
+      exact("gpt-4o-mini") ||
+      exact("gpt-4o") ||
+      exact("gpt-4.1-mini") ||
+      exact("gpt-4.1") ||
+      startsWith("gpt-4.1") ||
+      startsWith("gpt-4o") ||
+      startsWith("gpt-5") ||
+      startsWith("gpt-") ||
+      startsWith("o1") ||
+      startsWith("o3") ||
+      byCat[0] ||
       null
     );
   }
   if (capability === "tts") {
     return (
-      has("gpt-4o-mini-tts") ||
-      has("tts-1-hd") ||
-      has("tts-1") ||
-      ids.find((id) => id.includes("tts")) ||
+      exact("gpt-4o-mini-tts") ||
+      exact("tts-1-hd") ||
+      exact("tts-1") ||
+      byCat[0] ||
       null
     );
   }
   if (capability === "stt") {
     return (
-      has("whisper-1") ||
-      has("gpt-4o-mini-transcribe") ||
-      has("gpt-4o-transcribe") ||
-      ids.find((id) => id.includes("transcribe") || id.startsWith("whisper")) ||
+      exact("whisper-1") ||
+      exact("gpt-4o-mini-transcribe") ||
+      exact("gpt-4o-transcribe") ||
+      byCat[0] ||
       null
     );
   }
   if (capability === "embeddings") {
     return (
-      has("text-embedding-3-small") ||
-      has("text-embedding-3-large") ||
-      has("text-embedding-ada-002") ||
-      ids.find((id) => id.includes("embedding")) ||
+      exact("text-embedding-3-small") ||
+      exact("text-embedding-3-large") ||
+      exact("text-embedding-ada-002") ||
+      byCat[0] ||
       null
     );
   }
