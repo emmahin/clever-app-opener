@@ -64,22 +64,37 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
   const cycleAbortRef = useRef<{ aborted: boolean }>({ aborted: false });
   const audioCtxRef = useRef<AudioContext | null>(null);
   const conversationHistoryRef = useRef<{ role: "user" | "assistant"; content: string }[]>([]);
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const speak = useCallback((text: string): Promise<void> => {
-    return new Promise((resolve) => {
-      if (!("speechSynthesis" in window) || !text.trim()) return resolve();
-      try { window.speechSynthesis.cancel(); } catch { /* ignore */ }
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = "fr-FR";
-      u.rate = 1.05;
-      u.pitch = 1.0;
-      // Choisir une voix française si dispo
-      const voices = window.speechSynthesis.getVoices();
-      const fr = voices.find((v) => v.lang?.startsWith("fr"));
-      if (fr) u.voice = fr;
-      u.onend = () => resolve();
-      u.onerror = () => resolve();
-      window.speechSynthesis.speak(u);
+    return new Promise(async (resolve) => {
+      if (!text.trim()) return resolve();
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token || (import.meta as any).env.VITE_SUPABASE_PUBLISHABLE_KEY;
+        const url = `${(import.meta as any).env.VITE_SUPABASE_URL}/functions/v1/voice-tts`;
+        const resp = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ text }),
+        });
+        if (!resp.ok) throw new Error(`TTS HTTP ${resp.status}`);
+        const blob = await resp.blob();
+        const audioUrl = URL.createObjectURL(blob);
+        const audio = new Audio(audioUrl);
+        currentAudioRef.current = audio;
+        const cleanup = () => {
+          URL.revokeObjectURL(audioUrl);
+          if (currentAudioRef.current === audio) currentAudioRef.current = null;
+          resolve();
+        };
+        audio.onended = cleanup;
+        audio.onerror = cleanup;
+        await audio.play().catch(cleanup);
+      } catch (e) {
+        console.error("TTS speak error:", e);
+        resolve();
+      }
     });
   }, []);
 
@@ -267,7 +282,10 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
     cycleAbortRef.current.aborted = true;
     setIsCallActive(false);
     setPhase("idle");
-    try { window.speechSynthesis.cancel(); } catch { /* ignore */ }
+    try {
+      currentAudioRef.current?.pause();
+      currentAudioRef.current = null;
+    } catch { /* ignore */ }
     try {
       // Si un enregistrement est en cours, on coupe le micro brutalement
       const stream = webVoiceService.getStream();
