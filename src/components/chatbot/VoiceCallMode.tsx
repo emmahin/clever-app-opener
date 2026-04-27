@@ -202,9 +202,10 @@ export function VoiceCallMode({ open, onClose, onTurn, onVoiceIntent }: Props) {
   const phase: "idle" | "listening" | "thinking" | "speaking" =
     starting ? "thinking" : status;
 
-  // 7 barres : amplitude par bande, hauteur pilotée par audioLevel réel.
-  const BAR_COUNT = 7;
-  const baseHeights = [0.45, 0.7, 0.9, 1, 0.9, 0.7, 0.45];
+  // Waveform centrée style "audio wave" : nombreuses barres fines, enveloppe
+  // en cloche (plus hautes au centre), modulation pseudo-aléatoire animée
+  // multipliée par le niveau audio réel du micro.
+  const BAR_COUNT = 27;
 
   // ─── Mode RÉDUIT : pastille flottante en bas à droite, l'appel reste actif ───
   if (minimized) {
