@@ -480,18 +480,32 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
     let full = "";
     // Tampon pour découper en phrases au fil de l'eau.
     let sentenceBuf = "";
+    let firstChunkSent = false;
     const MIN_SENTENCE_LEN = 12; // évite de TTS-er "Ok." tout seul
     const flushSentences = (force = false) => {
       // Cherche une fin de phrase : . ! ? … suivi d'un espace ou fin.
       // On n'envoie que si la phrase a un minimum de contenu pour limiter
       // le nombre d'appels TTS et garder une intonation naturelle.
+      // Premier segment : on accepte aussi une virgule ou un saut sur >= 18
+      // caractères pour que Lia commence à parler quasi instantanément.
+      if (!firstChunkSent && !force) {
+        const earlyMatch = sentenceBuf.match(/^([^.!?…,]{18,}?[,.!?…])\s/);
+        if (earlyMatch) {
+          const s = earlyMatch[1].trim();
+          onSentence?.(s);
+          sentenceBuf = sentenceBuf.slice(earlyMatch[0].length);
+          firstChunkSent = true;
+        }
+      }
       const re = /([^.!?…]+[.!?…]+)(\s+|$)/g;
       let lastIdx = 0;
       let m: RegExpExecArray | null;
       while ((m = re.exec(sentenceBuf)) !== null) {
         const s = m[1].trim();
-        if (s.length >= MIN_SENTENCE_LEN) {
+        const minLen = firstChunkSent ? MIN_SENTENCE_LEN : 4;
+        if (s.length >= minLen) {
           onSentence?.(s);
+          firstChunkSent = true;
           lastIdx = re.lastIndex;
         }
       }
@@ -499,6 +513,7 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
       if (force && sentenceBuf.trim().length > 0) {
         onSentence?.(sentenceBuf.trim());
         sentenceBuf = "";
+        firstChunkSent = true;
       }
     };
     while (true) {
