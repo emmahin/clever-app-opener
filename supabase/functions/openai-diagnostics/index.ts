@@ -1,13 +1,30 @@
 /**
- * openai-diagnostics — Introspection de la clé OpenAI utilisateur (platform.openai.com).
+ * openai-diagnostics — Introspection multi-clés OpenAI.
  *
- * N'utilise JAMAIS le Lovable AI Gateway. Appelle directement api.openai.com avec
- * la clé `OPENAI_API_KEY` stockée dans les secrets Supabase.
+ * Trois clés possibles :
+ *   - OPENAI_API_KEY         → "clé_chat" (chat completions, embeddings, fallback)
+ *   - OPENAI_WHISPER_API_KEY → "clé_whisper" (transcription audio)
+ *   - OPENAI_TTS_API_KEY     → "clé_tts" (synthèse vocale)
  *
- * Renvoie :
- *   - models: liste brute + groupée par catégorie (chat, tts, stt, embeddings, image, moderation, realtime, other)
- *   - capabilities: { chat, tts, whisper, embeddings } avec test réel (status + message d'erreur)
- *   - meta: { keyPrefix, totalModels, durationMs }
+ * Pour chaque clé configurée, on appelle GET /v1/models pour lister ce qu'elle voit.
+ * Pour chaque capacité (chat, embeddings, whisper, tts) on lance un probe POST minimal
+ * avec la clé qui lui est dédiée (fallback sur OPENAI_API_KEY si la dédiée manque).
+ *
+ * Réponse :
+ * {
+ *   meta: { keys: { chat, whisper, tts } avec présence + préfixe },
+ *   capabilities: {
+ *     chat:       { keyUsed, keyLabel, ok, status, errorCode?, errorMessage?, modelTested },
+ *     embeddings: { ... },
+ *     whisper:    { ... },
+ *     tts:        { ... }
+ *   },
+ *   modelsByKey: {
+ *     "clé_chat":    { keyName, keyPrefix, total, grouped: {...}, all: [] },
+ *     "clé_whisper": { ... },
+ *     "clé_tts":     { ... }
+ *   }
+ * }
  */
 
 const corsHeaders = {
@@ -24,7 +41,11 @@ type ProbeResult = {
   errorCode?: string | null;
   errorMessage?: string | null;
   modelTested?: string;
+  keyUsed: string;       // ex: "OPENAI_TTS_API_KEY"
+  keyLabel: string;      // ex: "clé_tts"
 };
+
+type ModelEntry = { id: string; created?: number; owned_by?: string };
 
 function categorize(modelId: string): string {
   const id = modelId.toLowerCase();
@@ -34,83 +55,67 @@ function categorize(modelId: string): string {
   if (id.includes("moderation")) return "moderation";
   if (id.includes("realtime")) return "realtime";
   if (id.startsWith("dall-e") || id.includes("image")) return "image";
-  if (
-    id.startsWith("gpt-") ||
-    id.startsWith("o1") ||
-    id.startsWith("o3") ||
-    id.startsWith("chatgpt") ||
-    id.startsWith("gpt-4") ||
-    id.startsWith("gpt-5")
-  ) {
-    return "chat";
-  }
+  if (id.startsWith("gpt-") || id.startsWith("o1") || id.startsWith("o3") || id.startsWith("chatgpt")) return "chat";
   return "other";
 }
 
-async function probeChat(apiKey: string): Promise<ProbeResult> {
+async function fetchModelsForKey(apiKey: string) {
+  const r = await fetch(`${OPENAI_BASE}/models`, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  });
+  if (!r.ok) {
+    const j = await r.json().catch(() => ({}));
+    return { ok: false, status: r.status, error: j?.error?.message ?? `HTTP ${r.status}`, models: [] as ModelEntry[] };
+  }
+  const j = await r.json();
+  const models: ModelEntry[] = Array.isArray(j?.data) ? j.data : [];
+  return { ok: true, status: 200, error: null as string | null, models };
+}
+
+function group(models: ModelEntry[]) {
+  const grouped: Record<string, ModelEntry[]> = {
+    chat: [], tts: [], stt: [], embeddings: [], image: [], moderation: [], realtime: [], other: [],
+  };
+  for (const m of models) grouped[categorize(m.id)].push(m);
+  for (const k of Object.keys(grouped)) grouped[k].sort((a, b) => a.id.localeCompare(b.id));
+  return grouped;
+}
+
+async function probeChat(apiKey: string, keyUsed: string, keyLabel: string): Promise<ProbeResult> {
   const model = "gpt-4o-mini";
   try {
     const r = await fetch(`${OPENAI_BASE}/chat/completions`, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: "user", content: "ping" }],
-        max_tokens: 1,
-      }),
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ model, messages: [{ role: "user", content: "ping" }], max_tokens: 1 }),
     });
-    if (r.ok) {
-      await r.text();
-      return { ok: true, status: r.status, modelTested: model };
-    }
+    if (r.ok) { await r.text(); return { ok: true, status: r.status, modelTested: model, keyUsed, keyLabel }; }
     const j = await r.json().catch(() => ({}));
-    return {
-      ok: false,
-      status: r.status,
-      errorCode: j?.error?.code ?? null,
-      errorMessage: j?.error?.message ?? null,
-      modelTested: model,
-    };
+    return { ok: false, status: r.status, errorCode: j?.error?.code ?? null, errorMessage: j?.error?.message ?? null, modelTested: model, keyUsed, keyLabel };
   } catch (e) {
-    return { ok: false, status: 0, errorMessage: e instanceof Error ? e.message : "network", modelTested: model };
+    return { ok: false, status: 0, errorMessage: e instanceof Error ? e.message : "network", modelTested: model, keyUsed, keyLabel };
   }
 }
 
-async function probeTts(apiKey: string): Promise<ProbeResult> {
+async function probeTts(apiKey: string, keyUsed: string, keyLabel: string): Promise<ProbeResult> {
   const model = "tts-1";
   try {
     const r = await fetch(`${OPENAI_BASE}/audio/speech`, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({ model, voice: "alloy", input: "hi" }),
     });
-    if (r.ok) {
-      await r.arrayBuffer();
-      return { ok: true, status: r.status, modelTested: model };
-    }
+    if (r.ok) { await r.arrayBuffer(); return { ok: true, status: r.status, modelTested: model, keyUsed, keyLabel }; }
     const j = await r.json().catch(() => ({}));
-    return {
-      ok: false,
-      status: r.status,
-      errorCode: j?.error?.code ?? null,
-      errorMessage: j?.error?.message ?? null,
-      modelTested: model,
-    };
+    return { ok: false, status: r.status, errorCode: j?.error?.code ?? null, errorMessage: j?.error?.message ?? null, modelTested: model, keyUsed, keyLabel };
   } catch (e) {
-    return { ok: false, status: 0, errorMessage: e instanceof Error ? e.message : "network", modelTested: model };
+    return { ok: false, status: 0, errorMessage: e instanceof Error ? e.message : "network", modelTested: model, keyUsed, keyLabel };
   }
 }
 
-async function probeWhisper(apiKey: string): Promise<ProbeResult> {
+async function probeWhisper(apiKey: string, keyUsed: string, keyLabel: string): Promise<ProbeResult> {
   const model = "whisper-1";
   try {
-    // Mini WAV silencieux (44 octets header + 0 data) — accepté par Whisper pour le ping.
     const wavHeader = new Uint8Array([
       0x52, 0x49, 0x46, 0x46, 0x24, 0x00, 0x00, 0x00, 0x57, 0x41, 0x56, 0x45,
       0x66, 0x6d, 0x74, 0x20, 0x10, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00,
@@ -121,62 +126,36 @@ async function probeWhisper(apiKey: string): Promise<ProbeResult> {
     fd.append("file", new Blob([wavHeader], { type: "audio/wav" }), "ping.wav");
     fd.append("model", model);
     const r = await fetch(`${OPENAI_BASE}/audio/transcriptions`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}` },
-      body: fd,
+      method: "POST", headers: { Authorization: `Bearer ${apiKey}` }, body: fd,
     });
-    if (r.ok) {
-      await r.text();
-      return { ok: true, status: r.status, modelTested: model };
-    }
+    if (r.ok) { await r.text(); return { ok: true, status: r.status, modelTested: model, keyUsed, keyLabel }; }
     const j = await r.json().catch(() => ({}));
-    // Note : un fichier vide peut renvoyer 400 "audio file is too short" même
-    // quand la clé a accès. On considère donc l'accès OK si l'erreur n'est
-    // ni 401, ni 403, ni model_not_found.
     const code = j?.error?.code ?? null;
     const msg = j?.error?.message ?? null;
+    // Un fichier vide peut donner 400 "audio file is too short" alors que la clé a accès.
     const accessOk =
-      r.status !== 401 &&
-      r.status !== 403 &&
+      r.status !== 401 && r.status !== 403 &&
       code !== "model_not_found" &&
       !(typeof msg === "string" && msg.toLowerCase().includes("does not have access"));
-    return {
-      ok: accessOk,
-      status: r.status,
-      errorCode: code,
-      errorMessage: msg,
-      modelTested: model,
-    };
+    return { ok: accessOk, status: r.status, errorCode: code, errorMessage: msg, modelTested: model, keyUsed, keyLabel };
   } catch (e) {
-    return { ok: false, status: 0, errorMessage: e instanceof Error ? e.message : "network", modelTested: model };
+    return { ok: false, status: 0, errorMessage: e instanceof Error ? e.message : "network", modelTested: model, keyUsed, keyLabel };
   }
 }
 
-async function probeEmbeddings(apiKey: string): Promise<ProbeResult> {
+async function probeEmbeddings(apiKey: string, keyUsed: string, keyLabel: string): Promise<ProbeResult> {
   const model = "text-embedding-3-small";
   try {
     const r = await fetch(`${OPENAI_BASE}/embeddings`, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({ model, input: "ping" }),
     });
-    if (r.ok) {
-      await r.text();
-      return { ok: true, status: r.status, modelTested: model };
-    }
+    if (r.ok) { await r.text(); return { ok: true, status: r.status, modelTested: model, keyUsed, keyLabel }; }
     const j = await r.json().catch(() => ({}));
-    return {
-      ok: false,
-      status: r.status,
-      errorCode: j?.error?.code ?? null,
-      errorMessage: j?.error?.message ?? null,
-      modelTested: model,
-    };
+    return { ok: false, status: r.status, errorCode: j?.error?.code ?? null, errorMessage: j?.error?.message ?? null, modelTested: model, keyUsed, keyLabel };
   } catch (e) {
-    return { ok: false, status: 0, errorMessage: e instanceof Error ? e.message : "network", modelTested: model };
+    return { ok: false, status: 0, errorMessage: e instanceof Error ? e.message : "network", modelTested: model, keyUsed, keyLabel };
   }
 }
 
@@ -185,84 +164,91 @@ Deno.serve(async (req) => {
 
   const startedAt = Date.now();
   try {
-    const apiKey = Deno.env.get("OPENAI_API_KEY");
-    if (!apiKey) {
-      return new Response(
-        JSON.stringify({ error: "OPENAI_API_KEY not configured in project secrets" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+    const chatKey = Deno.env.get("OPENAI_API_KEY");
+    const whisperKey = Deno.env.get("OPENAI_WHISPER_API_KEY");
+    const ttsKey = Deno.env.get("OPENAI_TTS_API_KEY");
+
+    if (!chatKey && !whisperKey && !ttsKey) {
+      return new Response(JSON.stringify({ error: "Aucune clé OpenAI configurée (OPENAI_API_KEY, OPENAI_WHISPER_API_KEY, OPENAI_TTS_API_KEY)" }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    // 1) GET /v1/models
-    const modelsResp = await fetch(`${OPENAI_BASE}/models`, {
-      headers: { Authorization: `Bearer ${apiKey}` },
-    });
-
-    if (!modelsResp.ok) {
-      const j = await modelsResp.json().catch(() => ({}));
-      return new Response(
-        JSON.stringify({
-          error: "OpenAI /v1/models failed",
-          status: modelsResp.status,
-          openaiError: j?.error ?? null,
-          keyPrefix: apiKey.slice(0, 8) + "…",
-        }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
-    const modelsJson = await modelsResp.json();
-    const rawModels: Array<{ id: string; created?: number; owned_by?: string }> =
-      Array.isArray(modelsJson?.data) ? modelsJson.data : [];
-
-    const grouped: Record<string, typeof rawModels> = {
-      chat: [],
-      tts: [],
-      stt: [],
-      embeddings: [],
-      image: [],
-      moderation: [],
-      realtime: [],
-      other: [],
+    // Résolution clé par capacité (avec fallback sur la clé chat)
+    const resolveKey = (
+      preferred: string | undefined,
+      preferredName: string,
+      preferredLabel: string,
+    ): { key: string; name: string; label: string } | null => {
+      if (preferred) return { key: preferred, name: preferredName, label: preferredLabel };
+      if (chatKey) return { key: chatKey, name: "OPENAI_API_KEY (fallback)", label: "clé_chat (fallback)" };
+      return null;
     };
-    for (const m of rawModels) {
-      const cat = categorize(m.id);
-      grouped[cat].push(m);
-    }
-    for (const k of Object.keys(grouped)) {
-      grouped[k].sort((a, b) => a.id.localeCompare(b.id));
-    }
 
-    // 2) Probes en parallèle
-    const [chat, tts, whisper, embeddings] = await Promise.all([
-      probeChat(apiKey),
-      probeTts(apiKey),
-      probeWhisper(apiKey),
-      probeEmbeddings(apiKey),
+    const chatRes = chatKey ? { key: chatKey, name: "OPENAI_API_KEY", label: "clé_chat" } : null;
+    const embRes = chatRes;
+    const whisperRes = resolveKey(whisperKey, "OPENAI_WHISPER_API_KEY", "clé_whisper");
+    const ttsRes = resolveKey(ttsKey, "OPENAI_TTS_API_KEY", "clé_tts");
+
+    // 1) Probes en parallèle (uniquement les clés présentes)
+    const [chat, embeddings, whisper, tts] = await Promise.all([
+      chatRes ? probeChat(chatRes.key, chatRes.name, chatRes.label)
+              : Promise.resolve<ProbeResult>({ ok: false, status: 0, errorMessage: "Aucune clé chat configurée", keyUsed: "—", keyLabel: "—" }),
+      embRes  ? probeEmbeddings(embRes.key, embRes.name, embRes.label)
+              : Promise.resolve<ProbeResult>({ ok: false, status: 0, errorMessage: "Aucune clé embeddings configurée", keyUsed: "—", keyLabel: "—" }),
+      whisperRes ? probeWhisper(whisperRes.key, whisperRes.name, whisperRes.label)
+                 : Promise.resolve<ProbeResult>({ ok: false, status: 0, errorMessage: "Aucune clé whisper configurée", keyUsed: "—", keyLabel: "—" }),
+      ttsRes ? probeTts(ttsRes.key, ttsRes.name, ttsRes.label)
+             : Promise.resolve<ProbeResult>({ ok: false, status: 0, errorMessage: "Aucune clé TTS configurée", keyUsed: "—", keyLabel: "—" }),
     ]);
 
-    return new Response(
-      JSON.stringify({
-        ok: true,
-        meta: {
-          keyPrefix: apiKey.slice(0, 8) + "…",
-          totalModels: rawModels.length,
-          durationMs: Date.now() - startedAt,
-          fetchedAt: new Date().toISOString(),
-        },
-        capabilities: { chat, tts, whisper, embeddings },
-        models: {
-          grouped,
-          all: rawModels.map((m) => m.id).sort(),
-        },
+    // 2) /v1/models pour chaque clé distincte (déduplication)
+    const distinctKeys = new Map<string, { name: string; label: string; key: string }>();
+    if (chatKey) distinctKeys.set(chatKey, { name: "OPENAI_API_KEY", label: "clé_chat", key: chatKey });
+    if (whisperKey && !distinctKeys.has(whisperKey)) distinctKeys.set(whisperKey, { name: "OPENAI_WHISPER_API_KEY", label: "clé_whisper", key: whisperKey });
+    if (ttsKey && !distinctKeys.has(ttsKey)) distinctKeys.set(ttsKey, { name: "OPENAI_TTS_API_KEY", label: "clé_tts", key: ttsKey });
+
+    const modelsEntries = await Promise.all(
+      Array.from(distinctKeys.values()).map(async ({ name, label, key }) => {
+        const res = await fetchModelsForKey(key);
+        return [
+          label,
+          {
+            keyName: name,
+            keyLabel: label,
+            keyPrefix: key.slice(0, 8) + "…",
+            ok: res.ok,
+            status: res.status,
+            error: res.error,
+            total: res.models.length,
+            all: res.models.map((m) => m.id).sort(),
+            grouped: group(res.models),
+          },
+        ] as const;
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
+    const modelsByKey = Object.fromEntries(modelsEntries);
+
+    return new Response(JSON.stringify({
+      ok: true,
+      meta: {
+        durationMs: Date.now() - startedAt,
+        fetchedAt: new Date().toISOString(),
+        keys: {
+          chat:    { configured: !!chatKey,    prefix: chatKey ? chatKey.slice(0, 8) + "…" : null,    label: "clé_chat" },
+          whisper: { configured: !!whisperKey, prefix: whisperKey ? whisperKey.slice(0, 8) + "…" : null, label: "clé_whisper" },
+          tts:     { configured: !!ttsKey,     prefix: ttsKey ? ttsKey.slice(0, 8) + "…" : null,     label: "clé_tts" },
+        },
+      },
+      capabilities: { chat, embeddings, whisper, tts },
+      modelsByKey,
+    }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (e) {
     console.error("openai-diagnostics error:", e);
-    return new Response(
-      JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
+    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });
