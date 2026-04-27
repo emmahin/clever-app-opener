@@ -16,9 +16,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY not configured" }), {
+    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+    if (!OPENAI_API_KEY) {
+      return new Response(JSON.stringify({ error: "OPENAI_API_KEY not configured" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -27,45 +27,37 @@ Deno.serve(async (req) => {
     // Extract base64 data (strip data URI prefix if present)
     const base64Audio = audio.startsWith("data:") ? audio.split(",")[1] : audio;
 
-    // Call Gemini 2.5 Flash via Lovable AI Gateway for audio transcription
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    // Decode base64 -> binary
+    const binaryString = atob(base64Audio);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
+
+    // Build multipart form-data for OpenAI Whisper
+    const formData = new FormData();
+    formData.append("file", new Blob([bytes], { type: "audio/webm" }), "audio.webm");
+    formData.append("model", "whisper-1");
+    formData.append("language", "fr");
+    formData.append("response_format", "json");
+
+    const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          {
-            role: "user",
-            content: [
-              { type: "text", text: "Transcris cet audio en français. Réponds uniquement avec la transcription, sans aucun commentaire additionnel." },
-              {
-                type: "input_audio",
-                input_audio: {
-                  data: base64Audio,
-                  format: "webm",
-                },
-              },
-            ],
-          },
-        ],
-      }),
+      headers: { Authorization: `Bearer ${OPENAI_API_KEY}` },
+      body: formData,
     });
 
     if (!response.ok) {
       const text = await response.text();
-      console.error("Gemini audio error:", response.status, text);
-      return new Response(JSON.stringify({ error: "Transcription failed" }), {
-        status: 500,
+      console.error("Whisper error:", response.status, text);
+      const status = response.status === 429 ? 429 : 500;
+      return new Response(JSON.stringify({ error: "Transcription failed", details: text }), {
+        status,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const data = await response.json();
-    const text = data.choices?.[0]?.message?.content ?? "";
-    
+    const text = (data?.text as string) ?? "";
+
     return new Response(JSON.stringify({ text }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
