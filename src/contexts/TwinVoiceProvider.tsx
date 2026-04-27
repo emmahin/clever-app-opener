@@ -488,6 +488,13 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
       }
       if (cycleAbortRef.current.aborted) break;
       if (!userText) continue; // rien capté → on relance le cycle
+      // Filtre anti-hallucinations connues des moteurs STT (Whisper/Gemini
+      // produisent souvent ces phrases sur du silence ou du bruit blanc, parfois
+      // dans une autre langue → l'IA répondrait alors à côté).
+      if (isLikelySttHallucination(userText)) {
+        console.warn("[voice] STT hallucination ignorée:", userText);
+        continue;
+      }
 
       setTranscript((prev) => [...prev, { id: crypto.randomUUID(), role: "user", text: userText, ts: Date.now() }]);
 
