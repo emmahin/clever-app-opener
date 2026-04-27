@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { X, Loader2, PhoneOff } from "lucide-react";
+import { X, PhoneOff } from "lucide-react";
 import { useTwinVoiceContext } from "@/contexts/TwinVoiceProvider";
 import { twinMemoryService, type MemoryCategory } from "@/services";
 import { useSettings } from "@/contexts/SettingsProvider";
@@ -7,9 +7,18 @@ import { useLanguage } from "@/i18n/LanguageProvider";
 import { toast } from "sonner";
 import galaxyOrb from "@/assets/voice-orb-galaxy.png";
 
+export interface VoiceTurn {
+  id: string;
+  role: "user" | "assistant";
+  text: string;
+  ts: number;
+}
+
 interface Props {
   open: boolean;
   onClose: () => void;
+  /** Appelé pour chaque nouveau tour de parole (utilisateur ou IA) afin de l'enregistrer dans le chat. */
+  onTurn?: (turn: VoiceTurn) => void;
 }
 
 const CATEGORY_LABEL: Record<MemoryCategory, string> = {
@@ -21,7 +30,7 @@ const CATEGORY_LABEL: Record<MemoryCategory, string> = {
   relationship: "Relation",
 };
 
-export function VoiceCallMode({ open, onClose }: Props) {
+export function VoiceCallMode({ open, onClose, onTurn }: Props) {
   const { t } = useLanguage();
   const { settings } = useSettings();
   const {
@@ -37,6 +46,16 @@ export function VoiceCallMode({ open, onClose }: Props) {
   const [starting, setStarting] = useState(false);
   const memoriesContextRef = useRef<string>("");
   const eventsContextRef = useRef<string>("");
+  const lastTurnIdRef = useRef<string | null>(null);
+
+  // Notifie le parent à chaque nouveau turn (user ou assistant) — pour persistance dans le chat
+  useEffect(() => {
+    if (!onTurn || transcript.length === 0) return;
+    const last = transcript[transcript.length - 1];
+    if (last.id === lastTurnIdRef.current) return;
+    lastTurnIdRef.current = last.id;
+    onTurn({ id: last.id, role: last.role, text: last.text, ts: last.ts });
+  }, [transcript, onTurn]);
 
   // Charge le contexte mémoire/agenda à l'ouverture
   useEffect(() => {
@@ -153,11 +172,6 @@ export function VoiceCallMode({ open, onClose }: Props) {
               filter: "drop-shadow(0 0 60px rgba(168,85,247,0.45))",
             }}
           />
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            {phase === "thinking" && (
-              <Loader2 className="w-12 h-12 text-white animate-spin drop-shadow-[0_0_12px_rgba(255,255,255,0.8)]" />
-            )}
-          </div>
         </div>
 
         <div className="text-center min-h-[80px] max-w-md">
@@ -165,7 +179,18 @@ export function VoiceCallMode({ open, onClose }: Props) {
             <p className="text-lg text-amber-400">Connexion…</p>
           )}
           {phase === "listening" && (
-            <p className="text-lg text-primary">{t("voiceListening")}</p>
+            <div className="flex items-center justify-center gap-1.5 h-12" aria-label={t("voiceListening")}>
+              {[0, 1, 2, 3, 4, 5, 6].map((i) => (
+                <span
+                  key={i}
+                  className="block w-1.5 rounded-full bg-primary"
+                  style={{
+                    animation: `voice-wave 1s ease-in-out ${i * 0.12}s infinite`,
+                    height: "8px",
+                  }}
+                />
+              ))}
+            </div>
           )}
           {phase === "speaking" && (
             <p className="text-lg text-emerald-400 line-clamp-3">{lastAssistant || "…"}</p>
