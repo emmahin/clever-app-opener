@@ -175,12 +175,22 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
       analyser.fftSize = 1024;
       src.connect(analyser);
       const buf = new Uint8Array(analyser.fftSize);
-      // Seuil un peu plus haut pour éviter les faux-positifs liés au son qui sort du HP.
-      const BARGE_THRESHOLD = 0.06;
-      const REQUIRED_FRAMES = 4;
+      // Anti-faux-positifs : seuil élevé + nombreuses frames consécutives requises +
+      // période de grâce au démarrage (le temps que le HP se stabilise et que
+      // l'echo-cancellation s'adapte). Sans ça, la voix de l'IA s'auto-coupe et
+      // l'utilisateur perçoit un "bug".
+      const BARGE_THRESHOLD = 0.12;
+      const REQUIRED_FRAMES = 10;
+      const GRACE_MS = 600;
+      const startedAt = performance.now();
       let aboveCount = 0;
       const tick = () => {
         if (!bargeInCtxRef.current) return;
+        // Période de grâce : on ignore le micro tant que la lecture vient de démarrer.
+        if (performance.now() - startedAt < GRACE_MS) {
+          bargeInRafRef.current = requestAnimationFrame(tick);
+          return;
+        }
         analyser.getByteTimeDomainData(buf);
         let sum = 0;
         for (let i = 0; i < buf.length; i++) {
@@ -195,7 +205,8 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
             return;
           }
         } else {
-          aboveCount = Math.max(0, aboveCount - 1);
+          // Décroissance plus rapide pour exiger un signal vraiment continu.
+          aboveCount = Math.max(0, aboveCount - 2);
         }
         bargeInRafRef.current = requestAnimationFrame(tick);
       };
