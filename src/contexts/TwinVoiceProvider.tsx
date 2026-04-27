@@ -332,6 +332,7 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
 
   /** Détecte la fin de la parole via volume RMS, puis stoppe l'enregistrement. */
   const recordUntilSilence = useCallback(async (): Promise<string> => {
+    setAudioLevel(0);
     await webVoiceService.startRecording();
     const stream = webVoiceService.getStream();
     if (!stream) {
@@ -344,8 +345,8 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
     analyser.fftSize = 1024;
     src.connect(analyser);
     const buf = new Uint8Array(analyser.fftSize);
-    // L'indicateur visuel est géré par le moniteur permanent (startMicMonitor).
-    // On utilise ici l'analyser uniquement pour la détection de fin de parole.
+    // L'indicateur visuel suit uniquement CET enregistrement actif : dès que
+    // l'enregistrement s'arrête, il retombe à zéro au lieu de rester figé.
 
     // Détection de fin de parole — réglée pour ATTENDRE que l'utilisateur ait
     // vraiment terminé sa phrase, plutôt que de couper à la moindre micro-pause.
@@ -369,6 +370,8 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
     // et non un simple "tic" parasite avant de couper.
     let voicedMs = 0;
     let lastTickAt = start;
+    let displayedLevel = 0;
+    let noiseFloor = 0.005;
 
     await new Promise<void>((resolve) => {
       const tick = () => {
@@ -380,6 +383,14 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
           sum += v * v;
         }
         const rms = Math.sqrt(sum / buf.length);
+        if (rms < noiseFloor) noiseFloor = noiseFloor * 0.9 + rms * 0.1;
+        else noiseFloor = noiseFloor * 0.999 + rms * 0.001;
+        const energy = Math.max(0, rms - noiseFloor * 1.5);
+        const norm = Math.min(1, Math.sqrt(energy * 13));
+        displayedLevel = norm > displayedLevel
+          ? displayedLevel * 0.25 + norm * 0.75
+          : displayedLevel * 0.72 + norm * 0.28;
+        setAudioLevel(webVoiceService.isRecording() ? displayedLevel : 0);
         const now = Date.now();
         const dt = now - lastTickAt;
         lastTickAt = now;
@@ -403,6 +414,7 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
 
     try { ctx.close(); } catch { /* ignore */ }
     audioCtxRef.current = null;
+    setAudioLevel(0);
     // Si on n'a JAMAIS détecté de parole, on ne perd pas un appel STT (qui
     // hallucinerait souvent un "Merci.", "Sous-titres réalisés par...", etc.
     // dans une langue aléatoire) — on stoppe le mediaRecorder et on retourne "".
