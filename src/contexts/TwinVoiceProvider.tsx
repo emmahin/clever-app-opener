@@ -662,6 +662,7 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
     try { window.speechSynthesis?.getVoices(); } catch { /* ignore */ }
     cycleAbortRef.current = { aborted: false };
     conversationHistoryRef.current = [];
+    callContextCacheRef.current = null;
     setIsCallActive(true);
     setAudioLevel(0);
     // Lance la boucle (non-bloquant)
