@@ -579,6 +579,7 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
       const ttsQueue: string[] = [];
       let ttsRunning = false;
       let firstSpoken = false;
+      let drainResolveOnIdle: (() => void) | null = null;
       const drainQueue = async () => {
         if (ttsRunning) return;
         ttsRunning = true;
@@ -591,6 +592,7 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
           await speak(next);
         }
         ttsRunning = false;
+        if (drainResolveOnIdle) { drainResolveOnIdle(); drainResolveOnIdle = null; }
       };
 
       // ID de message assistant qu'on met à jour au fur et à mesure du stream.
@@ -625,10 +627,10 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
       // Garantit que le texte final est bien complet dans le transcript.
       setTranscript((prev) => prev.map((m) => m.id === assistantId ? { ...m, text: answer } : m));
 
-      // Attend la fin de la file TTS (les dernières phrases sont peut-être
-      // encore en lecture).
-      while ((ttsRunning || ttsQueue.length > 0) && !cycleAbortRef.current.aborted) {
-        await new Promise((r) => setTimeout(r, 100));
+      // Attend la fin de la file TTS via une promesse (au lieu d'un polling
+      // 100ms qui ajoutait de la latence avant la réécoute).
+      if ((ttsRunning || ttsQueue.length > 0) && !cycleAbortRef.current.aborted) {
+        await new Promise<void>((resolve) => { drainResolveOnIdle = resolve; });
       }
       if (cycleAbortRef.current.aborted) break;
 
