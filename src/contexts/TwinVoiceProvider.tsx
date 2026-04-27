@@ -248,14 +248,8 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
         utterance.onerror = cleanup;
         window.speechSynthesis.cancel();
         window.speechSynthesis.speak(utterance);
-        window.setTimeout(() => {
-          if (currentUtteranceRef.current !== utterance) return;
-          startBargeInDetector(() => {
-            interruptedRef.current = true;
-            try { window.speechSynthesis.cancel(); } catch { /* ignore */ }
-            cleanup();
-          });
-        }, 350);
+        // Barge-in désactivé : on n'écoute PAS le micro pendant que Lia parle.
+        // Le micro ne sera réarmé qu'une fois la lecture terminée (cleanup → resolve()).
         return true;
       };
       try {
@@ -321,18 +315,9 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
           cleanup();
           return;
         }
-        // On attend un court délai après le début effectif de la lecture avant
-        // d'armer le détecteur d'interruption — ça évite que le tout premier
-        // pic du HP (avant stabilisation de l'echo-cancellation) ne soit
-        // interprété comme une parole utilisateur.
-        window.setTimeout(() => {
-          if (currentAudioRef.current !== audio) return;
-          startBargeInDetector(() => {
-            interruptedRef.current = true;
-            try { audio.pause(); } catch { /* ignore */ }
-            cleanup();
-          });
-        }, 350);
+        // Barge-in désactivé : aucun détecteur d'interruption n'est armé pendant
+        // la lecture TTS. Le micro reste FERMÉ tant que Lia parle, et ne sera
+        // réouvert qu'au tour d'écoute suivant (après audio.onended).
       } catch (e) {
         console.error("TTS speak error:", e);
         if (!speakWithBrowserVoice()) resolve();
