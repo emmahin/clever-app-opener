@@ -35,9 +35,7 @@ Deno.serve(async (req) => {
     // Build multipart form-data for OpenAI Whisper
     const formData = new FormData();
     formData.append("file", new Blob([bytes], { type: "audio/webm" }), "audio.webm");
-    // gpt-4o-mini-transcribe : moteur Whisper nouvelle génération, accessible
-    // par défaut sur tous les projets OpenAI (whisper-1 nécessite un accès spécifique)
-    formData.append("model", "gpt-4o-mini-transcribe");
+    formData.append("model", "whisper-1");
     formData.append("language", "fr");
     formData.append("response_format", "json");
 
