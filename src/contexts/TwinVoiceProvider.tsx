@@ -292,7 +292,7 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
         if (!speakWithBrowserVoice()) resolve();
       }
     });
-  }, [startBargeInDetector, stopBargeInDetector, runAnalyserLoop, stopAudioLevel]);
+  }, [startBargeInDetector, stopBargeInDetector, runAnalyserLoop, stopAudioLevel, setAudioLevel]);
 
   /** Détecte la fin de la parole via volume RMS, puis stoppe l'enregistrement. */
   const recordUntilSilence = useCallback(async (): Promise<string> => {
@@ -482,7 +482,8 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
       providersRef.current.onError?.("Microphone refusé.");
       return;
     }
-    // (Plus besoin de pré-charger les voix navigateur, on utilise OpenAI TTS.)
+    // Précharge les voix navigateur pour le repli local si le service TTS externe refuse la requête.
+    try { window.speechSynthesis?.getVoices(); } catch { /* ignore */ }
     cycleAbortRef.current = { aborted: false };
     conversationHistoryRef.current = [];
     setIsCallActive(true);
@@ -499,6 +500,8 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
     try {
       currentAudioRef.current?.pause();
       currentAudioRef.current = null;
+      window.speechSynthesis?.cancel();
+      currentUtteranceRef.current = null;
     } catch { /* ignore */ }
     try {
       // Si un enregistrement est en cours, on coupe le micro brutalement
