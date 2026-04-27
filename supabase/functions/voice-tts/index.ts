@@ -28,8 +28,10 @@ Deno.serve(async (req) => {
     }
 
     const voiceId = voice || DEFAULT_VOICE_ID;
+    // Modèle Turbo : ~2-3× plus rapide que multilingual_v2, supporte le FR.
+    // optimize_streaming_latency=3 + format mp3_22050_32 = lecture quasi instantanée.
     const response = await fetch(
-      `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream?output_format=mp3_44100_128`,
+      `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream?output_format=mp3_22050_32&optimize_streaming_latency=3`,
       {
         method: "POST",
         headers: {
@@ -38,11 +40,11 @@ Deno.serve(async (req) => {
         },
         body: JSON.stringify({
           text: text.slice(0, 4000),
-          model_id: "eleven_multilingual_v2",
+          model_id: "eleven_turbo_v2_5",
           voice_settings: {
-            stability: 0.5,
-            similarity_boost: 0.8,
-            style: 0.4,
+            stability: 0.4,
+            similarity_boost: 0.75,
+            style: 0.3,
             use_speaker_boost: true,
           },
         }),
@@ -58,8 +60,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    const audioBuffer = await response.arrayBuffer();
-    return new Response(audioBuffer, {
+    // On stream directement la réponse au client (pas d'attente du buffer complet)
+    return new Response(response.body, {
       headers: {
         ...corsHeaders,
         "Content-Type": "audio/mpeg",
