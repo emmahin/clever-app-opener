@@ -299,23 +299,28 @@ export function VoiceCallMode({ open, onClose, onTurn, onVoiceIntent }: Props) {
 
         {/* Indicateur de volume — hauteurs pilotées par le niveau audio réel */}
         <div
-          className="flex items-end justify-center gap-1.5 h-16"
+          className="flex items-center justify-center gap-[3px] h-24 w-full max-w-md"
           aria-label={t("voiceListening")}
         >
           {Array.from({ length: BAR_COUNT }).map((_, i) => {
-            const factor = baseHeights[i] ?? 0.6;
-            // 6px au repos → jusqu'à ~56px sur un signal fort.
-            const h = 6 + audioLevel * factor * 50;
+            const center = (BAR_COUNT - 1) / 2;
+            const dist = Math.abs(i - center) / center;
+            const envelope = Math.pow(1 - dist, 1.6) * 0.85 + 0.15;
+            const t1 = Date.now() / 220 + i * 0.8;
+            const wiggle = 0.55 + 0.45 * Math.abs(Math.sin(t1) * Math.cos(t1 * 0.6 + i));
+            const boosted = Math.min(1, audioLevel * 1.6 + 0.04);
+            const amp = envelope * wiggle * boosted;
+            const h = 4 + amp * 84;
             const color =
               phase === "speaking"
                 ? "hsl(150 80% 60%)"
                 : phase === "thinking"
                 ? "hsl(45 95% 60%)"
-                : "hsl(var(--primary))";
+                : "hsl(var(--foreground))";
             return (
               <span
                 key={i}
-                className="block w-1.5 rounded-full transition-[height] duration-75 ease-out"
+                className="block w-[3px] rounded-full transition-[height] duration-75 ease-out"
                 style={{ height: `${h}px`, background: color }}
               />
             );
