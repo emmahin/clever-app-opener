@@ -344,15 +344,26 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
     stopAudioLevel();
     runAnalyserLoop(analyser);
 
-    const SILENCE_THRESHOLD = 0.018;       // RMS sous lequel on considère "silence" (un peu plus sensible)
-    const SILENCE_DURATION_MS = 500;       // 0.5s de silence = fin de phrase (très réactif)
-    const MAX_DURATION_MS = 12000;         // sécurité : 12s max par tour
-    const MIN_SPEECH_MS = 180;             // attend juste un peu de voix
-    const NO_SPEECH_TIMEOUT_MS = 2200;     // si rien de clair après 2.2s → on coupe quand même
+    // Détection de fin de parole — réglée pour ATTENDRE que l'utilisateur ait
+    // vraiment terminé sa phrase, plutôt que de couper à la moindre micro-pause.
+    // Sans ça, on transcrit des bouts de phrase incomplets et l'IA répond à
+    // côté (voire dans une autre langue si l'audio est trop court/silencieux).
+    const SILENCE_THRESHOLD = 0.022;       // RMS sous lequel on considère "silence"
+    const SILENCE_DURATION_MS = 1200;      // 1.2s de silence consécutif = fin de phrase
+    const MAX_DURATION_MS = 20000;         // sécurité : 20s max par tour
+    const MIN_SPEECH_MS = 500;             // exige au moins 0.5s de voix réelle avant d'accepter une fin
+    // Délai d'attente AVANT la première parole : on laisse l'utilisateur le
+    // temps de réfléchir avant de parler. S'il ne dit rien du tout, on
+    // re-déclenche un cycle propre (aucune transcription bidon envoyée).
+    const INITIAL_SILENCE_TIMEOUT_MS = 8000;
 
     const start = Date.now();
     let lastVoiceAt = Date.now();
     let hasSpoken = false;
+    // Cumule la durée totale de signal vocal détecté (pour exiger une vraie phrase
+    // et non un simple "tic" parasite avant de couper.
+    let voicedMs = 0;
+    let lastTickAt = start;
 
     await new Promise<void>((resolve) => {
       const tick = () => {
@@ -365,17 +376,21 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
         }
         const rms = Math.sqrt(sum / buf.length);
         const now = Date.now();
+        const dt = now - lastTickAt;
+        lastTickAt = now;
         if (rms > SILENCE_THRESHOLD) {
           lastVoiceAt = now;
           hasSpoken = true;
+          voicedMs += dt;
         }
         const elapsed = now - start;
         const silentFor = now - lastVoiceAt;
         if (elapsed > MAX_DURATION_MS) return resolve();
-        if (hasSpoken && elapsed > MIN_SPEECH_MS && silentFor > SILENCE_DURATION_MS) return resolve();
-        // Pas de voix claire détectée pendant NO_SPEECH_TIMEOUT_MS → on stoppe quand même
-        // pour laisser l'IA répondre (même si l'audio capturé est faible/bruité).
-        if (!hasSpoken && elapsed > NO_SPEECH_TIMEOUT_MS) return resolve();
+        // Fin de parole : on a entendu assez de voix ET un silence soutenu.
+        if (hasSpoken && voicedMs >= MIN_SPEECH_MS && silentFor > SILENCE_DURATION_MS) return resolve();
+        // L'utilisateur n'a strictement rien dit après plusieurs secondes →
+        // on coupe et le caller détectera un texte vide (=> nouveau cycle).
+        if (!hasSpoken && elapsed > INITIAL_SILENCE_TIMEOUT_MS) return resolve();
         requestAnimationFrame(tick);
       };
       tick();
@@ -384,6 +399,13 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
     try { ctx.close(); } catch { /* ignore */ }
     audioCtxRef.current = null;
     stopAudioLevel();
+    // Si on n'a JAMAIS détecté de parole, on ne perd pas un appel STT (qui
+    // hallucinerait souvent un "Merci.", "Sous-titres réalisés par...", etc.
+    // dans une langue aléatoire) — on stoppe le mediaRecorder et on retourne "".
+    if (!hasSpoken) {
+      try { await webVoiceService.stopAndTranscribe(); } catch { /* ignore */ }
+      return "";
+    }
     return webVoiceService.stopAndTranscribe();
   }, [runAnalyserLoop, stopAudioLevel]);
 
