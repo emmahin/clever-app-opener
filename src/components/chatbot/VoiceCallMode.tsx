@@ -117,7 +117,7 @@ export function VoiceCallMode({ open, onClose }: Props) {
       <div className="text-center">
         <p className="text-xs uppercase tracking-widest text-muted-foreground">Double numérique</p>
         <h2 className="text-2xl font-semibold mt-1">{settings.aiName || "Jarvis"}</h2>
-        <p className="text-xs text-muted-foreground mt-1">ElevenLabs · voix temps réel</p>
+        <p className="text-xs text-muted-foreground mt-1">Voix locale · gratuite</p>
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center gap-8 w-full max-w-xl">
@@ -162,7 +162,7 @@ export function VoiceCallMode({ open, onClose }: Props) {
 
         <div className="text-center min-h-[80px] max-w-md">
           {phase === "thinking" && !isCallActive && (
-            <p className="text-lg text-amber-400">Connexion à ElevenLabs…</p>
+            <p className="text-lg text-amber-400">Connexion…</p>
           )}
           {phase === "listening" && (
             <p className="text-lg text-primary">{t("voiceListening")}</p>
