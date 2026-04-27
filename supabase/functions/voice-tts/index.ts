@@ -4,8 +4,8 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Voix ElevenLabs « Brian » — la plus naturelle/conversationnelle (FR inclus).
-const DEFAULT_VOICE_ID = "nPczCjzI2devNBz1zQrb";
+// Voix ElevenLabs « Sarah » — féminine, chaleureuse et très naturelle (FR inclus).
+const DEFAULT_VOICE_ID = "EXAVITQu4vr4xnSDxMaL";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -28,10 +28,11 @@ Deno.serve(async (req) => {
     }
 
     const voiceId = voice || DEFAULT_VOICE_ID;
-    // Modèle Turbo : ~2-3× plus rapide que multilingual_v2, supporte le FR.
-    // optimize_streaming_latency=3 + format mp3_22050_32 = lecture quasi instantanée.
+    // Modèle multilingual_v2 : plus naturel/expressif que turbo (légèrement plus lent
+    // mais qualité conversationnelle nettement supérieure en FR).
+    // On garde le streaming + latency=2 pour une lecture quasi instantanée.
     const response = await fetch(
-      `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream?output_format=mp3_22050_32&optimize_streaming_latency=3`,
+      `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream?output_format=mp3_44100_64&optimize_streaming_latency=2`,
       {
         method: "POST",
         headers: {
@@ -40,11 +41,11 @@ Deno.serve(async (req) => {
         },
         body: JSON.stringify({
           text: text.slice(0, 4000),
-          model_id: "eleven_turbo_v2_5",
+          model_id: "eleven_multilingual_v2",
           voice_settings: {
-            stability: 0.4,
-            similarity_boost: 0.75,
-            style: 0.3,
+            stability: 0.45,
+            similarity_boost: 0.85,
+            style: 0.45,
             use_speaker_boost: true,
           },
         }),
