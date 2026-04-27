@@ -4,9 +4,8 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Voix OpenAI dispo : alloy, echo, fable, onyx, nova, shimmer
-// `nova` = féminine naturelle, excellente en français.
-const DEFAULT_VOICE = "nova";
+// Voix ElevenLabs « Sarah » — naturelle, multilingue (FR inclus).
+const DEFAULT_VOICE_ID = "EXAVITQu4vr4xnSDxMaL";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -20,32 +19,39 @@ Deno.serve(async (req) => {
       });
     }
 
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-    if (!OPENAI_API_KEY) {
-      return new Response(JSON.stringify({ error: "OPENAI_API_KEY not configured" }), {
+    const ELEVENLABS_API_KEY = Deno.env.get("ELEVENLABS_API_KEY");
+    if (!ELEVENLABS_API_KEY) {
+      return new Response(JSON.stringify({ error: "ELEVENLABS_API_KEY not configured" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const response = await fetch("https://api.openai.com/v1/audio/speech", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
+    const voiceId = voice || DEFAULT_VOICE_ID;
+    const response = await fetch(
+      `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream?output_format=mp3_44100_128`,
+      {
+        method: "POST",
+        headers: {
+          "xi-api-key": ELEVENLABS_API_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          text: text.slice(0, 4000),
+          model_id: "eleven_turbo_v2_5",
+          voice_settings: {
+            stability: 0.45,
+            similarity_boost: 0.75,
+            style: 0.3,
+            use_speaker_boost: true,
+          },
+        }),
       },
-      body: JSON.stringify({
-        model: "tts-1",
-        voice: voice || DEFAULT_VOICE,
-        input: text.slice(0, 4000),
-        response_format: "mp3",
-        speed: 1.0,
-      }),
-    });
+    );
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error("OpenAI TTS error:", response.status, errText);
+      console.error("ElevenLabs TTS error:", response.status, errText);
       return new Response(JSON.stringify({ error: "TTS failed", details: errText }), {
         status: response.status === 429 ? 429 : 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
