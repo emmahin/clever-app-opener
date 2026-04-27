@@ -41,7 +41,7 @@ type DiagnosticsReport = {
       tts:     { configured: boolean; prefix: string | null; label: string };
     };
   };
-  capabilities: { chat: ProbeResult; embeddings: ProbeResult; whisper: ProbeResult; tts: ProbeResult };
+  capabilities: { chat: ProbeResult; codex: ProbeResult; whisper: ProbeResult; tts: ProbeResult };
   modelsByKey: Record<string, ModelsForKey>;
 };
 
@@ -133,7 +133,7 @@ export default function OpenAIDiagnostics() {
         <div>
           <h1 className="text-2xl font-bold">Diagnostic clés OpenAI</h1>
           <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
-            Vérifie l'accès réel de chaque clé OpenAI configurée : <code>clé_chat</code> (chat + embeddings),{" "}
+            Vérifie l'accès réel de chaque clé OpenAI configurée : <code>clé_chat</code> (chat + codex),{" "}
             <code>clé_whisper</code> (transcription) et <code>clé_tts</code> (synthèse vocale).
           </p>
         </div>
@@ -179,7 +179,7 @@ export default function OpenAIDiagnostics() {
             <CardContent>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 <CapabilityBadge label="Chat" result={report.capabilities.chat} />
-                <CapabilityBadge label="Embeddings" result={report.capabilities.embeddings} />
+                <CapabilityBadge label="Codex" result={report.capabilities.codex} />
                 <CapabilityBadge label="Whisper (STT)" result={report.capabilities.whisper} />
                 <CapabilityBadge label="TTS" result={report.capabilities.tts} />
               </div>
