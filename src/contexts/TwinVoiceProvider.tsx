@@ -646,12 +646,10 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
     cycleAbortRef.current = { aborted: false };
     conversationHistoryRef.current = [];
     setIsCallActive(true);
-    // Démarre le moniteur micro permanent : l'indicateur reflète TON volume
-    // en continu pendant tout l'appel (écoute, réflexion, et parole de Lia).
-    startMicMonitor();
+    setAudioLevel(0);
     // Lance la boucle (non-bloquant)
     runConversationLoop().finally(() => setIsCallActive(false));
-  }, [supported, runConversationLoop, startMicMonitor]);
+  }, [supported, runConversationLoop]);
 
   const endCall = useCallback(() => {
     cycleAbortRef.current.aborted = true;
@@ -659,7 +657,7 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
     setPhase("idle");
     stopBargeInDetector();
     stopAudioLevel();
-    stopMicMonitor();
+    setAudioLevel(0);
     try {
       currentAudioRef.current?.pause();
       currentAudioRef.current = null;
@@ -673,7 +671,7 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
     } catch { /* ignore */ }
     try { audioCtxRef.current?.close(); } catch { /* ignore */ }
     audioCtxRef.current = null;
-  }, [stopBargeInDetector, stopAudioLevel, stopMicMonitor]);
+  }, [stopBargeInDetector, stopAudioLevel]);
 
   const clearTranscript = useCallback(() => {
     setTranscript([]);
