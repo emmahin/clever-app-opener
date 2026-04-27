@@ -7,7 +7,9 @@ const corsHeaders = {
 // Voix OpenAI TTS — « shimmer » : féminine, chaleureuse, naturelle en français.
 // Voix dispo : alloy, echo, fable, onyx, nova, shimmer.
 const DEFAULT_VOICE = "shimmer";
-const TTS_MODELS = ["tts-1", "tts-1-hd", "gpt-4o-mini-tts"];
+// Ordre : on tente d'abord le modèle le plus susceptible d'être autorisé sur une clé restreinte
+// (gpt-4o-mini-tts), puis on dégrade vers tts-1 / tts-1-hd.
+const TTS_MODELS = ["gpt-4o-mini-tts", "tts-1", "tts-1-hd"];
 
 const parseOpenAIError = (raw: string) => {
   try {
@@ -77,7 +79,14 @@ Deno.serve(async (req) => {
       lastError = { status: response.status, body: errText, code: openAIError?.code };
       console.error("OpenAI TTS error:", response.status, model, errText);
 
-      if (openAIError?.code !== "model_not_found") break;
+      // On essaie le modèle suivant si la clé n'a tout simplement pas accès à celui-ci.
+      const isAccessIssue =
+        response.status === 403 ||
+        response.status === 404 ||
+        openAIError?.code === "model_not_found" ||
+        (typeof openAIError?.message === "string" &&
+          openAIError.message.toLowerCase().includes("does not have access"));
+      if (!isAccessIssue) break;
     }
 
     return new Response(JSON.stringify({
