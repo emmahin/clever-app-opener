@@ -780,7 +780,31 @@ export default function Index() {
         </div>
 
       </main>
-      <VoiceCallMode open={voiceCallOpen} onClose={() => setVoiceCallOpen(false)} />
+      <VoiceCallMode
+        open={voiceCallOpen}
+        onClose={() => setVoiceCallOpen(false)}
+        onTurn={(turn) => {
+          // Enregistre chaque tour vocal (utilisateur + IA) dans le chat texte courant.
+          const msg: ChatMessage = {
+            id: turn.id,
+            role: turn.role,
+            content: turn.text,
+            createdAt: turn.ts,
+          };
+          setMessages((prev) => [...prev, msg]);
+          (async () => {
+            try {
+              if (!conversationIdRef.current) {
+                const conv = await conversationService.create();
+                conversationIdRef.current = conv.id;
+              }
+              await conversationService.addMessage(conversationIdRef.current, msg);
+            } catch (e) {
+              console.warn("[voice] persist turn failed", e);
+            }
+          })();
+        }}
+      />
     </div>
   );
 }
