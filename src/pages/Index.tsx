@@ -791,7 +791,15 @@ export default function Index() {
             content: turn.text,
             createdAt: turn.ts,
           };
-          setMessages((prev) => [...prev, msg]);
+          // Upsert par id : pendant le streaming TTS, le même turn arrive
+          // plusieurs fois avec un texte qui s'allonge. On évite les doublons.
+          setMessages((prev) => {
+            const idx = prev.findIndex((m) => m.id === msg.id);
+            if (idx === -1) return [...prev, msg];
+            const next = prev.slice();
+            next[idx] = msg;
+            return next;
+          });
           (async () => {
             try {
               if (!conversationIdRef.current) {
