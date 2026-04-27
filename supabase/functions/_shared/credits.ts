@@ -12,6 +12,36 @@ const TOKENS_PER_CREDIT = 500;
 const MIN_CREDITS = 1;
 const MAX_CREDITS = 50;
 
+// Grille de tarification par paliers (alignée sur le tableau de référence utilisateur).
+// Chaque palier : { maxTokens, baseCredits, extraPerToken } — appliqué de manière progressive.
+// Ex : 300-800 → 1 cr ; 800-1800 → 1-2 cr ; 1800-3700 → 2-3 cr ; etc.
+const TIERS: Array<{ upTo: number; min: number; max: number }> = [
+  { upTo: 800,    min: 1,  max: 1 },   // chat très court
+  { upTo: 1800,   min: 1,  max: 2 },   // chat simple
+  { upTo: 3700,   min: 2,  max: 3 },   // réponse standard
+  { upTo: 7500,   min: 5,  max: 8 },   // réponse détaillée
+  { upTo: 15000,  min: 8,  max: 12 },  // long contenu / guide
+  { upTo: 30000,  min: 15, max: 25 },  // requête complexe IA
+  { upTo: 60000,  min: 25, max: 40 },  // multi-étapes / agent
+  { upTo: 90000,  min: 30, max: 50 },  // feature premium (voix / API externe)
+];
+
+/** Convertit un volume de tokens en crédits via la grille par paliers. */
+function tokensToCredits(totalTokens: number): number {
+  if (totalTokens <= 0) return MIN_CREDITS;
+  for (const tier of TIERS) {
+    if (totalTokens <= tier.upTo) {
+      // interpolation linéaire dans le palier
+      const prevUpTo = TIERS[TIERS.indexOf(tier) - 1]?.upTo ?? 0;
+      const span = Math.max(1, tier.upTo - prevUpTo);
+      const ratio = Math.min(1, Math.max(0, (totalTokens - prevUpTo) / span));
+      const credits = Math.ceil(tier.min + ratio * (tier.max - tier.min));
+      return Math.min(MAX_CREDITS, Math.max(MIN_CREDITS, credits));
+    }
+  }
+  return MAX_CREDITS;
+}
+
 // ---------- Admin bypass ----------
 const _adminCache = new Map<string, { value: boolean; ts: number }>();
 const ADMIN_CACHE_MS = 60_000;
@@ -209,9 +239,7 @@ export function estimateCreditsForRequest(input: EstimateInput): EstimateResult 
   });
 
   const totalTokens = Math.ceil(inputTokens * multiplier) + estimatedOutputTokens + actionTokens;
-  let credits = Math.ceil(totalTokens / TOKENS_PER_CREDIT);
-  if (credits < MIN_CREDITS) credits = MIN_CREDITS;
-  if (credits > MAX_CREDITS) credits = MAX_CREDITS;
+  const credits = tokensToCredits(totalTokens);
 
   return { credits, inputTokens, estimatedOutputTokens, multiplier, actionTokens, totalTokens };
 }
@@ -224,10 +252,7 @@ export function computeFinalCredits(opts: {
   actionTokens: number;
 }): number {
   const total = Math.ceil(opts.realInputTokens * opts.multiplier) + opts.realOutputTokens + opts.actionTokens;
-  let credits = Math.ceil(total / TOKENS_PER_CREDIT);
-  if (credits < MIN_CREDITS) credits = MIN_CREDITS;
-  if (credits > MAX_CREDITS) credits = MAX_CREDITS;
-  return credits;
+  return tokensToCredits(total);
 }
 
 // ---------- DB calls (service role) ----------
