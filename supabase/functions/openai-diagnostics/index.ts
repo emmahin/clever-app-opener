@@ -2,7 +2,7 @@
  * openai-diagnostics — Introspection multi-clés OpenAI.
  *
  * Trois clés possibles :
- *   - OPENAI_API_KEY         → "clé_chat" (chat completions, embeddings, fallback)
+ *   - OPENAI_API_KEY         → "clé_chat" (chat completions, codex, fallback)
  *   - OPENAI_WHISPER_API_KEY → "clé_whisper" (transcription audio)
  *   - OPENAI_TTS_API_KEY     → "clé_tts" (synthèse vocale)
  *
@@ -14,10 +14,10 @@
  * {
  *   meta: { keys: { chat, whisper, tts } avec présence + préfixe },
  *   capabilities: {
- *     chat:       { keyUsed, keyLabel, ok, status, errorCode?, errorMessage?, modelTested },
- *     embeddings: { ... },
- *     whisper:    { ... },
- *     tts:        { ... }
+ *     chat:    { keyUsed, keyLabel, ok, status, errorCode?, errorMessage?, modelTested },
+ *     codex:   { ... },
+ *     whisper: { ... },
+ *     tts:     { ... }
  *   },
  *   modelsByKey: {
  *     "clé_chat":    { keyName, keyPrefix, total, grouped: {...}, all: [] },
@@ -66,7 +66,7 @@ function categorize(modelId: string): string {
  * Retourne null si aucun candidat compatible n'est exposé.
  */
 function pickModelFor(
-  capability: "chat" | "tts" | "stt" | "embeddings",
+  capability: "chat" | "tts" | "stt" | "codex",
   available: string[],
 ): string | null {
   // On filtre la liste par catégorie réelle pour éviter qu'un modèle TTS comme
@@ -75,7 +75,7 @@ function pickModelFor(
   const byCat = ids.filter((id) => categorize(id) === (
     capability === "stt" ? "stt" :
     capability === "tts" ? "tts" :
-    capability === "embeddings" ? "embeddings" :
+    capability === "codex" ? "chat" :
     "chat"
   ));
   const exact = (needle: string) => byCat.find((id) => id === needle);
@@ -97,6 +97,15 @@ function pickModelFor(
       null
     );
   }
+  if (capability === "codex") {
+    // Famille codex : on prend le modèle dont l'id contient "codex".
+    const codexes = byCat.filter((id) => id.includes("codex"));
+    return (
+      codexes.find((id) => id.startsWith("gpt-5")) ||
+      codexes[0] ||
+      null
+    );
+  }
   if (capability === "tts") {
     return (
       exact("gpt-4o-mini-tts") ||
@@ -111,15 +120,6 @@ function pickModelFor(
       exact("whisper-1") ||
       exact("gpt-4o-mini-transcribe") ||
       exact("gpt-4o-transcribe") ||
-      byCat[0] ||
-      null
-    );
-  }
-  if (capability === "embeddings") {
-    return (
-      exact("text-embedding-3-small") ||
-      exact("text-embedding-3-large") ||
-      exact("text-embedding-ada-002") ||
       byCat[0] ||
       null
     );
@@ -214,12 +214,13 @@ async function probeWhisper(apiKey: string, keyUsed: string, keyLabel: string, m
   }
 }
 
-async function probeEmbeddings(apiKey: string, keyUsed: string, keyLabel: string, model: string): Promise<ProbeResult> {
+async function probeCodex(apiKey: string, keyUsed: string, keyLabel: string, model: string): Promise<ProbeResult> {
+  // Les modèles codex/reasoning (gpt-5.x-codex) s'appellent via /v1/responses, pas /chat/completions.
   try {
-    const r = await fetch(`${OPENAI_BASE}/embeddings`, {
+    const r = await fetch(`${OPENAI_BASE}/responses`, {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model, input: "ping" }),
+      body: JSON.stringify({ model, input: "ping", max_output_tokens: 16 }),
     });
     if (r.ok) { await r.text(); return { ok: true, status: r.status, modelTested: model, keyUsed, keyLabel }; }
     const j = await r.json().catch(() => ({}));
@@ -256,7 +257,7 @@ Deno.serve(async (req) => {
     };
 
     const chatRes = chatKey ? { key: chatKey, name: "OPENAI_API_KEY", label: "clé_chat" } : null;
-    const embRes = chatRes;
+    const codexRes = chatRes;
     const whisperRes = resolveKey(whisperKey, "OPENAI_WHISPER_API_KEY", "clé_whisper");
     const ttsRes = resolveKey(ttsKey, "OPENAI_TTS_API_KEY", "clé_tts");
 
@@ -304,7 +305,7 @@ Deno.serve(async (req) => {
     });
 
     // 2) Probes en parallèle, avec auto-sélection du modèle disponible pour chaque capacité
-    const [chat, embeddings, whisper, tts] = await Promise.all([
+    const [chat, codex, whisper, tts] = await Promise.all([
       (async (): Promise<ProbeResult> => {
         if (!chatRes) return { ok: false, status: 0, errorMessage: "Aucune clé chat configurée", keyUsed: "—", keyLabel: "—" };
         const m = pickModelFor("chat", modelsForLabel(chatRes.label));
@@ -313,10 +314,10 @@ Deno.serve(async (req) => {
         return { ...r, note: "modèle auto-sélectionné parmi ceux exposés par la clé" };
       })(),
       (async (): Promise<ProbeResult> => {
-        if (!embRes) return { ok: false, status: 0, errorMessage: "Aucune clé embeddings configurée", keyUsed: "—", keyLabel: "—" };
-        const m = pickModelFor("embeddings", modelsForLabel(embRes.label));
-        if (!m) return noModelResult("embeddings", embRes.label, embRes.name);
-        const r = await probeEmbeddings(embRes.key, embRes.name, embRes.label, m);
+        if (!codexRes) return { ok: false, status: 0, errorMessage: "Aucune clé chat configurée pour Codex", keyUsed: "—", keyLabel: "—" };
+        const m = pickModelFor("codex", modelsForLabel(codexRes.label));
+        if (!m) return noModelResult("codex", codexRes.label, codexRes.name);
+        const r = await probeCodex(codexRes.key, codexRes.name, codexRes.label, m);
         return { ...r, note: "modèle auto-sélectionné parmi ceux exposés par la clé" };
       })(),
       (async (): Promise<ProbeResult> => {
@@ -346,7 +347,7 @@ Deno.serve(async (req) => {
           tts:     { configured: !!ttsKey,     prefix: ttsKey ? ttsKey.slice(0, 8) + "…" : null,     label: "clé_tts" },
         },
       },
-      capabilities: { chat, embeddings, whisper, tts },
+      capabilities: { chat, codex, whisper, tts },
       modelsByKey,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
