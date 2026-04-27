@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { X, PhoneOff } from "lucide-react";
 import { useTwinVoiceContext } from "@/contexts/TwinVoiceProvider";
 import { twinMemoryService, type MemoryCategory } from "@/services";
-import { useSettings } from "@/contexts/SettingsProvider";
 import { useLanguage } from "@/i18n/LanguageProvider";
 import { toast } from "sonner";
 import { ChatOrb } from "@/components/chatbot/ChatOrb";
@@ -32,7 +31,6 @@ const CATEGORY_LABEL: Record<MemoryCategory, string> = {
 
 export function VoiceCallMode({ open, onClose, onTurn }: Props) {
   const { t } = useLanguage();
-  const { settings } = useSettings();
   const {
     isCallActive,
     status,
@@ -41,6 +39,7 @@ export function VoiceCallMode({ open, onClose, onTurn }: Props) {
     endCall,
     clearTranscript,
     setContextProviders,
+    audioLevel,
   } = useTwinVoiceContext();
 
   const [starting, setStarting] = useState(false);
@@ -117,10 +116,12 @@ export function VoiceCallMode({ open, onClose, onTurn }: Props) {
 
   if (!open) return null;
 
-  const lastUser = [...transcript].reverse().find((m) => m.role === "user")?.text;
-
   const phase: "idle" | "listening" | "thinking" | "speaking" =
     starting ? "thinking" : status;
+
+  // 7 barres : amplitude par bande, hauteur pilotée par audioLevel réel.
+  const BAR_COUNT = 7;
+  const baseHeights = [0.45, 0.7, 0.9, 1, 0.9, 0.7, 0.45];
 
   return (
     <div className="fixed inset-0 z-[100] bg-background/95 backdrop-blur-2xl flex flex-col items-center justify-between py-12 px-6">
@@ -132,11 +133,7 @@ export function VoiceCallMode({ open, onClose, onTurn }: Props) {
         <X className="w-5 h-5" />
       </button>
 
-      <div className="text-center">
-        <p className="text-xs uppercase tracking-widest text-muted-foreground">Double numérique</p>
-        <h2 className="text-2xl font-semibold mt-1">{settings.aiName || "Jarvis"}</h2>
-        <p className="text-xs text-muted-foreground mt-1">Voix locale · gratuite</p>
-      </div>
+      <div />
 
       <div className="flex-1 flex flex-col items-center justify-center gap-8 w-full max-w-xl">
         <div className="relative w-80 h-80">
@@ -173,33 +170,29 @@ export function VoiceCallMode({ open, onClose, onTurn }: Props) {
           </div>
         </div>
 
-        <div className="text-center min-h-[80px] max-w-md">
-          {phase === "thinking" && !isCallActive && (
-            <p className="text-lg text-amber-400">Connexion…</p>
-          )}
-          {phase === "listening" && (
-            <div className="flex items-center justify-center gap-1.5 h-12" aria-label={t("voiceListening")}>
-              {[0, 1, 2, 3, 4, 5, 6].map((i) => (
-                <span
-                  key={i}
-                  className="block w-1.5 rounded-full bg-primary"
-                  style={{
-                    animation: `voice-wave 1s ease-in-out ${i * 0.12}s infinite`,
-                    height: "8px",
-                  }}
-                />
-              ))}
-            </div>
-          )}
-          {phase === "speaking" && (
-            <p className="text-lg text-emerald-400">En train de parler…</p>
-          )}
-          {phase === "idle" && (
-            <p className="text-lg text-muted-foreground">{t("voiceIdle")}</p>
-          )}
-          {lastUser && phase === "listening" && (
-            <p className="text-sm text-muted-foreground mt-3 italic">"{lastUser}"</p>
-          )}
+        {/* Indicateur de volume — hauteurs pilotées par le niveau audio réel */}
+        <div
+          className="flex items-end justify-center gap-1.5 h-16"
+          aria-label={t("voiceListening")}
+        >
+          {Array.from({ length: BAR_COUNT }).map((_, i) => {
+            const factor = baseHeights[i] ?? 0.6;
+            // 6px au repos → jusqu'à ~56px sur un signal fort.
+            const h = 6 + audioLevel * factor * 50;
+            const color =
+              phase === "speaking"
+                ? "hsl(150 80% 60%)"
+                : phase === "thinking"
+                ? "hsl(45 95% 60%)"
+                : "hsl(var(--primary))";
+            return (
+              <span
+                key={i}
+                className="block w-1.5 rounded-full transition-[height] duration-75 ease-out"
+                style={{ height: `${h}px`, background: color }}
+              />
+            );
+          })}
         </div>
       </div>
 

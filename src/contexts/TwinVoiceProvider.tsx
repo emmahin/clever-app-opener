@@ -24,6 +24,8 @@ interface TwinVoiceContextValue {
   transcript: TwinTurn[];
   interim: string;
   supported: boolean;
+  /** Niveau audio normalisé (0..1) — micro en écoute, sortie TTS en parole. */
+  audioLevel: number;
   startCall: () => Promise<void>;
   endCall: () => void;
   clearTranscript: () => void;
@@ -43,6 +45,9 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
   const [transcript, setTranscript] = useState<TwinTurn[]>([]);
   const [interim] = useState("");
   const [phase, setPhase] = useState<"idle" | "listening" | "thinking" | "speaking">("idle");
+  const [audioLevel, setAudioLevel] = useState(0);
+  const audioLevelRafRef = useRef<number | null>(null);
+  const audioLevelCleanupRef = useRef<(() => void) | null>(null);
   // Micro + lecture audio HTML5 requis (dispo partout).
   const supported = typeof window !== "undefined" && !!navigator?.mediaDevices?.getUserMedia;
 
@@ -91,6 +96,40 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
       osc.stop(now + 0.25);
       setTimeout(() => { try { ctx.close(); } catch { /* ignore */ } }, 400);
     } catch { /* ignore */ }
+  }, []);
+
+  /** Stoppe toute mesure de niveau en cours. */
+  const stopAudioLevel = useCallback(() => {
+    if (audioLevelRafRef.current != null) {
+      cancelAnimationFrame(audioLevelRafRef.current);
+      audioLevelRafRef.current = null;
+    }
+    if (audioLevelCleanupRef.current) {
+      try { audioLevelCleanupRef.current(); } catch { /* ignore */ }
+      audioLevelCleanupRef.current = null;
+    }
+    setAudioLevel(0);
+  }, []);
+
+  /** Mesure le RMS d'un AnalyserNode et alimente `audioLevel` (0..1). */
+  const runAnalyserLoop = useCallback((analyser: AnalyserNode) => {
+    const buf = new Uint8Array(analyser.fftSize);
+    let smoothed = 0;
+    const tick = () => {
+      analyser.getByteTimeDomainData(buf);
+      let sum = 0;
+      for (let i = 0; i < buf.length; i++) {
+        const v = (buf[i] - 128) / 128;
+        sum += v * v;
+      }
+      const rms = Math.sqrt(sum / buf.length);
+      // Normalise (RMS typique 0..0.3) puis lisse pour un rendu fluide.
+      const norm = Math.min(1, rms * 3.2);
+      smoothed = smoothed * 0.7 + norm * 0.3;
+      setAudioLevel(smoothed);
+      audioLevelRafRef.current = requestAnimationFrame(tick);
+    };
+    audioLevelRafRef.current = requestAnimationFrame(tick);
   }, []);
 
   /** Coupe la lecture en cours (utilisé par barge-in). */
@@ -177,10 +216,25 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
         const audioUrl = URL.createObjectURL(blob);
         const audio = new Audio(audioUrl);
         currentAudioRef.current = audio;
+        // Branche un analyser sur la sortie TTS pour piloter `audioLevel` pendant la parole.
+        let ttsCtx: AudioContext | null = null;
+        try {
+          const Ctx = (window.AudioContext || (window as any).webkitAudioContext);
+          ttsCtx = new Ctx();
+          const src = ttsCtx.createMediaElementSource(audio);
+          const analyser = ttsCtx.createAnalyser();
+          analyser.fftSize = 1024;
+          src.connect(analyser);
+          src.connect(ttsCtx.destination);
+          stopAudioLevel();
+          audioLevelCleanupRef.current = () => { try { ttsCtx?.close(); } catch { /* ignore */ } };
+          runAnalyserLoop(analyser);
+        } catch { /* ignore — fallback : pas de visualisation TTS */ }
         const cleanup = () => {
           URL.revokeObjectURL(audioUrl);
           if (currentAudioRef.current === audio) currentAudioRef.current = null;
           stopBargeInDetector();
+          stopAudioLevel();
           resolve();
         };
         audio.onended = cleanup;
@@ -197,7 +251,7 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
         resolve();
       }
     });
-  }, [startBargeInDetector, stopBargeInDetector]);
+  }, [startBargeInDetector, stopBargeInDetector, runAnalyserLoop, stopAudioLevel]);
 
   /** Détecte la fin de la parole via volume RMS, puis stoppe l'enregistrement. */
   const recordUntilSilence = useCallback(async (): Promise<string> => {
@@ -213,6 +267,10 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
     analyser.fftSize = 1024;
     src.connect(analyser);
     const buf = new Uint8Array(analyser.fftSize);
+
+    // Alimente aussi l'indicateur de volume (UI).
+    stopAudioLevel();
+    runAnalyserLoop(analyser);
 
     const SILENCE_THRESHOLD = 0.018;       // RMS sous lequel on considère "silence" (un peu plus sensible)
     const SILENCE_DURATION_MS = 500;       // 0.5s de silence = fin de phrase (très réactif)
@@ -253,8 +311,9 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
 
     try { ctx.close(); } catch { /* ignore */ }
     audioCtxRef.current = null;
+    stopAudioLevel();
     return webVoiceService.stopAndTranscribe();
-  }, []);
+  }, [runAnalyserLoop, stopAudioLevel]);
 
   /** Appelle ai-orchestrator en streaming, accumule, retourne la réponse complète. */
   const askAI = useCallback(async (userText: string): Promise<string> => {
@@ -395,6 +454,7 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
     setIsCallActive(false);
     setPhase("idle");
     stopBargeInDetector();
+    stopAudioLevel();
     try {
       currentAudioRef.current?.pause();
       currentAudioRef.current = null;
@@ -406,7 +466,7 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
     } catch { /* ignore */ }
     try { audioCtxRef.current?.close(); } catch { /* ignore */ }
     audioCtxRef.current = null;
-  }, [stopBargeInDetector]);
+  }, [stopBargeInDetector, stopAudioLevel]);
 
   const clearTranscript = useCallback(() => {
     setTranscript([]);
@@ -418,7 +478,7 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
   }, [endCall]);
 
   const value: TwinVoiceContextValue = {
-    isCallActive, status, transcript, interim, supported,
+    isCallActive, status, transcript, interim, supported, audioLevel,
     startCall, endCall, clearTranscript, setContextProviders,
   };
 
