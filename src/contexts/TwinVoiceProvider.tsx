@@ -207,6 +207,42 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
   const speak = useCallback((text: string): Promise<void> => {
     return new Promise(async (resolve) => {
       if (!text.trim()) return resolve();
+      const speakWithBrowserVoice = () => {
+        if (!("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) return false;
+        stopAudioLevel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        const voices = window.speechSynthesis.getVoices();
+        utterance.voice =
+          voices.find((v) => v.lang.toLowerCase().startsWith("fr") && /female|femme|hortense|amelie|audrey|julie|marie|thomas/i.test(v.name)) ||
+          voices.find((v) => v.lang.toLowerCase().startsWith("fr")) ||
+          null;
+        utterance.lang = "fr-FR";
+        utterance.rate = 0.96;
+        utterance.pitch = 1.08;
+        utterance.volume = 1;
+        currentUtteranceRef.current = utterance;
+        let syntheticLevelTimer: number | null = window.setInterval(() => {
+          setAudioLevel(0.18 + Math.random() * 0.45);
+        }, 90);
+        const cleanup = () => {
+          if (syntheticLevelTimer != null) window.clearInterval(syntheticLevelTimer);
+          syntheticLevelTimer = null;
+          currentUtteranceRef.current = null;
+          stopBargeInDetector();
+          stopAudioLevel();
+          resolve();
+        };
+        utterance.onend = cleanup;
+        utterance.onerror = cleanup;
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(utterance);
+        startBargeInDetector(() => {
+          interruptedRef.current = true;
+          window.speechSynthesis.cancel();
+          cleanup();
+        });
+        return true;
+      };
       try {
         const { data: { session } } = await supabase.auth.getSession();
         const token = session?.access_token || (import.meta as any).env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -253,7 +289,7 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
         });
       } catch (e) {
         console.error("TTS speak error:", e);
-        resolve();
+        if (!speakWithBrowserVoice()) resolve();
       }
     });
   }, [startBargeInDetector, stopBargeInDetector, runAnalyserLoop, stopAudioLevel]);
