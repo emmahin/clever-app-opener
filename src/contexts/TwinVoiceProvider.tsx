@@ -65,6 +65,77 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
   const audioCtxRef = useRef<AudioContext | null>(null);
   const conversationHistoryRef = useRef<{ role: "user" | "assistant"; content: string }[]>([]);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const interruptedRef = useRef<boolean>(false);
+  const bargeInStreamRef = useRef<MediaStream | null>(null);
+  const bargeInCtxRef = useRef<AudioContext | null>(null);
+  const bargeInRafRef = useRef<number | null>(null);
+
+  /** Coupe la lecture en cours (utilisé par barge-in). */
+  const stopSpeaking = useCallback(() => {
+    try {
+      if (currentAudioRef.current) {
+        currentAudioRef.current.pause();
+        currentAudioRef.current.src = "";
+        currentAudioRef.current = null;
+      }
+    } catch { /* ignore */ }
+  }, []);
+
+  /** Stoppe le détecteur d'interruption. */
+  const stopBargeInDetector = useCallback(() => {
+    if (bargeInRafRef.current != null) {
+      cancelAnimationFrame(bargeInRafRef.current);
+      bargeInRafRef.current = null;
+    }
+    try { bargeInCtxRef.current?.close(); } catch { /* ignore */ }
+    bargeInCtxRef.current = null;
+    try { bargeInStreamRef.current?.getTracks().forEach((t) => t.stop()); } catch { /* ignore */ }
+    bargeInStreamRef.current = null;
+  }, []);
+
+  /** Démarre un détecteur de voix pendant que l'IA parle, pour pouvoir l'interrompre. */
+  const startBargeInDetector = useCallback(async (onInterrupt: () => void) => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
+      bargeInStreamRef.current = stream;
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      bargeInCtxRef.current = ctx;
+      const src = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 1024;
+      src.connect(analyser);
+      const buf = new Uint8Array(analyser.fftSize);
+      // Seuil un peu plus haut pour éviter les faux-positifs liés au son qui sort du HP.
+      const BARGE_THRESHOLD = 0.06;
+      const REQUIRED_FRAMES = 4;
+      let aboveCount = 0;
+      const tick = () => {
+        if (!bargeInCtxRef.current) return;
+        analyser.getByteTimeDomainData(buf);
+        let sum = 0;
+        for (let i = 0; i < buf.length; i++) {
+          const v = (buf[i] - 128) / 128;
+          sum += v * v;
+        }
+        const rms = Math.sqrt(sum / buf.length);
+        if (rms > BARGE_THRESHOLD) {
+          aboveCount++;
+          if (aboveCount >= REQUIRED_FRAMES) {
+            onInterrupt();
+            return;
+          }
+        } else {
+          aboveCount = Math.max(0, aboveCount - 1);
+        }
+        bargeInRafRef.current = requestAnimationFrame(tick);
+      };
+      bargeInRafRef.current = requestAnimationFrame(tick);
+    } catch (e) {
+      console.warn("[barge-in] mic unavailable", e);
+    }
+  }, []);
 
   const speak = useCallback((text: string): Promise<void> => {
     return new Promise(async (resolve) => {
@@ -86,17 +157,24 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
         const cleanup = () => {
           URL.revokeObjectURL(audioUrl);
           if (currentAudioRef.current === audio) currentAudioRef.current = null;
+          stopBargeInDetector();
           resolve();
         };
         audio.onended = cleanup;
         audio.onerror = cleanup;
         await audio.play().catch(cleanup);
+        // Démarre l'écoute d'interruption (barge-in).
+        startBargeInDetector(() => {
+          interruptedRef.current = true;
+          try { audio.pause(); } catch { /* ignore */ }
+          cleanup();
+        });
       } catch (e) {
         console.error("TTS speak error:", e);
         resolve();
       }
     });
-  }, []);
+  }, [startBargeInDetector, stopBargeInDetector]);
 
   /** Détecte la fin de la parole via volume RMS, puis stoppe l'enregistrement. */
   const recordUntilSilence = useCallback(async (): Promise<string> => {
@@ -113,10 +191,11 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
     src.connect(analyser);
     const buf = new Uint8Array(analyser.fftSize);
 
-    const SILENCE_THRESHOLD = 0.015;       // RMS sous lequel on considère "silence"
-    const SILENCE_DURATION_MS = 1400;      // 1.4s de silence = fin de phrase
+    const SILENCE_THRESHOLD = 0.02;        // RMS sous lequel on considère "silence"
+    const SILENCE_DURATION_MS = 900;       // 0.9s de silence = fin de phrase (plus réactif)
     const MAX_DURATION_MS = 15000;         // sécurité : 15s max par tour
-    const MIN_SPEECH_MS = 400;             // attend au moins un peu de voix
+    const MIN_SPEECH_MS = 300;             // attend au moins un peu de voix
+    const NO_SPEECH_TIMEOUT_MS = 3500;     // si rien de clair après 3.5s → on coupe quand même
 
     const start = Date.now();
     let lastVoiceAt = Date.now();
@@ -141,6 +220,9 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
         const silentFor = now - lastVoiceAt;
         if (elapsed > MAX_DURATION_MS) return resolve();
         if (hasSpoken && elapsed > MIN_SPEECH_MS && silentFor > SILENCE_DURATION_MS) return resolve();
+        // Pas de voix claire détectée pendant NO_SPEECH_TIMEOUT_MS → on stoppe quand même
+        // pour laisser l'IA répondre (même si l'audio capturé est faible/bruité).
+        if (!hasSpoken && elapsed > NO_SPEECH_TIMEOUT_MS) return resolve();
         requestAnimationFrame(tick);
       };
       tick();
@@ -249,8 +331,14 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
 
       // 3. Parole
       setPhase("speaking");
+      interruptedRef.current = false;
       await speak(answer);
       if (cycleAbortRef.current.aborted) break;
+      // Si l'utilisateur a coupé la parole → on enchaîne immédiatement sur l'écoute.
+      if (interruptedRef.current) {
+        interruptedRef.current = false;
+        continue;
+      }
     }
     setPhase("idle");
   }, [askAI, recordUntilSilence, speak]);
@@ -282,6 +370,7 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
     cycleAbortRef.current.aborted = true;
     setIsCallActive(false);
     setPhase("idle");
+    stopBargeInDetector();
     try {
       currentAudioRef.current?.pause();
       currentAudioRef.current = null;
@@ -293,7 +382,7 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
     } catch { /* ignore */ }
     try { audioCtxRef.current?.close(); } catch { /* ignore */ }
     audioCtxRef.current = null;
-  }, []);
+  }, [stopBargeInDetector]);
 
   const clearTranscript = useCallback(() => {
     setTranscript([]);
