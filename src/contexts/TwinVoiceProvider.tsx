@@ -254,6 +254,12 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
           body: JSON.stringify({ text }),
         });
         if (!resp.ok) throw new Error(`TTS HTTP ${resp.status}`);
+        const contentType = resp.headers.get("Content-Type") || "";
+        if (!contentType.startsWith("audio/")) {
+          const payload = await resp.json().catch(() => null);
+          if (payload?.fallback === "browser") throw new Error(payload.reason || "TTS browser fallback requested");
+          throw new Error("TTS response is not audio");
+        }
         const blob = await resp.blob();
         const audioUrl = URL.createObjectURL(blob);
         const audio = new Audio(audioUrl);
