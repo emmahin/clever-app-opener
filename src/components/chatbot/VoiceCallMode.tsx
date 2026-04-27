@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useRef, useState } from "react";
 import { X, PhoneOff, Minimize2, Mic } from "lucide-react";
 import { useTwinVoiceContext } from "@/contexts/TwinVoiceProvider";
 import { twinMemoryService, type MemoryCategory } from "@/services";
@@ -100,7 +100,10 @@ const CATEGORY_LABEL: Record<MemoryCategory, string> = {
   relationship: "Relation",
 };
 
-export function VoiceCallMode({ open, onClose, onTurn, onVoiceIntent }: Props) {
+export const VoiceCallMode = forwardRef<HTMLDivElement, Props>(function VoiceCallMode(
+  { open, onClose, onTurn, onVoiceIntent }: Props,
+  ref,
+) {
   const { t } = useLanguage();
   const {
     isCallActive,
@@ -243,6 +246,7 @@ export function VoiceCallMode({ open, onClose, onTurn, onVoiceIntent }: Props) {
         : "hsl(var(--primary))";
     return (
       <button
+        ref={ref as unknown as React.Ref<HTMLButtonElement>}
         type="button"
         onClick={() => setMinimized(false)}
         className="fixed bottom-6 right-6 z-[100] flex items-center gap-3 px-4 py-3 rounded-full shadow-2xl bg-background/95 backdrop-blur-xl border border-border/60 hover:scale-[1.03] transition-transform"
@@ -269,7 +273,7 @@ export function VoiceCallMode({ open, onClose, onTurn, onVoiceIntent }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-[100] bg-background/95 backdrop-blur-2xl flex flex-col items-center justify-between py-12 px-6">
+    <div ref={ref} className="fixed inset-0 z-[100] bg-background/95 backdrop-blur-2xl flex flex-col items-center justify-between py-12 px-6">
       {/* Bouton "Réduire" : revient au menu principal SANS couper l'appel. */}
       <button
         onClick={() => setMinimized(true)}
