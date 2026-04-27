@@ -123,10 +123,10 @@ function TwinVoiceProviderInner({ children }: { children: ReactNode }) {
     }
 
     try {
-      // Récupère un token WebRTC frais via notre edge function (clé API serveur).
+      // Récupère une URL signée WebSocket fraîche via notre edge function (clé API serveur).
       const { data, error } = await supabase.functions.invoke("elevenlabs-agent-token");
-      if (error) throw new Error(error.message || "Échec récupération token");
-      if (!data?.token) throw new Error("Token vide");
+      if (error) throw new Error(error.message || "Échec récupération URL signée");
+      if (!data?.signedUrl) throw new Error("URL signée vide");
 
       // Injecte les contextes mémoire/agenda dans le system prompt à chaud.
       const memCtx = providersRef.current.getMemoriesContext?.() || "";
@@ -136,8 +136,8 @@ function TwinVoiceProviderInner({ children }: { children: ReactNode }) {
         .join("\n\n");
 
       await conversation.startSession({
-        conversationToken: data.token,
-        connectionType: "webrtc",
+        signedUrl: data.signedUrl,
+        connectionType: "websocket",
         ...(contextBlock
           ? {
               overrides: {
