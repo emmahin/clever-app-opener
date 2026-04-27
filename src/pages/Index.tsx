@@ -804,6 +804,55 @@ export default function Index() {
             }
           })();
         }}
+        onVoiceIntent={(intent) => {
+          // L'utilisateur a demandé vocalement à voir quelque chose.
+          // → On revient au menu principal (overlay vocal minimisé) et on
+          //   injecte un message assistant avec le widget approprié, OU on
+          //   navigue vers la page dédiée. L'appel reste actif en arrière-plan.
+          if (intent.kind === "agenda") {
+            // Calcule la fenêtre selon le label.
+            const now = new Date();
+            const startOfToday = new Date(now); startOfToday.setHours(0, 0, 0, 0);
+            let range_start_iso = startOfToday.toISOString();
+            let range_end_iso = new Date(startOfToday.getTime() + 7 * 86400000).toISOString();
+            if (intent.rangeLabel === "Aujourd'hui") {
+              range_end_iso = new Date(startOfToday.getTime() + 86400000).toISOString();
+            } else if (intent.rangeLabel === "Demain") {
+              range_start_iso = new Date(startOfToday.getTime() + 86400000).toISOString();
+              range_end_iso = new Date(startOfToday.getTime() + 2 * 86400000).toISOString();
+            } else if (intent.rangeLabel === "Ce mois") {
+              range_end_iso = new Date(startOfToday.getTime() + 31 * 86400000).toISOString();
+            }
+            const assistantMsg: ChatMessage = {
+              id: crypto.randomUUID(),
+              role: "assistant",
+              content: `Voici ton agenda${intent.rangeLabel ? ` — ${intent.rangeLabel.toLowerCase()}` : ""} :`,
+              createdAt: Date.now(),
+              widgets: [{
+                type: "schedule",
+                range_label: intent.rangeLabel,
+                range_start_iso,
+                range_end_iso,
+              }],
+            };
+            setMessages((prev) => [...prev, assistantMsg]);
+            (async () => {
+              try {
+                if (!conversationIdRef.current) {
+                  const conv = await conversationService.create();
+                  conversationIdRef.current = conv.id;
+                }
+                await conversationService.addMessage(conversationIdRef.current, assistantMsg);
+              } catch (e) { console.warn("[voice] persist agenda widget failed", e); }
+            })();
+            return true;
+          }
+          if (intent.kind === "news") { navigate("/"); return true; }
+          if (intent.kind === "stocks") { navigate("/"); return true; }
+          if (intent.kind === "notifications") { navigate("/notifications"); return true; }
+          if (intent.kind === "settings") { navigate("/settings"); return true; }
+          return false;
+        }}
       />
     </div>
   );
