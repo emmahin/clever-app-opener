@@ -4,7 +4,7 @@
  * Architecture (zéro abonnement payant) :
  *   1. STT (parole→texte)  : voiceService (edge function `voice-transcribe`, Gemini via Lovable AI)
  *   2. LLM (texte→réponse) : edge function `ai-orchestrator` — MÊMES mémoires/insights que le chat texte
- *   3. TTS (texte→parole)  : ElevenLabs via edge function `voice-tts`, avec repli navigateur
+ *   3. TTS (texte→parole)  : voix native du navigateur (Web Speech API) — 100% gratuit, aucun appel externe.
  *
  * On garde EXACTEMENT la même API publique (`useTwinVoiceContext`) pour ne rien
  * casser dans VoiceCallMode et ailleurs.
@@ -205,94 +205,46 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const speak = useCallback((text: string): Promise<void> => {
-    return new Promise(async (resolve) => {
+    return new Promise((resolve) => {
       if (!text.trim()) return resolve();
-      const speakWithBrowserVoice = () => {
-        if (!("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) return false;
-        stopAudioLevel();
-        const utterance = new SpeechSynthesisUtterance(text);
-        const voices = window.speechSynthesis.getVoices();
-        utterance.voice =
-          voices.find((v) => v.lang.toLowerCase().startsWith("fr") && /female|femme|hortense|amelie|audrey|julie|marie|thomas/i.test(v.name)) ||
-          voices.find((v) => v.lang.toLowerCase().startsWith("fr")) ||
-          null;
-        utterance.lang = "fr-FR";
-        utterance.rate = 0.96;
-        utterance.pitch = 1.08;
-        utterance.volume = 1;
-        currentUtteranceRef.current = utterance;
-        let syntheticLevelTimer: number | null = window.setInterval(() => {
-          setAudioLevel(0.18 + Math.random() * 0.45);
-        }, 90);
-        const cleanup = () => {
-          if (syntheticLevelTimer != null) window.clearInterval(syntheticLevelTimer);
-          syntheticLevelTimer = null;
-          currentUtteranceRef.current = null;
-          stopBargeInDetector();
-          stopAudioLevel();
-          resolve();
-        };
-        utterance.onend = cleanup;
-        utterance.onerror = cleanup;
-        window.speechSynthesis.cancel();
-        window.speechSynthesis.speak(utterance);
-        startBargeInDetector(() => {
-          interruptedRef.current = true;
-          window.speechSynthesis.cancel();
-          cleanup();
-        });
-        return true;
-      };
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const token = session?.access_token || (import.meta as any).env.VITE_SUPABASE_PUBLISHABLE_KEY;
-        const url = `${(import.meta as any).env.VITE_SUPABASE_URL}/functions/v1/voice-tts`;
-        const resp = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ text }),
-        });
-        if (!resp.ok) throw new Error(`TTS HTTP ${resp.status}`);
-        const blob = await resp.blob();
-        const audioUrl = URL.createObjectURL(blob);
-        const audio = new Audio(audioUrl);
-        currentAudioRef.current = audio;
-        // Branche un analyser sur la sortie TTS pour piloter `audioLevel` pendant la parole.
-        let ttsCtx: AudioContext | null = null;
-        try {
-          const Ctx = (window.AudioContext || (window as any).webkitAudioContext);
-          ttsCtx = new Ctx();
-          const src = ttsCtx.createMediaElementSource(audio);
-          const analyser = ttsCtx.createAnalyser();
-          analyser.fftSize = 1024;
-          src.connect(analyser);
-          src.connect(ttsCtx.destination);
-          stopAudioLevel();
-          audioLevelCleanupRef.current = () => { try { ttsCtx?.close(); } catch { /* ignore */ } };
-          runAnalyserLoop(analyser);
-        } catch { /* ignore — fallback : pas de visualisation TTS */ }
-        const cleanup = () => {
-          URL.revokeObjectURL(audioUrl);
-          if (currentAudioRef.current === audio) currentAudioRef.current = null;
-          stopBargeInDetector();
-          stopAudioLevel();
-          resolve();
-        };
-        audio.onended = cleanup;
-        audio.onerror = cleanup;
-        await audio.play().catch(cleanup);
-        // Démarre l'écoute d'interruption (barge-in).
-        startBargeInDetector(() => {
-          interruptedRef.current = true;
-          try { audio.pause(); } catch { /* ignore */ }
-          cleanup();
-        });
-      } catch (e) {
-        console.error("TTS speak error:", e);
-        if (!speakWithBrowserVoice()) resolve();
+      if (!("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) {
+        return resolve();
       }
+      stopAudioLevel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      const voices = window.speechSynthesis.getVoices();
+      utterance.voice =
+        voices.find((v) => v.lang.toLowerCase().startsWith("fr") && /female|femme|hortense|amelie|audrey|julie|marie/i.test(v.name)) ||
+        voices.find((v) => v.lang.toLowerCase().startsWith("fr")) ||
+        null;
+      utterance.lang = "fr-FR";
+      utterance.rate = 0.96;
+      utterance.pitch = 1.08;
+      utterance.volume = 1;
+      currentUtteranceRef.current = utterance;
+      // Pas d'accès au signal audio brut → on simule un niveau pour animer la visualisation.
+      let syntheticLevelTimer: number | null = window.setInterval(() => {
+        setAudioLevel(0.18 + Math.random() * 0.45);
+      }, 90);
+      const cleanup = () => {
+        if (syntheticLevelTimer != null) window.clearInterval(syntheticLevelTimer);
+        syntheticLevelTimer = null;
+        currentUtteranceRef.current = null;
+        stopBargeInDetector();
+        stopAudioLevel();
+        resolve();
+      };
+      utterance.onend = cleanup;
+      utterance.onerror = cleanup;
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(utterance);
+      startBargeInDetector(() => {
+        interruptedRef.current = true;
+        try { window.speechSynthesis.cancel(); } catch { /* ignore */ }
+        cleanup();
+      });
     });
-  }, [startBargeInDetector, stopBargeInDetector, runAnalyserLoop, stopAudioLevel, setAudioLevel]);
+  }, [startBargeInDetector, stopBargeInDetector, stopAudioLevel, setAudioLevel]);
 
   /** Détecte la fin de la parole via volume RMS, puis stoppe l'enregistrement. */
   const recordUntilSilence = useCallback(async (): Promise<string> => {
