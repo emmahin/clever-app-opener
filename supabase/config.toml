@@ -5,6 +5,3 @@ verify_jwt = false
 
 [functions.gcal-oauth-callback]
 verify_jwt = false
-
-[functions.elevenlabs-agent-token]
-verify_jwt = false
