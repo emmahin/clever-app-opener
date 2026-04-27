@@ -106,13 +106,19 @@ export function VoiceCallMode({ open, onClose, onTurn, onVoiceIntent }: Props) {
   useEffect(() => {
     if (!onTurn || transcript.length === 0) return;
     const last = transcript[transcript.length - 1];
-    if (last.id === lastTurnIdRef.current) return;
-    lastTurnIdRef.current = last.id;
+    // En streaming, le message assistant est inséré vide puis enrichi.
+    // On ignore tant qu'il n'a pas de texte, et on renvoie la version mise à
+    // jour à chaque changement de contenu (le parent dédoublonne par id).
+    if (!last.text || !last.text.trim()) return;
+    const sig = `${last.id}:${last.text.length}`;
+    if (sig === lastTurnIdRef.current) return;
+    const isNewTurn = !lastTurnIdRef.current?.startsWith(`${last.id}:`);
+    lastTurnIdRef.current = sig;
     onTurn({ id: last.id, role: last.role, text: last.text, ts: last.ts });
     // Détection d'intention SUR LES MESSAGES UTILISATEUR uniquement.
     // Si une intention "affichable" est détectée, on minimise l'overlay
     // pour que l'utilisateur voie immédiatement le widget injecté dans le chat.
-    if (last.role === "user" && onVoiceIntent) {
+    if (isNewTurn && last.role === "user" && onVoiceIntent) {
       const intent = detectVoiceIntent(last.text);
       if (intent) {
         const handled = onVoiceIntent(intent);
