@@ -29,9 +29,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-    if (!OPENAI_API_KEY) {
-      return new Response(JSON.stringify({ error: "OPENAI_API_KEY not configured" }), {
+    // Clé dédiée TTS (saisie depuis platform.openai.com avec accès aux modèles audio).
+    // Fallback sur OPENAI_API_KEY si jamais la clé dédiée n'est pas configurée.
+    const OPENAI_TTS_KEY = Deno.env.get("OPENAI_TTS_API_KEY") || Deno.env.get("OPENAI_API_KEY");
+    const KEY_USED = Deno.env.get("OPENAI_TTS_API_KEY") ? "OPENAI_TTS_API_KEY" : "OPENAI_API_KEY";
+    if (!OPENAI_TTS_KEY) {
+      return new Response(JSON.stringify({ error: "OPENAI_TTS_API_KEY (ni OPENAI_API_KEY) configuré" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -44,7 +47,7 @@ Deno.serve(async (req) => {
       const response = await fetch("https://api.openai.com/v1/audio/speech", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${OPENAI_API_KEY}`,
+          Authorization: `Bearer ${OPENAI_TTS_KEY}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -64,6 +67,7 @@ Deno.serve(async (req) => {
             "Content-Type": "audio/mpeg",
             "Cache-Control": "no-store",
             "X-TTS-Model": model,
+            "X-TTS-Key-Used": KEY_USED,
           },
         });
       }
