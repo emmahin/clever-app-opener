@@ -39,8 +39,13 @@ async function transcribeWithWhisper(base64Audio: string, mime: string): Promise
     : "webm";
   fd.append("file", new Blob([bytes], { type: mime || "audio/webm" }), `audio.${ext}`);
   fd.append("model", "whisper-1");
-  // On laisse Whisper auto-détecter la langue (meilleur que de forcer "fr" si l'utilisateur
-  // mélange parfois l'anglais).
+  // Force le français : sans ça, Whisper bascule en anglais/japonais/allemand
+  // sur des audios courts ou bruités, ce qui faisait répondre l'IA dans la
+  // mauvaise langue. L'app est francophone côté UX vocale.
+  fd.append("language", "fr");
+  // Petit prompt d'amorce qui ancre le contexte FR conversationnel et réduit
+  // les hallucinations connues (« Sous-titres réalisés par… »).
+  fd.append("prompt", "Conversation en français avec un coach personnel.");
 
   const r = await fetch("https://api.openai.com/v1/audio/transcriptions", {
     method: "POST",
