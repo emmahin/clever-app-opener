@@ -43,6 +43,8 @@ function buildSystemPrompt(opts: {
   timezone?: string;
   scheduleRelevant?: boolean;
   moodContext?: { dominantMood: string; trend: string; topThemes: string[]; sampleSize: number } | null;
+  memories?: Array<{ category: string; content: string; importance: number }>;
+  insights?: Array<{ category: string; insight: string }>;
 }): string {
   const name = LANG_NAMES[opts.lang] || "français";
   const detail = DETAIL_STYLES[opts.detailLevel || "normal"] || DETAIL_STYLES.normal;
@@ -95,6 +97,24 @@ function buildSystemPrompt(opts: {
 - Sujets récurrents : ${opts.moodContext.topThemes.length ? opts.moodContext.topThemes.join(", ") : "non identifiés"}
 ADAPTATION : ajuste subtilement ton ton à cet état émotionnel. Si "stressed/anxious/sad/tired", sois plus doux, posé et rassurant. Si "joyful/excited", sois énergique et célébratoire. Si "frustrated/angry", sois calme et concis. Ne mentionne JAMAIS explicitement cette analyse à l'utilisateur sauf s'il le demande.`
     : "";
+  // ─── MÉMOIRES UTILISATEUR (top 8 par importance, tronquées 90 chars) ───
+  // Budget strict : ~80 tokens max. On n'envoie QUE l'essentiel pour économiser.
+  const memArr = (opts.memories || [])
+    .filter((m) => m && typeof m.content === "string" && m.content.trim().length > 0)
+    .slice(0, 8);
+  const memBlock = memArr.length
+    ? `\n\nCE QUE TU SAIS DE MONSIEUR (à utiliser sans le citer mot pour mot) :\n` +
+      memArr.map((m) => `- [${m.category}] ${m.content.slice(0, 90)}`).join("\n")
+    : "";
+  // ─── INSIGHTS HEBDO (top 3 catégorie pattern/concern/positive) ───
+  // Budget : ~50 tokens. Donne du recul à l'IA sur les évolutions.
+  const insArr = (opts.insights || [])
+    .filter((i) => i && typeof i.insight === "string")
+    .slice(0, 3);
+  const insBlock = insArr.length
+    ? `\n\nTENDANCES RÉCENTES OBSERVÉES :\n` +
+      insArr.map((i) => `- (${i.category}) ${i.insight.slice(0, 110)}`).join("\n")
+    : "";
   const webHint = opts.webSearch
     ? `\n\nMODE RECHERCHE WEB ACTIVÉ : utilise OBLIGATOIREMENT l'outil web_search pour appuyer ta réponse sur des sources web fraîches. Cite les sources dans ta réponse.`
     : "";
@@ -108,7 +128,7 @@ ADAPTATION : ajuste subtilement ton ton à cet état émotionnel. Si "stressed/a
 ${aiIdentity}
 LANGUE DE RÉPONSE : détecte automatiquement la langue du DERNIER message de l'utilisateur et réponds STRICTEMENT dans cette même langue, en markdown. N'utilise JAMAIS la langue de l'interface (${name}) pour décider — uniquement la langue du message reçu. Si l'utilisateur change de langue, change avec lui.
 Heure locale: ${nowLocalReadable} (${tz}, ${tzOffsetStr}). UTC: ${nowIsoUtc}.
-Quand l'utilisateur dit une heure, c'est l'heure LOCALE. Format ISO 8601 avec offset ${tzOffsetStr} (jamais "Z").${schedBlock}${moodBlock}
+Quand l'utilisateur dit une heure, c'est l'heure LOCALE. Format ISO 8601 avec offset ${tzOffsetStr} (jamais "Z").${schedBlock}${moodBlock}${memBlock}${insBlock}
 
 RÈGLES OUTILS (n'utilise un outil QUE si la demande l'exige) :
 - Données fraîches/web/actu/finance → fetch_news / fetch_stocks / web_search.
@@ -1242,7 +1262,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages, lang, detailLevel, customInstructions, aiName, attachments, webSearch, deepThink, forceTool, schedule, timezone, moodContext } = await req.json();
+    const { messages, lang, detailLevel, customInstructions, aiName, attachments, webSearch, deepThink, forceTool, schedule, timezone, moodContext, memories, insights } = await req.json();
     if (!Array.isArray(messages)) {
       return new Response(JSON.stringify({ error: "messages must be an array" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -1337,6 +1357,8 @@ Deno.serve(async (req) => {
             scheduleRelevant: needsScheduleContext(userText),
             timezone: typeof timezone === "string" ? timezone : "UTC",
             moodContext: moodContext && typeof moodContext === "object" ? moodContext : null,
+            memories: Array.isArray(memories) ? memories : [],
+            insights: Array.isArray(insights) ? insights : [],
           });
           const pastedVideoUrl = extractVideoUrl(userText);
           if (pastedVideoUrl) {

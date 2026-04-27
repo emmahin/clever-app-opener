@@ -1,7 +1,19 @@
-import { createContext, useContext, ReactNode, useCallback, useRef, useState } from "react";
-import { ConversationProvider, useConversation } from "@elevenlabs/react";
+/**
+ * TwinVoiceProvider — Mode vocal GRATUIT.
+ *
+ * Architecture (zéro abonnement payant) :
+ *   1. STT (parole→texte)  : voiceService (edge function `voice-transcribe`, Gemini via Lovable AI)
+ *   2. LLM (texte→réponse) : edge function `ai-orchestrator` — MÊMES mémoires/insights que le chat texte
+ *   3. TTS (texte→parole)  : window.speechSynthesis (navigateur, 0€)
+ *
+ * On garde EXACTEMENT la même API publique (`useTwinVoiceContext`) pour ne rien
+ * casser dans VoiceCallMode et ailleurs.
+ */
+import { createContext, useContext, ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { twinMemoryService, type MemoryCategory } from "@/services";
+import { webVoiceService } from "@/services/voiceService";
+import { twinMemoryService } from "@/services";
+import { moodService } from "@/services/moodService";
 
 export type TwinRole = "user" | "assistant";
 export interface TwinTurn { id: string; role: TwinRole; text: string; ts: number }
@@ -26,11 +38,13 @@ interface TwinVoiceContextValue {
 
 const TwinVoiceContext = createContext<TwinVoiceContextValue | null>(null);
 
-function TwinVoiceProviderInner({ children }: { children: ReactNode }) {
+export function TwinVoiceProvider({ children }: { children: ReactNode }) {
   const [isCallActive, setIsCallActive] = useState(false);
   const [transcript, setTranscript] = useState<TwinTurn[]>([]);
   const [interim] = useState("");
-  const supported = true; // ElevenLabs gère via WebRTC, supporté partout (Chrome, Edge, Safari, Firefox).
+  const [phase, setPhase] = useState<"idle" | "listening" | "thinking" | "speaking">("idle");
+  // SpeechSynthesis dispo partout (Chrome, Safari, Firefox, Edge). Micro requis aussi.
+  const supported = typeof window !== "undefined" && "speechSynthesis" in window && !!navigator?.mediaDevices?.getUserMedia;
 
   // Providers fournis par la page Twin (mémoires + agenda)
   const providersRef = useRef<{
@@ -44,130 +58,233 @@ function TwinVoiceProviderInner({ children }: { children: ReactNode }) {
     providersRef.current = { ...providersRef.current, ...p };
   }, []);
 
-  // ─── Client tools exposés à l'agent ElevenLabs ──────────────────────────
-  // Ces fonctions DOIVENT être déclarées dans le dashboard ElevenLabs (onglet Tools)
-  // pour que l'agent puisse les appeler.
-  const clientTools = {
-    remember_fact: async (params: { category?: string; content: string; importance?: number }) => {
-      try {
-        const valid: MemoryCategory[] = ["habit", "preference", "goal", "fact", "emotion", "relationship"];
-        const cat = (valid.includes(params.category as MemoryCategory) ? params.category : "fact") as MemoryCategory;
-        await twinMemoryService.addMemory({
-          category: cat,
-          content: String(params.content || "").trim(),
-          importance: Math.min(5, Math.max(1, Number(params.importance) || 3)),
-          source: "voice",
-        });
-        providersRef.current.onMemoryChange?.();
-        return `OK, mémorisé (${cat}).`;
-      } catch (e: any) {
-        return `Erreur mémorisation: ${e?.message || "inconnue"}`;
-      }
-    },
-    add_schedule_event: async (params: { title: string; start_iso: string; end_iso?: string; location?: string; notes?: string }) => {
-      try {
-        const start = new Date(params.start_iso);
-        if (isNaN(start.getTime())) return "Date invalide.";
-        await twinMemoryService.addEvent({
-          title: String(params.title || "").trim() || "Événement",
-          start_iso: start.toISOString(),
-          end_iso: params.end_iso ? new Date(params.end_iso).toISOString() : undefined,
-          location: params.location,
-          notes: params.notes,
-          source: "ai",
-        });
-        providersRef.current.onMemoryChange?.();
-        return `Événement ajouté pour le ${start.toLocaleString("fr-FR")}.`;
-      } catch (e: any) {
-        return `Erreur agenda: ${e?.message || "inconnue"}`;
-      }
-    },
-    get_user_context: async () => {
-      const mem = providersRef.current.getMemoriesContext?.() || "";
-      const events = providersRef.current.getEventsContext?.() || "";
-      return `Mémoires:\n${mem}\n\nAgenda:\n${events}`.slice(0, 4000);
-    },
-  };
+  // ─── Gestion VAD/cycle d'écoute ───────────────────────────────────────
+  // Détection silence basique via Web Audio API : on coupe l'enregistrement quand
+  // l'utilisateur s'arrête de parler ~1.4s — pas besoin d'appuyer sur un bouton.
+  const cycleAbortRef = useRef<{ aborted: boolean }>({ aborted: false });
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const conversationHistoryRef = useRef<{ role: "user" | "assistant"; content: string }[]>([]);
 
-  const conversation = useConversation({
-    clientTools,
-    onConnect: () => {
-      console.log("[Twin] Connected to ElevenLabs agent");
-    },
-    onDisconnect: () => {
-      setIsCallActive(false);
-    },
-    onMessage: (message: any) => {
-      // Le SDK émet user_transcript et agent_response selon les events activés.
-      const t = message?.message ?? message?.text ?? "";
-      const src = message?.source ?? message?.type;
-      if (!t) return;
-      const role: TwinRole = src === "user" || src === "user_transcript" ? "user" : "assistant";
-      setTranscript((prev) => [...prev, { id: crypto.randomUUID(), role, text: String(t), ts: Date.now() }]);
-    },
-    onError: (err: any) => {
-      console.error("[Twin] ElevenLabs error", err);
-      providersRef.current.onError?.(typeof err === "string" ? err : (err?.message || "Erreur du double"));
-    },
-  });
+  const speak = useCallback((text: string): Promise<void> => {
+    return new Promise((resolve) => {
+      if (!("speechSynthesis" in window) || !text.trim()) return resolve();
+      try { window.speechSynthesis.cancel(); } catch { /* ignore */ }
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = "fr-FR";
+      u.rate = 1.05;
+      u.pitch = 1.0;
+      // Choisir une voix française si dispo
+      const voices = window.speechSynthesis.getVoices();
+      const fr = voices.find((v) => v.lang?.startsWith("fr"));
+      if (fr) u.voice = fr;
+      u.onend = () => resolve();
+      u.onerror = () => resolve();
+      window.speechSynthesis.speak(u);
+    });
+  }, []);
 
-  const status: "idle" | "listening" | "thinking" | "speaking" =
-    !isCallActive ? "idle" : conversation.isSpeaking ? "speaking" : "listening";
+  /** Détecte la fin de la parole via volume RMS, puis stoppe l'enregistrement. */
+  const recordUntilSilence = useCallback(async (): Promise<string> => {
+    await webVoiceService.startRecording();
+    const stream = webVoiceService.getStream();
+    if (!stream) {
+      return webVoiceService.stopAndTranscribe();
+    }
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    audioCtxRef.current = ctx;
+    const src = ctx.createMediaStreamSource(stream);
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 1024;
+    src.connect(analyser);
+    const buf = new Uint8Array(analyser.fftSize);
+
+    const SILENCE_THRESHOLD = 0.015;       // RMS sous lequel on considère "silence"
+    const SILENCE_DURATION_MS = 1400;      // 1.4s de silence = fin de phrase
+    const MAX_DURATION_MS = 15000;         // sécurité : 15s max par tour
+    const MIN_SPEECH_MS = 400;             // attend au moins un peu de voix
+
+    const start = Date.now();
+    let lastVoiceAt = Date.now();
+    let hasSpoken = false;
+
+    await new Promise<void>((resolve) => {
+      const tick = () => {
+        if (cycleAbortRef.current.aborted) return resolve();
+        analyser.getByteTimeDomainData(buf);
+        let sum = 0;
+        for (let i = 0; i < buf.length; i++) {
+          const v = (buf[i] - 128) / 128;
+          sum += v * v;
+        }
+        const rms = Math.sqrt(sum / buf.length);
+        const now = Date.now();
+        if (rms > SILENCE_THRESHOLD) {
+          lastVoiceAt = now;
+          hasSpoken = true;
+        }
+        const elapsed = now - start;
+        const silentFor = now - lastVoiceAt;
+        if (elapsed > MAX_DURATION_MS) return resolve();
+        if (hasSpoken && elapsed > MIN_SPEECH_MS && silentFor > SILENCE_DURATION_MS) return resolve();
+        requestAnimationFrame(tick);
+      };
+      tick();
+    });
+
+    try { ctx.close(); } catch { /* ignore */ }
+    audioCtxRef.current = null;
+    return webVoiceService.stopAndTranscribe();
+  }, []);
+
+  /** Appelle ai-orchestrator en streaming, accumule, retourne la réponse complète. */
+  const askAI = useCallback(async (userText: string): Promise<string> => {
+    // Récupère mémoires + insights compactés (mêmes règles d'économie de tokens que le chat texte)
+    const [memoriesRaw, insightsRaw, moodCtx] = await Promise.all([
+      twinMemoryService.listMemories().catch(() => []),
+      moodService.listInsights(3).catch(() => []),
+      moodService.recentContext(7).catch(() => null),
+    ]);
+    const memories = memoriesRaw.slice(0, 8).map((m) => ({
+      category: m.category, content: m.content.slice(0, 90), importance: m.importance,
+    }));
+    const insights = insightsRaw.slice(0, 3).map((i) => ({
+      category: i.category, insight: i.insight.slice(0, 110),
+    }));
+
+    conversationHistoryRef.current.push({ role: "user", content: userText });
+
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token || (import.meta as any).env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    const url = `${(import.meta as any).env.VITE_SUPABASE_URL}/functions/v1/ai-orchestrator`;
+
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        // On n'envoie que les 6 derniers tours pour limiter les tokens en vocal.
+        messages: conversationHistoryRef.current.slice(-6),
+        lang: "fr",
+        // En vocal : réponses COURTES par défaut (économie tokens + meilleure UX vocale).
+        detailLevel: "short",
+        customInstructions: "Mode vocal : réponds en 1 à 3 phrases courtes, naturelles, parlées. Pas de markdown, pas de listes, pas d'émojis.",
+        timezone: (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; } catch { return "UTC"; } })(),
+        moodContext: moodCtx,
+        memories,
+        insights,
+      }),
+    });
+
+    if (!resp.ok || !resp.body) throw new Error(`AI HTTP ${resp.status}`);
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let full = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let nl: number;
+      while ((nl = buffer.indexOf("\n")) !== -1) {
+        let line = buffer.slice(0, nl);
+        buffer = buffer.slice(nl + 1);
+        if (line.endsWith("\r")) line = line.slice(0, -1);
+        if (!line.startsWith("data: ")) continue;
+        try {
+          const j = JSON.parse(line.slice(6).trim());
+          if (j.delta) full += j.delta;
+        } catch { /* ignore parse errors mid-stream */ }
+      }
+    }
+    conversationHistoryRef.current.push({ role: "assistant", content: full });
+    return full.trim();
+  }, []);
+
+  /** Boucle principale d'un appel : écoute → STT → LLM → TTS → recommence. */
+  const runConversationLoop = useCallback(async () => {
+    while (!cycleAbortRef.current.aborted) {
+      // 1. Écoute
+      setPhase("listening");
+      let userText = "";
+      try {
+        userText = (await recordUntilSilence()).trim();
+      } catch (e: any) {
+        providersRef.current.onError?.(e?.message || "Échec de l'écoute");
+        break;
+      }
+      if (cycleAbortRef.current.aborted) break;
+      if (!userText) continue; // rien capté → on relance le cycle
+
+      setTranscript((prev) => [...prev, { id: crypto.randomUUID(), role: "user", text: userText, ts: Date.now() }]);
+
+      // 2. Réflexion
+      setPhase("thinking");
+      let answer = "";
+      try {
+        answer = await askAI(userText);
+      } catch (e: any) {
+        providersRef.current.onError?.(e?.message || "L'IA n'a pas répondu");
+        setPhase("idle");
+        break;
+      }
+      if (cycleAbortRef.current.aborted) break;
+      if (!answer) continue;
+
+      setTranscript((prev) => [...prev, { id: crypto.randomUUID(), role: "assistant", text: answer, ts: Date.now() }]);
+
+      // 3. Parole
+      setPhase("speaking");
+      await speak(answer);
+      if (cycleAbortRef.current.aborted) break;
+    }
+    setPhase("idle");
+  }, [askAI, recordUntilSilence, speak]);
+
+  const status = phase;
 
   const startCall = useCallback(async () => {
+    if (!supported) {
+      providersRef.current.onError?.("Mode vocal non supporté par ce navigateur.");
+      return;
+    }
     try {
-      await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Demande micro + warm-up des voix (Safari/Chrome chargent les voix de façon async)
+      const s = await navigator.mediaDevices.getUserMedia({ audio: true });
+      s.getTracks().forEach((t) => t.stop());
     } catch {
       providersRef.current.onError?.("Microphone refusé.");
       return;
     }
-
-    try {
-      // Récupère une URL signée WebSocket fraîche via notre edge function (clé API serveur).
-      const { data, error } = await supabase.functions.invoke("elevenlabs-agent-token");
-      if (error) throw new Error(error.message || "Échec récupération URL signée");
-      if (!data?.signedUrl) throw new Error("URL signée vide");
-
-      // Injecte les contextes mémoire/agenda dans le system prompt à chaud.
-      const memCtx = providersRef.current.getMemoriesContext?.() || "";
-      const evCtx = providersRef.current.getEventsContext?.() || "";
-      const contextBlock = [memCtx && `MÉMOIRES UTILISATEUR:\n${memCtx}`, evCtx && `AGENDA:\n${evCtx}`]
-        .filter(Boolean)
-        .join("\n\n");
-
-      await conversation.startSession({
-        signedUrl: data.signedUrl,
-        connectionType: "websocket",
-        ...(contextBlock
-          ? {
-              overrides: {
-                agent: {
-                  prompt: { prompt: contextBlock },
-                },
-              },
-            }
-          : {}),
-      } as any);
-
-      setIsCallActive(true);
-    } catch (e: any) {
-      providersRef.current.onError?.(e?.message || "Impossible de démarrer la conversation");
-    }
-  }, [conversation]);
+    try { window.speechSynthesis.getVoices(); } catch { /* ignore */ }
+    cycleAbortRef.current = { aborted: false };
+    conversationHistoryRef.current = [];
+    setIsCallActive(true);
+    // Lance la boucle (non-bloquant)
+    runConversationLoop().finally(() => setIsCallActive(false));
+  }, [supported, runConversationLoop]);
 
   const endCall = useCallback(() => {
+    cycleAbortRef.current.aborted = true;
     setIsCallActive(false);
+    setPhase("idle");
+    try { window.speechSynthesis.cancel(); } catch { /* ignore */ }
     try {
-      const r = conversation.endSession() as unknown as Promise<void> | void;
-      if (r && typeof (r as Promise<void>).catch === "function") {
-        (r as Promise<void>).catch(() => { /* ignore */ });
-      }
+      // Si un enregistrement est en cours, on coupe le micro brutalement
+      const stream = webVoiceService.getStream();
+      stream?.getTracks().forEach((t) => t.stop());
     } catch { /* ignore */ }
-  }, [conversation]);
+    try { audioCtxRef.current?.close(); } catch { /* ignore */ }
+    audioCtxRef.current = null;
+  }, []);
 
   const clearTranscript = useCallback(() => {
     setTranscript([]);
   }, []);
+
+  // Cleanup global au démontage
+  useEffect(() => {
+    return () => { endCall(); };
+  }, [endCall]);
 
   const value: TwinVoiceContextValue = {
     isCallActive, status, transcript, interim, supported,
@@ -175,14 +292,6 @@ function TwinVoiceProviderInner({ children }: { children: ReactNode }) {
   };
 
   return <TwinVoiceContext.Provider value={value}>{children}</TwinVoiceContext.Provider>;
-}
-
-export function TwinVoiceProvider({ children }: { children: ReactNode }) {
-  return (
-    <ConversationProvider>
-      <TwinVoiceProviderInner>{children}</TwinVoiceProviderInner>
-    </ConversationProvider>
-  );
 }
 
 export function useTwinVoiceContext() {
