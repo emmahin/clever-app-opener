@@ -100,7 +100,8 @@ export function VoiceCallMode({ open, onClose, onTurn, onVoiceIntent }: Props) {
   const [minimized, setMinimized] = useState(false);
   const memoriesContextRef = useRef<string>("");
   const eventsContextRef = useRef<string>("");
-  const lastTurnIdRef = useRef<string | null>(null);
+  const lastSentSigRef = useRef<string | null>(null);
+  const handledIntentIdsRef = useRef<Set<string>>(new Set());
 
   // Notifie le parent à chaque nouveau turn (user ou assistant) — pour persistance dans le chat
   useEffect(() => {
@@ -111,14 +112,18 @@ export function VoiceCallMode({ open, onClose, onTurn, onVoiceIntent }: Props) {
     // jour à chaque changement de contenu (le parent dédoublonne par id).
     if (!last.text || !last.text.trim()) return;
     const sig = `${last.id}:${last.text.length}`;
-    if (sig === lastTurnIdRef.current) return;
-    const isNewTurn = !lastTurnIdRef.current?.startsWith(`${last.id}:`);
-    lastTurnIdRef.current = sig;
+    if (sig === lastSentSigRef.current) return;
+    lastSentSigRef.current = sig;
     onTurn({ id: last.id, role: last.role, text: last.text, ts: last.ts });
     // Détection d'intention SUR LES MESSAGES UTILISATEUR uniquement.
     // Si une intention "affichable" est détectée, on minimise l'overlay
     // pour que l'utilisateur voie immédiatement le widget injecté dans le chat.
-    if (isNewTurn && last.role === "user" && onVoiceIntent) {
+    if (
+      last.role === "user" &&
+      onVoiceIntent &&
+      !handledIntentIdsRef.current.has(last.id)
+    ) {
+      handledIntentIdsRef.current.add(last.id);
       const intent = detectVoiceIntent(last.text);
       if (intent) {
         const handled = onVoiceIntent(intent);
@@ -197,9 +202,10 @@ export function VoiceCallMode({ open, onClose, onTurn, onVoiceIntent }: Props) {
   const phase: "idle" | "listening" | "thinking" | "speaking" =
     starting ? "thinking" : status;
 
-  // 7 barres : amplitude par bande, hauteur pilotée par audioLevel réel.
-  const BAR_COUNT = 7;
-  const baseHeights = [0.45, 0.7, 0.9, 1, 0.9, 0.7, 0.45];
+  // Waveform centrée style "audio wave" : nombreuses barres fines, enveloppe
+  // en cloche (plus hautes au centre), modulation pseudo-aléatoire animée
+  // multipliée par le niveau audio réel du micro.
+  const BAR_COUNT = 27;
 
   // ─── Mode RÉDUIT : pastille flottante en bas à droite, l'appel reste actif ───
   if (minimized) {
@@ -293,23 +299,28 @@ export function VoiceCallMode({ open, onClose, onTurn, onVoiceIntent }: Props) {
 
         {/* Indicateur de volume — hauteurs pilotées par le niveau audio réel */}
         <div
-          className="flex items-end justify-center gap-1.5 h-16"
+          className="flex items-center justify-center gap-[3px] h-24 w-full max-w-md"
           aria-label={t("voiceListening")}
         >
           {Array.from({ length: BAR_COUNT }).map((_, i) => {
-            const factor = baseHeights[i] ?? 0.6;
-            // 6px au repos → jusqu'à ~56px sur un signal fort.
-            const h = 6 + audioLevel * factor * 50;
+            const center = (BAR_COUNT - 1) / 2;
+            const dist = Math.abs(i - center) / center;
+            const envelope = Math.pow(1 - dist, 1.6) * 0.85 + 0.15;
+            const t1 = Date.now() / 220 + i * 0.8;
+            const wiggle = 0.55 + 0.45 * Math.abs(Math.sin(t1) * Math.cos(t1 * 0.6 + i));
+            const boosted = Math.min(1, audioLevel * 1.6 + 0.04);
+            const amp = envelope * wiggle * boosted;
+            const h = 4 + amp * 84;
             const color =
               phase === "speaking"
                 ? "hsl(150 80% 60%)"
                 : phase === "thinking"
                 ? "hsl(45 95% 60%)"
-                : "hsl(var(--primary))";
+                : "hsl(var(--foreground))";
             return (
               <span
                 key={i}
-                className="block w-1.5 rounded-full transition-[height] duration-75 ease-out"
+                className="block w-[3px] rounded-full transition-[height] duration-75 ease-out"
                 style={{ height: `${h}px`, background: color }}
               />
             );
