@@ -431,17 +431,23 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
     onDelta?: (chunk: string) => void,
   ): Promise<string> => {
     // Récupère mémoires + insights compactés (mêmes règles d'économie de tokens que le chat texte)
-    const [memoriesRaw, insightsRaw, moodCtx] = await Promise.all([
-      twinMemoryService.listMemories().catch(() => []),
-      moodService.listInsights(3).catch(() => []),
-      moodService.recentContext(7).catch(() => null),
-    ]);
-    const memories = memoriesRaw.slice(0, 8).map((m) => ({
-      category: m.category, content: m.content.slice(0, 90), importance: m.importance,
-    }));
-    const insights = insightsRaw.slice(0, 3).map((i) => ({
-      category: i.category, insight: i.insight.slice(0, 110),
-    }));
+    // Charge le contexte UNE SEULE FOIS par appel (mise en cache).
+    // Économie : 300-800ms de latence évitée à chaque tour.
+    if (!callContextCacheRef.current || Date.now() - callContextCacheRef.current.loadedAt > 5 * 60 * 1000) {
+      const [memoriesRaw, insightsRaw, moodCtx] = await Promise.all([
+        twinMemoryService.listMemories().catch(() => []),
+        moodService.listInsights(3).catch(() => []),
+        moodService.recentContext(7).catch(() => null),
+      ]);
+      const memories = memoriesRaw.slice(0, 8).map((m) => ({
+        category: m.category, content: m.content.slice(0, 90), importance: m.importance,
+      }));
+      const insights = insightsRaw.slice(0, 3).map((i) => ({
+        category: i.category, insight: i.insight.slice(0, 110),
+      }));
+      callContextCacheRef.current = { memories, insights, moodCtx, loadedAt: Date.now() };
+    }
+    const { memories, insights, moodCtx } = callContextCacheRef.current;
 
     conversationHistoryRef.current.push({ role: "user", content: userText });
 
