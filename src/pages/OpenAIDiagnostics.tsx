@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CheckCircle2, XCircle, RefreshCw } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, RefreshCw, KeyRound } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 type ProbeResult = {
@@ -12,18 +12,37 @@ type ProbeResult = {
   errorCode?: string | null;
   errorMessage?: string | null;
   modelTested?: string;
+  keyUsed: string;
+  keyLabel: string;
 };
 
 type ModelEntry = { id: string; created?: number; owned_by?: string };
 
+type ModelsForKey = {
+  keyName: string;
+  keyLabel: string;
+  keyPrefix: string;
+  ok: boolean;
+  status: number;
+  error: string | null;
+  total: number;
+  all: string[];
+  grouped: Record<string, ModelEntry[]>;
+};
+
 type DiagnosticsReport = {
   ok: true;
-  meta: { keyPrefix: string; totalModels: number; durationMs: number; fetchedAt: string };
-  capabilities: { chat: ProbeResult; tts: ProbeResult; whisper: ProbeResult; embeddings: ProbeResult };
-  models: {
-    grouped: Record<string, ModelEntry[]>;
-    all: string[];
+  meta: {
+    durationMs: number;
+    fetchedAt: string;
+    keys: {
+      chat:    { configured: boolean; prefix: string | null; label: string };
+      whisper: { configured: boolean; prefix: string | null; label: string };
+      tts:     { configured: boolean; prefix: string | null; label: string };
+    };
   };
+  capabilities: { chat: ProbeResult; embeddings: ProbeResult; whisper: ProbeResult; tts: ProbeResult };
+  modelsByKey: Record<string, ModelsForKey>;
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -43,22 +62,27 @@ function CapabilityBadge({ label, result }: { label: string; result: ProbeResult
       <Tooltip>
         <TooltipTrigger asChild>
           <div
-            className={`flex items-center gap-2 rounded-lg border px-3 py-2 ${
+            className={`flex flex-col gap-1.5 rounded-lg border px-3 py-2.5 ${
               result.ok
                 ? "border-green-500/40 bg-green-500/10 text-green-700 dark:text-green-400"
                 : "border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-400"
             }`}
           >
-            {result.ok ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
-            <span className="text-sm font-medium">{label}</span>
-            <Badge variant="outline" className="ml-auto text-xs">
-              {result.status || "—"}
-            </Badge>
+            <div className="flex items-center gap-2">
+              {result.ok ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
+              <span className="text-sm font-medium">{label}</span>
+              <Badge variant="outline" className="ml-auto text-xs">{result.status || "—"}</Badge>
+            </div>
+            <div className="flex items-center gap-1 text-[11px] opacity-80">
+              <KeyRound className="h-3 w-3" />
+              <code>{result.keyLabel}</code>
+            </div>
           </div>
         </TooltipTrigger>
         <TooltipContent className="max-w-sm">
           <div className="space-y-1 text-xs">
             <div><strong>Modèle testé :</strong> {result.modelTested ?? "—"}</div>
+            <div><strong>Clé utilisée :</strong> {result.keyUsed}</div>
             <div><strong>HTTP :</strong> {result.status}</div>
             {result.errorCode && <div><strong>Code :</strong> {result.errorCode}</div>}
             {result.errorMessage && <div><strong>Message :</strong> {result.errorMessage}</div>}
@@ -67,6 +91,18 @@ function CapabilityBadge({ label, result }: { label: string; result: ProbeResult
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
+  );
+}
+
+function KeyStatus({ label, configured, prefix }: { label: string; configured: boolean; prefix: string | null }) {
+  return (
+    <div className={`flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs ${
+      configured ? "border-green-500/30 bg-green-500/5" : "border-muted bg-muted/30 text-muted-foreground"
+    }`}>
+      <KeyRound className="h-3.5 w-3.5" />
+      <code className="font-medium">{label}</code>
+      <span className="opacity-70">{configured ? prefix : "non configurée"}</span>
+    </div>
   );
 }
 
@@ -80,9 +116,7 @@ export default function OpenAIDiagnostics() {
     setLoading(true);
     setError(null);
     try {
-      const { data, error: invErr } = await supabase.functions.invoke("openai-diagnostics", {
-        body: {},
-      });
+      const { data, error: invErr } = await supabase.functions.invoke("openai-diagnostics", { body: {} });
       if (invErr) throw invErr;
       if (!data || data.error) throw new Error(data?.error ?? "Réponse vide");
       setReport(data as DiagnosticsReport);
@@ -95,24 +129,18 @@ export default function OpenAIDiagnostics() {
 
   return (
     <div className="container mx-auto max-w-5xl py-8 space-y-6">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold">Diagnostic clé OpenAI</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Vérifie ce que votre clé <code>OPENAI_API_KEY</code> (platform.openai.com) peut réellement faire :
-            modèles listés et accès Chat / TTS / Whisper / Embeddings.
+          <h1 className="text-2xl font-bold">Diagnostic clés OpenAI</h1>
+          <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+            Vérifie l'accès réel de chaque clé OpenAI configurée : <code>clé_chat</code> (chat + embeddings),{" "}
+            <code>clé_whisper</code> (transcription) et <code>clé_tts</code> (synthèse vocale).
           </p>
         </div>
         <Button onClick={run} disabled={loading}>
-          {loading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Test en cours…
-            </>
-          ) : (
-            <>
-              <RefreshCw className="mr-2 h-4 w-4" /> Lancer le diagnostic
-            </>
-          )}
+          {loading
+            ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Test en cours…</>
+            : <><RefreshCw className="mr-2 h-4 w-4" /> Lancer le diagnostic</>}
         </Button>
       </div>
 
@@ -128,18 +156,32 @@ export default function OpenAIDiagnostics() {
         <>
           <Card>
             <CardHeader>
+              <CardTitle>Clés configurées</CardTitle>
+              <CardDescription>État des trois secrets côté backend.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                <KeyStatus label="clé_chat (OPENAI_API_KEY)" configured={report.meta.keys.chat.configured} prefix={report.meta.keys.chat.prefix} />
+                <KeyStatus label="clé_whisper (OPENAI_WHISPER_API_KEY)" configured={report.meta.keys.whisper.configured} prefix={report.meta.keys.whisper.prefix} />
+                <KeyStatus label="clé_tts (OPENAI_TTS_API_KEY)" configured={report.meta.keys.tts.configured} prefix={report.meta.keys.tts.prefix} />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
               <CardTitle>Capacités</CardTitle>
               <CardDescription>
-                Test réel sur l'API OpenAI avec votre clé (préfixe&nbsp;
-                <code>{report.meta.keyPrefix}</code>) — {report.meta.totalModels} modèles listés en {report.meta.durationMs} ms.
+                Test réel sur l'API OpenAI — diagnostic effectué en {report.meta.durationMs} ms.
+                Chaque badge indique la <strong>clé utilisée</strong> pour la capacité.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 <CapabilityBadge label="Chat" result={report.capabilities.chat} />
-                <CapabilityBadge label="TTS" result={report.capabilities.tts} />
-                <CapabilityBadge label="Whisper (STT)" result={report.capabilities.whisper} />
                 <CapabilityBadge label="Embeddings" result={report.capabilities.embeddings} />
+                <CapabilityBadge label="Whisper (STT)" result={report.capabilities.whisper} />
+                <CapabilityBadge label="TTS" result={report.capabilities.tts} />
               </div>
               <p className="text-xs text-muted-foreground mt-3">
                 Survolez un badge pour voir le code et le message d'erreur OpenAI exact.
@@ -147,52 +189,56 @@ export default function OpenAIDiagnostics() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Modèles accessibles</CardTitle>
-              <CardDescription>Liste retournée par <code>GET /v1/models</code>, regroupée par catégorie.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              {Object.entries(report.models.grouped)
-                .filter(([, list]) => list.length > 0)
-                .map(([cat, list]) => (
-                  <div key={cat}>
-                    <div className="flex items-baseline justify-between mb-2">
-                      <h3 className="text-sm font-semibold">{CATEGORY_LABELS[cat] ?? cat}</h3>
-                      <Badge variant="secondary">{list.length}</Badge>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {list.map((m) => (
-                        <TooltipProvider key={m.id}>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Badge variant="outline" className="font-mono text-xs cursor-help">
-                                {m.id}
-                              </Badge>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <div className="text-xs space-y-0.5">
-                                <div><strong>ID :</strong> {m.id}</div>
-                                {m.owned_by && <div><strong>Propriétaire :</strong> {m.owned_by}</div>}
-                                {m.created && (
-                                  <div><strong>Créé :</strong> {new Date(m.created * 1000).toLocaleDateString()}</div>
-                                )}
-                              </div>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-            </CardContent>
-          </Card>
+          {Object.entries(report.modelsByKey).map(([keyLabel, info]) => (
+            <Card key={keyLabel}>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <KeyRound className="h-4 w-4" />
+                  Modèles vus par <code className="text-base">{keyLabel}</code>
+                </CardTitle>
+                <CardDescription>
+                  <code>{info.keyName}</code> · préfixe <code>{info.keyPrefix}</code> ·{" "}
+                  {info.ok ? `${info.total} modèle${info.total > 1 ? "s" : ""}` : <span className="text-red-600">erreur {info.status} : {info.error}</span>}
+                </CardDescription>
+              </CardHeader>
+              {info.ok && (
+                <CardContent className="space-y-4">
+                  {Object.entries(info.grouped)
+                    .filter(([, list]) => list.length > 0)
+                    .map(([cat, list]) => (
+                      <div key={cat}>
+                        <div className="flex items-baseline justify-between mb-2">
+                          <h3 className="text-sm font-semibold">{CATEGORY_LABELS[cat] ?? cat}</h3>
+                          <Badge variant="secondary">{list.length}</Badge>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {list.map((m) => (
+                            <TooltipProvider key={m.id}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Badge variant="outline" className="font-mono text-xs cursor-help">{m.id}</Badge>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <div className="text-xs space-y-0.5">
+                                    <div><strong>ID :</strong> {m.id}</div>
+                                    {m.owned_by && <div><strong>Propriétaire :</strong> {m.owned_by}</div>}
+                                    {m.created && <div><strong>Créé :</strong> {new Date(m.created * 1000).toLocaleDateString()}</div>}
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                </CardContent>
+              )}
+            </Card>
+          ))}
 
           <Card>
             <CardHeader className="cursor-pointer" onClick={() => setShowRaw((v) => !v)}>
-              <CardTitle className="text-base">
-                {showRaw ? "▼" : "▶"} Réponse brute (debug)
-              </CardTitle>
+              <CardTitle className="text-base">{showRaw ? "▼" : "▶"} Réponse brute (debug)</CardTitle>
             </CardHeader>
             {showRaw && (
               <CardContent>
