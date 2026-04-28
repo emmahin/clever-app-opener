@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ResponsiveGridLayout,
   useContainerWidth,
-  type LayoutItem,
-  type ResponsiveLayouts,
-} from "react-grid-layout";
+} from "react-grid-layout/react";
+import type { LayoutItem, Layout, ResponsiveLayouts } from "react-grid-layout/react";
 import { motion, AnimatePresence } from "framer-motion";
 import { LayoutGrid, Lock, Plus, RotateCcw, Save } from "lucide-react";
 import { Sidebar } from "@/components/chatbot/Sidebar";
@@ -74,15 +73,14 @@ export default function Cockpit() {
   const [state, setState] = useState<CockpitState>(() => loadState());
   const [editMode, setEditMode] = useState(false);
   const [showAdder, setShowAdder] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const { width } = useContainerWidth({ ref: containerRef });
+  const { width, containerRef, mounted } = useContainerWidth();
 
   useEffect(() => {
     try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch { /* quota */ }
   }, [state]);
 
   const onLayoutChange = useCallback(
-    (_: readonly LayoutItem[], allLayouts: ResponsiveLayouts) => {
+    (_current: Layout, allLayouts: ResponsiveLayouts) => {
       setState((s) => ({ ...s, layouts: allLayouts }));
     },
     [],
@@ -96,7 +94,7 @@ export default function Cockpit() {
           bp,
           (items as readonly LayoutItem[]).filter((it) => it.i !== id),
         ]),
-      ) as ResponsiveLayouts;
+      ) as unknown as ResponsiveLayouts;
       return { widgets, layouts };
     });
     toast.success("Module retiré");
@@ -106,13 +104,13 @@ export default function Cockpit() {
     const meta = WIDGET_REGISTRY[kind];
     const id = `w-${kind}-${Date.now().toString(36)}`;
     setState((s) => {
-      const lg = (s.layouts.lg ?? []) as readonly LayoutItem[];
+      const lg = ((s.layouts as Record<string, readonly LayoutItem[]>).lg ?? []);
       const nextY = lg.reduce((acc, it) => Math.max(acc, it.y + it.h), 0);
       const newItem: LayoutItem = {
         i: id, x: 0, y: nextY, w: meta.defaultW, h: meta.defaultH,
         minW: meta.minW, minH: meta.minH,
       };
-      const layouts: ResponsiveLayouts = { ...s.layouts, lg: [...lg, newItem] };
+      const layouts = { ...s.layouts, lg: [...lg, newItem] } as ResponsiveLayouts;
       return { widgets: [...s.widgets, { id, kind }], layouts };
     });
     setShowAdder(false);
@@ -227,24 +225,22 @@ export default function Cockpit() {
         </AnimatePresence>
 
         <div ref={containerRef} className={`px-3 md:px-6 pb-24 ${editMode ? "cockpit-edit" : ""}`}>
-          <ResponsiveGridLayout
-            className="layout"
-            width={width}
-            layouts={state.layouts}
-            breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
-            cols={COLS}
-            rowHeight={ROW_HEIGHT}
-            margin={[12, 12]}
-            isDraggable={editMode}
-            isResizable={editMode}
-            draggableHandle=".widget-drag-handle"
-            onLayoutChange={onLayoutChange}
-            useCSSTransforms
-            compactType="vertical"
-            preventCollision={false}
-          >
-            {renderedWidgets}
-          </ResponsiveGridLayout>
+          {mounted && (
+            <ResponsiveGridLayout
+              className="layout"
+              width={width}
+              layouts={state.layouts}
+              breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
+              cols={COLS}
+              rowHeight={ROW_HEIGHT}
+              margin={[12, 12]}
+              dragConfig={{ enabled: editMode, handle: ".widget-drag-handle" }}
+              resizeConfig={{ enabled: editMode }}
+              onLayoutChange={onLayoutChange}
+            >
+              {renderedWidgets}
+            </ResponsiveGridLayout>
+          )}
         </div>
       </main>
     </div>
