@@ -46,9 +46,8 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
   const audioInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const [plusOpen, setPlusOpen] = useState(false);
-  const ctrlHoldingRef = useRef(false);
-  const isRecordingRef = useRef(false);
-  useEffect(() => { isRecordingRef.current = isRecording; }, [isRecording]);
+  // (Push-to-talk Ctrl retiré : on garde la touche Ctrl pour les raccourcis
+  // natifs du navigateur comme Ctrl+V, Ctrl+C, Ctrl+A, Ctrl+Z, etc.)
 
   // Écoute "Répondre" depuis une bulle de message : on pré-remplit l'input avec une citation.
   useEffect(() => {
@@ -145,9 +144,6 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
     timerRef.current = null;
   };
 
-  // Garde une r\u00e9f\u00e9rence au handleSend le plus r\u00e9cent
-  const handleSendRef = useRef<() => void>(() => {});
-
   const handleSend = () => {
     if ((!value.trim() && attachments.length === 0) || disabled || processing) return;
     onSend(
@@ -161,7 +157,6 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
     setRawFiles([]);
     setNextTool(null); // one-shot
   };
-  useEffect(() => { handleSendRef.current = handleSend; });
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
