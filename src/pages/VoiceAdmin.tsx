@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Activity, Loader2, Play, RefreshCw, RotateCcw, Save, Sparkles, Square } from "lucide-react";
+import { Activity, Euro, Loader2, Play, RefreshCw, RotateCcw, Save, Sparkles, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -7,6 +7,7 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -17,8 +18,13 @@ import {
 import { toast } from "@/hooks/use-toast";
 import {
   DEFAULT_VOICE_CONFIG,
+  DEFAULT_PRICING,
   ElevenLabsVoiceConfig,
+  ElevenLabsPricingConfig,
   loadVoiceConfig,
+  loadPricing,
+  savePricing,
+  subscribePricing,
   MODEL_PRESETS,
   resetVoiceConfig,
   saveVoiceConfig,
@@ -166,6 +172,7 @@ export default function VoiceAdmin() {
         </Card>
 
         <UsageCard modelCreditsPerChar={selectedModel?.creditsPerChar ?? 1} />
+        <PricingCard />
 
         <Card>
           <CardHeader>
@@ -344,6 +351,9 @@ function UsageCard({ modelCreditsPerChar }: UsageCardProps) {
   const [usage, setUsage] = useState<ElevenLabsUsage | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pricing, setPricing] = useState<ElevenLabsPricingConfig>(() => loadPricing());
+
+  useEffect(() => subscribePricing(setPricing), []);
 
   const refresh = async () => {
     setLoading(true);
@@ -374,6 +384,15 @@ function UsageCard({ modelCreditsPerChar }: UsageCardProps) {
   const estimatedCharsWithModel = usage
     ? Math.floor(usage.remaining / Math.max(0.01, modelCreditsPerChar))
     : 0;
+
+  // Coûts (prix de base × multiplicateur du modèle courant)
+  const eurPerCharBase = pricing.pricePerCharUsd * pricing.usdToEur;
+  const eurPerCharModel = eurPerCharBase * modelCreditsPerChar;
+  const usedEur = usage ? usage.character_count * eurPerCharBase : 0;
+  const remainingEur = usage ? usage.remaining * eurPerCharBase : 0;
+  const remainingEurModel = usage ? estimatedCharsWithModel * eurPerCharModel : 0;
+  const fmtEur = (n: number) =>
+    n.toLocaleString("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 2 });
 
   return (
     <Card>
@@ -437,6 +456,27 @@ function UsageCard({ modelCreditsPerChar }: UsageCardProps) {
                 </div>
               </div>
             </div>
+            <div className="grid grid-cols-3 gap-3 pt-1 text-xs">
+              <div className="rounded-md border border-primary/30 bg-primary/5 p-2">
+                <div className="text-muted-foreground">Consommé (€)</div>
+                <div className="font-semibold tabular-nums text-foreground">{fmtEur(usedEur)}</div>
+              </div>
+              <div className="rounded-md border border-primary/30 bg-primary/5 p-2">
+                <div className="text-muted-foreground">Restant (€)</div>
+                <div className="font-semibold tabular-nums text-foreground">{fmtEur(remainingEur)}</div>
+              </div>
+              <div className="rounded-md border border-primary/30 bg-primary/5 p-2">
+                <div className="text-muted-foreground">Restant · modèle</div>
+                <div className="font-semibold tabular-nums text-foreground">
+                  {fmtEur(remainingEurModel)}
+                </div>
+              </div>
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              Estimation basée sur {pricing.planLabel} ·{" "}
+              {(eurPerCharBase * 1000).toFixed(3)} €/1k car. (base) ·{" "}
+              {(eurPerCharModel * 1000).toFixed(3)} €/1k car. (modèle courant). Indicatif.
+            </p>
             {resetDate && (
               <p className="text-[11px] text-muted-foreground">
                 Réinitialisation du quota :{" "}
@@ -449,6 +489,105 @@ function UsageCard({ modelCreditsPerChar }: UsageCardProps) {
             )}
           </>
         )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function PricingCard() {
+  const [pricing, setPricing] = useState<ElevenLabsPricingConfig>(() => loadPricing());
+  const [dirty, setDirty] = useState(false);
+
+  const update = <K extends keyof ElevenLabsPricingConfig>(
+    key: K,
+    value: ElevenLabsPricingConfig[K],
+  ) => {
+    setPricing((p) => ({ ...p, [key]: value }));
+    setDirty(true);
+  };
+
+  const handleSave = () => {
+    savePricing(pricing);
+    setDirty(false);
+    toast({ title: "Tarification enregistrée" });
+  };
+
+  const handleReset = () => {
+    setPricing({ ...DEFAULT_PRICING });
+    savePricing({ ...DEFAULT_PRICING });
+    setDirty(false);
+  };
+
+  // Helpers : on saisit € / 1000 caractères (plus lisible que €/char).
+  const eurPer1k = pricing.pricePerCharUsd * pricing.usdToEur * 1000;
+  const usdPer1k = pricing.pricePerCharUsd * 1000;
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <Euro className="h-4 w-4 text-primary" />
+          <div>
+            <CardTitle className="text-base">Tarification (estimation €)</CardTitle>
+            <CardDescription>
+              L'API ElevenLabs ne renvoie pas le prix payé : ces valeurs servent à estimer
+              le coût réel à partir de votre plan.
+            </CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="grid gap-4 md:grid-cols-3">
+        <div className="space-y-2 md:col-span-3">
+          <Label>Plan / référence</Label>
+          <Input
+            value={pricing.planLabel}
+            onChange={(e) => update("planLabel", e.target.value)}
+            placeholder="ex. Starter (5 $ / 30 000 car.)"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Prix USD / 1000 car.</Label>
+          <Input
+            type="number"
+            step="0.001"
+            value={usdPer1k.toFixed(4)}
+            onChange={(e) => {
+              const v = parseFloat(e.target.value);
+              if (!Number.isNaN(v)) update("pricePerCharUsd", v / 1000);
+            }}
+          />
+          <p className="text-[10px] text-muted-foreground">
+            Base Multilingual v2 (1 crédit = 1 caractère).
+          </p>
+        </div>
+        <div className="space-y-2">
+          <Label>Taux USD → EUR</Label>
+          <Input
+            type="number"
+            step="0.01"
+            value={pricing.usdToEur}
+            onChange={(e) => {
+              const v = parseFloat(e.target.value);
+              if (!Number.isNaN(v)) update("usdToEur", v);
+            }}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Prix EUR / 1000 car.</Label>
+          <div className="rounded-md border bg-secondary/40 px-3 py-2 font-mono text-sm tabular-nums">
+            {eurPer1k.toFixed(4)} €
+          </div>
+          <p className="text-[10px] text-muted-foreground">Base — sera multiplié par le modèle.</p>
+        </div>
+        <div className="md:col-span-3 flex justify-end gap-2">
+          <Button variant="ghost" size="sm" onClick={handleReset}>
+            Réinitialiser
+          </Button>
+          <Button size="sm" onClick={handleSave} disabled={!dirty}>
+            <Save className="mr-2 h-4 w-4" />
+            Enregistrer
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );

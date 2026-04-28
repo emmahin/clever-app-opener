@@ -5,6 +5,8 @@
 
 const STORAGE_KEY = "elevenlabs.voice.config.v1";
 const EVENT_NAME = "elevenlabs:config-changed";
+const PRICING_KEY = "elevenlabs.pricing.config.v1";
+const PRICING_EVENT = "elevenlabs:pricing-changed";
 
 export interface ElevenLabsVoiceConfig {
   voiceId: string;
@@ -117,4 +119,53 @@ export function subscribeVoiceConfig(cb: (config: ElevenLabsVoiceConfig) => void
     window.removeEventListener(EVENT_NAME, handler);
     window.removeEventListener("storage", storageHandler);
   };
+}
+
+/**
+ * Configuration tarifaire indicative.
+ * pricePerCharUsd : coût USD par caractère sur le modèle de base (Multilingual v2).
+ * Le coût réel est multiplié par MODEL.creditsPerChar selon le modèle utilisé.
+ * usdToEur : taux de change utilisé pour l'affichage.
+ */
+export interface ElevenLabsPricingConfig {
+  /** Plan label (informatif, ex. "Starter 5$/30k") */
+  planLabel: string;
+  /** Prix USD par caractère, base Multilingual v2 (1 crédit = 1 char) */
+  pricePerCharUsd: number;
+  /** Taux de conversion USD → EUR */
+  usdToEur: number;
+}
+
+// Défaut : Starter ElevenLabs = 5 $ pour 30 000 caractères.
+export const DEFAULT_PRICING: ElevenLabsPricingConfig = {
+  planLabel: "Starter (5 $ / 30 000 car.)",
+  pricePerCharUsd: 5 / 30000, // ≈ 0.0001667 $/char
+  usdToEur: 0.92,
+};
+
+export function loadPricing(): ElevenLabsPricingConfig {
+  if (typeof window === "undefined") return { ...DEFAULT_PRICING };
+  try {
+    const raw = window.localStorage.getItem(PRICING_KEY);
+    if (!raw) return { ...DEFAULT_PRICING };
+    return { ...DEFAULT_PRICING, ...JSON.parse(raw) };
+  } catch {
+    return { ...DEFAULT_PRICING };
+  }
+}
+
+export function savePricing(p: ElevenLabsPricingConfig): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(PRICING_KEY, JSON.stringify(p));
+  window.dispatchEvent(new CustomEvent(PRICING_EVENT, { detail: p }));
+}
+
+export function subscribePricing(cb: (p: ElevenLabsPricingConfig) => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  const handler = (e: Event) => {
+    const detail = (e as CustomEvent<ElevenLabsPricingConfig>).detail;
+    cb(detail ?? loadPricing());
+  };
+  window.addEventListener(PRICING_EVENT, handler);
+  return () => window.removeEventListener(PRICING_EVENT, handler);
 }
