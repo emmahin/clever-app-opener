@@ -335,22 +335,38 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
     audioCtxRef.current = ctx;
     const src = ctx.createMediaStreamSource(stream);
+    // ─── Chaîne de filtrage pour isoler la voix principale ───────────────
+    // 1) High-pass 120 Hz : supprime le vent, le souffle, les grondements
+    //    (le vent est concentré entre 20 et 100 Hz).
+    // 2) Low-pass  7 kHz  : supprime les sifflements / aigus parasites
+    //    (la voix humaine intelligible va jusqu'à ~5 kHz).
+    // L'analyse VAD se fait sur le signal NETTOYÉ → moins de fausses
+    // détections sur le vent et les bruits ambiants.
+    const highpass = ctx.createBiquadFilter();
+    highpass.type = "highpass";
+    highpass.frequency.value = 120;
+    highpass.Q.value = 0.707;
+    const lowpass = ctx.createBiquadFilter();
+    lowpass.type = "lowpass";
+    lowpass.frequency.value = 7000;
+    lowpass.Q.value = 0.707;
     const analyser = ctx.createAnalyser();
     analyser.fftSize = 1024;
-    src.connect(analyser);
+    src.connect(highpass);
+    highpass.connect(lowpass);
+    lowpass.connect(analyser);
     const buf = new Uint8Array(analyser.fftSize);
     // L'indicateur visuel suit uniquement CET enregistrement actif : dès que
     // l'enregistrement s'arrête, il retombe à zéro au lieu de rester figé.
 
-    // Détection de fin de parole — réglée pour ATTENDRE que l'utilisateur ait
-    // vraiment terminé sa phrase, plutôt que de couper à la moindre micro-pause.
-    // Sans ça, on transcrit des bouts de phrase incomplets et l'IA répond à
-    // côté (voire dans une autre langue si l'audio est trop court/silencieux).
-    // Seuils ajustés pour mieux capter les phrases longues, les voix calmes
-    // et les hésitations sans couper l'utilisateur en plein milieu.
-    const SILENCE_THRESHOLD = 0.018;       // un peu plus permissif (capte voix faibles)
-    const SILENCE_DURATION_MS = 1500;      // 1.5s de silence = fin de phrase (laisse le temps de réfléchir)
-    const MAX_DURATION_MS = 30000;         // 30s max par tour (phrases longues OK)
+    // Détection de fin de parole — couplée à un seuil DYNAMIQUE qui suit la
+    // voix principale (la plus forte/proche). Tout son sous ce seuil (vent,
+    // voix d'arrière-plan, TV) est ignoré pour le VAD ET pour la décision
+    // "y a-t-il eu de la parole ?".
+    const ABSOLUTE_FLOOR = 0.012;          // plancher absolu (sous ça = silence pur)
+    const VOICE_RATIO = 0.35;              // un son doit faire ≥ 35% du pic vocal
+    const SILENCE_DURATION_MS = 1500;      // 1.5s de silence = fin de phrase
+    const MAX_DURATION_MS = 30000;         // 30s max par tour
     const MIN_SPEECH_MS = 400;             // au moins 0.4s de voix réelle
     // Délai d'attente AVANT la première parole : on laisse l'utilisateur le
     // temps de réfléchir avant de parler. S'il ne dit rien du tout, on
@@ -366,6 +382,10 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
     let lastTickAt = start;
     let displayedLevel = 0;
     let noiseFloor = 0.005;
+    // Pic glissant de la voix principale (s'adapte à la distance utilisateur/micro
+    // et au volume de sa voix). Démarre prudemment, monte sur les pics réels,
+    // décroît lentement pour ne pas se laisser tirer par un coup fort isolé.
+    let voicePeak = 0.05;
 
     await new Promise<void>((resolve) => {
       const tick = () => {
@@ -388,10 +408,26 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
         const now = Date.now();
         const dt = now - lastTickAt;
         lastTickAt = now;
-        if (rms > SILENCE_THRESHOLD) {
+        // ─── Seuil dynamique : voix principale uniquement ────────────
+        // Le seuil est le MAX entre :
+        //  - un plancher absolu (anti-silence)
+        //  - un ratio du pic vocal observé (anti voix lointaines / vent)
+        //  - le bruit de fond ambiant × 2.5 (anti SNR faible)
+        const dynamicThreshold = Math.max(
+          ABSOLUTE_FLOOR,
+          voicePeak * VOICE_RATIO,
+          noiseFloor * 2.5,
+        );
+        if (rms > dynamicThreshold) {
           lastVoiceAt = now;
           hasSpoken = true;
           voicedMs += dt;
+          // Met à jour le pic vocal : montée immédiate, descente lente.
+          voicePeak = rms > voicePeak ? rms : voicePeak * 0.998 + rms * 0.002;
+        } else {
+          // Décroissance plus prononcée du pic en silence pour permettre une
+          // adaptation si l'utilisateur s'éloigne légèrement.
+          voicePeak = voicePeak * 0.9995;
         }
         const elapsed = now - start;
         const silentFor = now - lastVoiceAt;

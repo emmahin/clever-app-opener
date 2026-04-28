@@ -26,20 +26,65 @@ class WebVoiceService implements IVoiceService {
 
   async startRecording() {
     this.chunks = [];
-    // Contraintes audio optimisées pour la transcription Whisper :
-    //  - echoCancellation : évite que la voix de Lia rentre dans le micro
-    //  - noiseSuppression : nettoie le bruit de fond constant
-    //  - autoGainControl : remonte automatiquement les voix faibles/lointaines
-    //  - sampleRate 48k + channelCount 1 (mono) : qualité optimale pour STT
+    // Contraintes audio optimisées pour ISOLER la voix principale (proche du micro)
+    // et IGNORER les sons parasites (vent, voix d'arrière-plan, TV, conversation
+    // dans une autre pièce…).
+    //
+    //  - echoCancellation        : évite que la voix de Lia rentre dans le micro
+    //  - noiseSuppression        : nettoie le bruit de fond constant (vent, ventilo)
+    //  - autoGainControl: FALSE  : volontairement désactivé. L'AGC remonte le
+    //    volume quand on se tait → il amplifie alors les voix lointaines et le
+    //    vent. En le coupant, seul le signal réellement fort (ta voix proche)
+    //    reste audible pour le STT.
+    //  - voiceIsolation          : extension Chrome/Edge récente — isole
+    //    spécifiquement la voix la plus proche du micro (gating spatial).
+    //  - googHighpassFilter      : extension Chrome — coupe les très basses
+    //    fréquences (vent, grondements).
+    //  - channelCount 1 + sampleRate 48k : mono, qualité STT optimale.
+    const advanced: MediaTrackConstraints[] = [];
+    // Ces flags Chrome/Edge ne sont pas standard mais améliorent fortement
+    // la qualité quand ils sont disponibles ; ignorés silencieusement sinon.
+    advanced.push({
+      // @ts-expect-error vendor-specific
+      googEchoCancellation: true,
+      // @ts-expect-error vendor-specific
+      googNoiseSuppression: true,
+      // @ts-expect-error vendor-specific
+      googHighpassFilter: true,
+      // @ts-expect-error vendor-specific
+      googAutoGainControl: false,
+      // @ts-expect-error vendor-specific (Chrome ≥ 124)
+      googExperimentalNoiseSuppression: true,
+    } as MediaTrackConstraints);
+
     this.stream = await navigator.mediaDevices.getUserMedia({
       audio: {
         echoCancellation: true,
         noiseSuppression: true,
-        autoGainControl: true,
+        autoGainControl: false,
         channelCount: 1,
         sampleRate: 48000,
+        // @ts-expect-error not yet in TS lib but supported on Chrome/Edge
+        voiceIsolation: true,
+        advanced,
       } as MediaTrackConstraints,
     });
+
+    // Si le navigateur supporte les contraintes avancées, on tente d'appliquer
+    // dynamiquement voiceIsolation + désactivation AGC sur la piste active
+    // (certains navigateurs n'honorent les flags que via applyConstraints).
+    try {
+      const track = this.stream.getAudioTracks()[0];
+      if (track && typeof track.applyConstraints === "function") {
+        await track.applyConstraints({
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: false,
+          // @ts-expect-error vendor-specific
+          voiceIsolation: true,
+        }).catch(() => { /* navigateur ne supporte pas, on continue */ });
+      }
+    } catch { /* ignore */ }
     // Bitrate plus élevé que la valeur par défaut (~32 kbps) pour préserver
     // les consonnes (s, ch, f, t) qui sont les premières détruites par la
     // compression. Whisper a besoin de ces fréquences pour bien transcrire.
