@@ -7,6 +7,8 @@ const corsHeaders = {
 // Voix OpenAI TTS — « shimmer » : féminine, chaleureuse, naturelle en français.
 // Voix dispo : alloy, echo, fable, onyx, nova, shimmer.
 const DEFAULT_VOICE = "shimmer";
+const ALLOWED_VOICES = new Set(["alloy", "echo", "fable", "onyx", "nova", "shimmer"]);
+const MAX_TEXT_LEN = 4000;
 // Ordre : on tente d'abord le modèle le plus susceptible d'être autorisé sur une clé restreinte
 // (gpt-4o-mini-tts), puis on dégrade vers tts-1 / tts-1-hd.
 const TTS_MODELS = ["gpt-4o-mini-tts", "tts-1", "tts-1-hd"];
@@ -23,13 +25,22 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { text, voice } = await req.json();
-    if (!text || typeof text !== "string") {
+    let body: any = null;
+    try { body = await req.json(); } catch {
+      return new Response(JSON.stringify({ error: "JSON body required" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const text = body?.text;
+    const voice = body?.voice;
+    if (!text || typeof text !== "string" || !text.trim()) {
       return new Response(JSON.stringify({ error: "text required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    const safeText = text.trim().slice(0, MAX_TEXT_LEN);
+    const safeVoice = typeof voice === "string" && ALLOWED_VOICES.has(voice) ? voice : DEFAULT_VOICE;
 
     // Clé dédiée TTS (saisie depuis platform.openai.com avec accès aux modèles audio).
     // Fallback sur OPENAI_API_KEY si jamais la clé dédiée n'est pas configurée.
@@ -42,7 +53,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const selectedVoice = voice || DEFAULT_VOICE;
+    const selectedVoice = safeVoice;
     let lastError: { status: number; body: string; code?: string } | null = null;
 
     for (const model of TTS_MODELS) {
@@ -55,7 +66,7 @@ Deno.serve(async (req) => {
         body: JSON.stringify({
           model,
           voice: selectedVoice,
-          input: text.slice(0, 4000),
+          input: safeText,
           response_format: "mp3",
           speed: 1.15,
         }),

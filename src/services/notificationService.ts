@@ -88,7 +88,16 @@ function loadPrefs(): NotificationPrefs {
   try {
     const raw = localStorage.getItem(LS_PREFS);
     if (!raw) return DEFAULT_PREFS;
-    return { ...DEFAULT_PREFS, ...JSON.parse(raw), byType: { ...DEFAULT_PREFS.byType, ...(JSON.parse(raw).byType || {}) } };
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return DEFAULT_PREFS;
+    const byType = parsed && typeof parsed === "object" && parsed.byType && typeof parsed.byType === "object"
+      ? parsed.byType
+      : {};
+    return {
+      ...DEFAULT_PREFS,
+      ...parsed,
+      byType: { ...DEFAULT_PREFS.byType, ...byType },
+    };
   } catch {
     return DEFAULT_PREFS;
   }

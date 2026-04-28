@@ -56,29 +56,35 @@ class ConversationService implements IConversationService {
 
   async create(title = "Nouveau chat") {
     const uid = await requireUserId();
+    const safeTitle = (typeof title === "string" && title.trim() ? title.trim() : "Nouveau chat").slice(0, 120);
     const { data, error } = await supabase
       .from("conversations")
-      .insert({ user_id: uid, title })
+      .insert({ user_id: uid, title: safeTitle })
       .select("id, title, last_message_at, created_at")
-      .single();
+      .maybeSingle();
     if (error) throw error;
+    if (!data) throw new Error("Création de la conversation impossible");
     return data as Conversation;
   }
 
   async rename(id: string, title: string) {
+    if (!id) throw new Error("id requis");
+    const safeTitle = (typeof title === "string" ? title.trim() : "").slice(0, 120) || "Sans titre";
     const { error } = await supabase
       .from("conversations")
-      .update({ title })
+      .update({ title: safeTitle })
       .eq("id", id);
     if (error) throw error;
   }
 
   async remove(id: string) {
+    if (!id) throw new Error("id requis");
     const { error } = await supabase.from("conversations").delete().eq("id", id);
     if (error) throw error;
   }
 
   async getMessages(conversationId: string) {
+    if (!conversationId) return [];
     const { data, error } = await supabase
       .from("chat_messages")
       .select("id, role, content, widgets, position, created_at")
@@ -95,13 +101,15 @@ class ConversationService implements IConversationService {
   }
 
   async addMessage(conversationId: string, msg: ChatMessage) {
+    if (!conversationId) throw new Error("conversationId requis");
+    if (!msg?.id || !msg?.role) throw new Error("Message invalide");
     const uid = await requireUserId();
     const row = {
       id: msg.id,
       conversation_id: conversationId,
       user_id: uid,
       role: msg.role,
-      content: msg.content ?? "",
+      content: typeof msg.content === "string" ? msg.content : "",
       widgets: (msg.widgets ?? []) as unknown as never,
       position: msg.createdAt, // simple: timestamp = position naturelle
     };
@@ -117,7 +125,7 @@ class ConversationService implements IConversationService {
         .from("conversations")
         .select("title")
         .eq("id", conversationId)
-        .single();
+        .maybeSingle();
       if (conv && (conv.title === "Nouveau chat" || !conv.title)) {
         patch.title = smartTitleFrom(msg.content);
       }
