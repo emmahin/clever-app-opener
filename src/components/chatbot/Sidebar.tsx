@@ -92,10 +92,6 @@ export function Sidebar() {
     setCollapsed((v) => !v);
   };
 
-  const goAiTools = () => {
-    if (pathname !== "/") navigate("/");
-  };
-
   // ─── Nav rail (icônes principales toujours visibles) ───
   const navItems = [
     { to: "/", label: "AI Tools", icon: MessageSquare },
