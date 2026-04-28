@@ -193,15 +193,27 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
   const toggleRecording = async () => {
     if (isRecording) {
       setIsRecording(false);
+      stopVisualizer();
+      stopTimer();
+      setTranscribing(true);
       try {
         const text = await voiceService.stopAndTranscribe();
         setValue((v) => v + text);
       } catch (err) {
         console.error("Voice error:", err);
+      } finally {
+        setTranscribing(false);
       }
     } else {
       setIsRecording(true);
-      await voiceService.startRecording();
+      try {
+        await voiceService.startRecording();
+        startVisualizer();
+        startTimer();
+      } catch (err: any) {
+        setIsRecording(false);
+        toast.error(err?.message || "Erreur micro");
+      }
     }
   };
 
