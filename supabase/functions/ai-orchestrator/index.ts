@@ -504,6 +504,37 @@ TOOLS.push({
 TOOLS.push({
   type: "function",
   function: {
+    name: "trigger_n8n_workflow",
+    description:
+      "Déclenche un workflow n8n configuré par l'utilisateur via son webhook unique. " +
+      "À utiliser UNIQUEMENT si une action listée dans la section AUTOMATISATIONS n8n DISPONIBLES " +
+      "correspond exactement à la demande. N'invente JAMAIS de nom d'action ; n'appelle pas cet outil " +
+      "si aucune action déclarée ne convient. Le widget côté client envoie le POST au webhook n8n.",
+    parameters: {
+      type: "object",
+      properties: {
+        action: {
+          type: "string",
+          description: "Identifiant exact d'une action listée dans les AUTOMATISATIONS n8n DISPONIBLES.",
+        },
+        params: {
+          type: "object",
+          description: "Paramètres libres passés à n8n (clé/valeur). Adapte au contexte de la demande.",
+          additionalProperties: true,
+        },
+        label: {
+          type: "string",
+          description: "Nom lisible affiché à l'utilisateur (ex: 'Ajouter dépense').",
+        },
+      },
+      required: ["action"],
+    },
+  },
+});
+
+TOOLS.push({
+  type: "function",
+  function: {
     name: "make_chart",
     description:
       "Crée un graphique inline dans la conversation pour visualiser des données chiffrées. " +
@@ -1040,6 +1071,27 @@ async function callTool(name: string, args: any): Promise<{ widget: any; summary
     };
   }
 
+  if (name === "trigger_n8n_workflow") {
+    const action = String(args.action || "").trim();
+    if (!action) {
+      return { widget: null, summary: "Action manquante pour trigger_n8n_workflow." };
+    }
+    const params = (args.params && typeof args.params === "object" && !Array.isArray(args.params))
+      ? args.params as Record<string, unknown>
+      : {};
+    const label = args.label ? String(args.label).trim() : undefined;
+    return {
+      widget: {
+        type: "n8n_trigger",
+        action,
+        params,
+        label,
+      },
+      summary:
+        `Workflow n8n "${label || action}" déclenché. Le widget côté client envoie le POST au webhook configuré.`,
+    };
+  }
+
   if (name === "make_chart") {
     try {
       const kind = String(args.kind || "").trim();
@@ -1274,7 +1326,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages, lang, detailLevel, customInstructions, aiName, attachments, webSearch, deepThink, forceTool, schedule, timezone, moodContext, memories, insights } = await req.json();
+    const { messages, lang, detailLevel, customInstructions, aiName, attachments, webSearch, deepThink, forceTool, schedule, timezone, moodContext, memories, insights, n8nActions } = await req.json();
     if (!Array.isArray(messages)) {
       return new Response(JSON.stringify({ error: "messages must be an array" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -1371,6 +1423,7 @@ Deno.serve(async (req) => {
             moodContext: moodContext && typeof moodContext === "object" ? moodContext : null,
             memories: Array.isArray(memories) ? memories : [],
             insights: Array.isArray(insights) ? insights : [],
+            n8nActions: Array.isArray(n8nActions) ? n8nActions : [],
           });
           const pastedVideoUrl = extractVideoUrl(userText);
           if (pastedVideoUrl) {
