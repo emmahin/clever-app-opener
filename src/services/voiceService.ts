@@ -41,33 +41,28 @@ class WebVoiceService implements IVoiceService {
     //  - googHighpassFilter      : extension Chrome — coupe les très basses
     //    fréquences (vent, grondements).
     //  - channelCount 1 + sampleRate 48k : mono, qualité STT optimale.
-    const advanced: MediaTrackConstraints[] = [];
     // Ces flags Chrome/Edge ne sont pas standard mais améliorent fortement
     // la qualité quand ils sont disponibles ; ignorés silencieusement sinon.
-    advanced.push({
-      // @ts-expect-error vendor-specific
-      googEchoCancellation: true,
-      // @ts-expect-error vendor-specific
-      googNoiseSuppression: true,
-      // @ts-expect-error vendor-specific
-      googHighpassFilter: true,
-      // @ts-expect-error vendor-specific
-      googAutoGainControl: false,
-      // @ts-expect-error vendor-specific (Chrome ≥ 124)
-      googExperimentalNoiseSuppression: true,
-    } as MediaTrackConstraints);
+    const advanced: MediaTrackConstraints[] = [
+      {
+        googEchoCancellation: true,
+        googNoiseSuppression: true,
+        googHighpassFilter: true,
+        googAutoGainControl: false,
+        googExperimentalNoiseSuppression: true,
+      } as unknown as MediaTrackConstraints,
+    ];
 
     this.stream = await navigator.mediaDevices.getUserMedia({
-      audio: {
+      audio: ({
         echoCancellation: true,
         noiseSuppression: true,
         autoGainControl: false,
         channelCount: 1,
         sampleRate: 48000,
-        // @ts-expect-error not yet in TS lib but supported on Chrome/Edge
         voiceIsolation: true,
         advanced,
-      } as MediaTrackConstraints,
+      } as unknown) as MediaTrackConstraints,
     });
 
     // Si le navigateur supporte les contraintes avancées, on tente d'appliquer
@@ -76,13 +71,12 @@ class WebVoiceService implements IVoiceService {
     try {
       const track = this.stream.getAudioTracks()[0];
       if (track && typeof track.applyConstraints === "function") {
-        await track.applyConstraints({
+        await track.applyConstraints(({
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: false,
-          // @ts-expect-error vendor-specific
           voiceIsolation: true,
-        }).catch(() => { /* navigateur ne supporte pas, on continue */ });
+        } as unknown) as MediaTrackConstraints).catch(() => { /* ignoré */ });
       }
     } catch { /* ignore */ }
     // Bitrate plus élevé que la valeur par défaut (~32 kbps) pour préserver
