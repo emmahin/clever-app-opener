@@ -60,7 +60,7 @@ export function TypewriterMarkdown({ text, speed = 2, intervalMs = 18 }: Typewri
   void initialLenRef;
 
   return (
-    <div className="prose prose-sm prose-invert max-w-none">
+    <div className="prose prose-sm prose-invert max-w-none leading-relaxed prose-p:my-2 prose-headings:mt-4 prose-headings:mb-2 prose-li:my-1 prose-ul:my-2 prose-ol:my-2 prose-pre:my-2">
       <ReactMarkdown>{visible}</ReactMarkdown>
       {isTyping && (
         <span className="inline-block w-1.5 h-4 bg-primary/80 ml-0.5 align-middle animate-pulse" />
