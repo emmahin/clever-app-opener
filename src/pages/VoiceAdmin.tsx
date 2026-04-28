@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { Loader2, Play, RotateCcw, Save, Sparkles, Square } from "lucide-react";
+import { Activity, Loader2, Play, RefreshCw, RotateCcw, Save, Sparkles, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -24,6 +25,7 @@ import {
   VOICE_PRESETS,
 } from "@/services/elevenLabsConfig";
 import { synthesizeWithElevenLabs } from "@/services/elevenLabsTtsService";
+import { ElevenLabsUsage, fetchElevenLabsUsage } from "@/services/elevenLabsUsageService";
 
 const DEMO_TEXT =
   "Bonjour ! Je suis votre assistant vocal propulsé par ElevenLabs. " +
@@ -117,6 +119,7 @@ export default function VoiceAdmin() {
   };
 
   const selectedVoice = VOICE_PRESETS.find((v) => v.id === config.voiceId);
+  const selectedModel = MODEL_PRESETS.find((m) => m.id === config.modelId);
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -162,6 +165,8 @@ export default function VoiceAdmin() {
           </CardContent>
         </Card>
 
+        <UsageCard modelCreditsPerChar={selectedModel?.creditsPerChar ?? 1} />
+
         <Card>
           <CardHeader>
             <CardTitle>Voix & modèle</CardTitle>
@@ -196,12 +201,22 @@ export default function VoiceAdmin() {
                 <SelectContent>
                   {MODEL_PRESETS.map((m) => (
                     <SelectItem key={m.id} value={m.id}>
-                      <span className="font-medium">{m.name}</span>
-                      <span className="ml-2 text-xs text-muted-foreground">{m.description}</span>
+                      <div className="flex flex-col">
+                        <span>
+                          <span className="font-medium">{m.name}</span>
+                          <span className="ml-2 text-xs text-muted-foreground">{m.description}</span>
+                        </span>
+                        <span className="text-[10px] text-muted-foreground/80">💰 {m.costHint}</span>
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {selectedModel && (
+                <p className="text-xs text-muted-foreground">
+                  Coût indicatif : <span className="font-medium">{selectedModel.costHint}</span>
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -318,5 +333,123 @@ function SliderRow({ label, hint, value, min, max, step, onChange }: SliderRowPr
       />
       {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
     </div>
+  );
+}
+
+interface UsageCardProps {
+  modelCreditsPerChar: number;
+}
+
+function UsageCard({ modelCreditsPerChar }: UsageCardProps) {
+  const [usage, setUsage] = useState<ElevenLabsUsage | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await fetchElevenLabsUsage();
+      setUsage(data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erreur inconnue");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    refresh();
+    const id = window.setInterval(refresh, 30_000);
+    return () => window.clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const fmt = (n: number) => n.toLocaleString("fr-FR");
+  const resetDate = usage?.next_character_count_reset_unix
+    ? new Date(usage.next_character_count_reset_unix * 1000)
+    : null;
+
+  // Estimation : nb caractères restants / coût du modèle courant
+  const estimatedCharsWithModel = usage
+    ? Math.floor(usage.remaining / Math.max(0.01, modelCreditsPerChar))
+    : 0;
+
+  return (
+    <Card>
+      <CardHeader className="flex-row items-center justify-between space-y-0">
+        <div className="flex items-center gap-2">
+          <Activity className="h-4 w-4 text-primary" />
+          <div>
+            <CardTitle className="text-base">Consommation ElevenLabs</CardTitle>
+            <CardDescription>
+              Quota du compte — actualisation auto toutes les 30 s.
+            </CardDescription>
+          </div>
+        </div>
+        <Button variant="ghost" size="sm" onClick={refresh} disabled={loading}>
+          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+        </Button>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {error && (
+          <p className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+            {error}
+          </p>
+        )}
+        {!usage && !error && (
+          <p className="text-xs text-muted-foreground">Chargement…</p>
+        )}
+        {usage && (
+          <>
+            <div className="flex items-end justify-between gap-2">
+              <div>
+                <div className="text-2xl font-semibold tabular-nums">
+                  {fmt(usage.character_count)}
+                  <span className="text-sm font-normal text-muted-foreground">
+                    {" "}/ {fmt(usage.character_limit)} car.
+                  </span>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Plan <span className="font-medium">{usage.tier}</span> · statut{" "}
+                  <span className="font-medium">{usage.status}</span>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-sm font-medium tabular-nums">
+                  {usage.percent_used.toFixed(1)} %
+                </div>
+                <div className="text-xs text-muted-foreground">utilisés</div>
+              </div>
+            </div>
+            <Progress value={usage.percent_used} />
+            <div className="grid grid-cols-2 gap-3 pt-1 text-xs">
+              <div className="rounded-md border border-border/60 bg-secondary/30 p-2">
+                <div className="text-muted-foreground">Restant</div>
+                <div className="font-medium tabular-nums text-foreground">
+                  {fmt(usage.remaining)} car.
+                </div>
+              </div>
+              <div className="rounded-md border border-border/60 bg-secondary/30 p-2">
+                <div className="text-muted-foreground">Avec le modèle courant</div>
+                <div className="font-medium tabular-nums text-foreground">
+                  ≈ {fmt(estimatedCharsWithModel)} car. générables
+                </div>
+              </div>
+            </div>
+            {resetDate && (
+              <p className="text-[11px] text-muted-foreground">
+                Réinitialisation du quota :{" "}
+                {resetDate.toLocaleDateString("fr-FR", {
+                  day: "2-digit",
+                  month: "long",
+                  year: "numeric",
+                })}
+              </p>
+            )}
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }
