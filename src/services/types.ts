@@ -35,6 +35,12 @@ export type ChatWidget =
       label?: string; // nom lisible pour l'UI (ex: "Notepad")
     }
   | {
+      type: "n8n_trigger";
+      action: string;
+      params?: Record<string, unknown>;
+      label?: string;
+    }
+  | {
       type: "organize_files";
       root_name: string;
       total: number;

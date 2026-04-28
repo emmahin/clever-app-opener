@@ -2,12 +2,13 @@ import { Sidebar } from "@/components/chatbot/Sidebar";
 import { Header } from "@/components/chatbot/Header";
 import { useSettings, DetailLevel } from "@/contexts/SettingsProvider";
 import { useLanguage, LANGS, Lang } from "@/i18n/LanguageProvider";
-import { Settings as SettingsIcon, Globe, Sparkles, MessageSquare, Trash2, RotateCcw, Check, Bell, Monitor, ChevronDown, Brain, CalendarClock, Heart } from "lucide-react";
+import { Settings as SettingsIcon, Globe, Sparkles, MessageSquare, Trash2, RotateCcw, Check, Bell, Monitor, ChevronDown, Brain, CalendarClock, Heart, Workflow } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useNotificationPrefs } from "@/hooks/useNotifications";
 import { NotificationType } from "@/services/notificationService";
 import { LocalAgentSection } from "@/components/chatbot/LocalAgentSection";
+import { N8nSection } from "@/components/chatbot/N8nSection";
 import { MemorySection } from "@/components/settings/MemorySection";
 import { RecurringScheduleSection } from "@/components/settings/RecurringScheduleSection";
 import { InsightsSection } from "@/components/settings/InsightsSection";
@@ -291,6 +292,15 @@ export default function Settings() {
             description="Permet à l'IA d'ouvrir des applications installées sur ton ordinateur."
           >
             <LocalAgentSection />
+          </CollapsibleSection>
+
+          {/* n8n — webhook unique */}
+          <CollapsibleSection
+            icon={<Workflow className="w-5 h-5" />}
+            title="n8n — Automatisations"
+            description="Branche un webhook n8n et déclare des actions que l'IA pourra déclencher."
+          >
+            <N8nSection />
           </CollapsibleSection>
 
           {/* Confidentialité (boutons) */}

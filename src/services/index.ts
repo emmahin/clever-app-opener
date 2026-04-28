@@ -24,6 +24,8 @@ export type {
   ListAppsResult,
   CachedApps,
 } from "./localAgentService";
+export { n8nService } from "./n8nService";
+export type { IN8nService, N8nConfig, N8nAction, N8nTriggerResult } from "./n8nService";
 export { twinMemoryService } from "./twinMemoryService";
 export type {
   ITwinMemoryService,
