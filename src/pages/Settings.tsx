@@ -401,22 +401,22 @@ function CollapsibleSection({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <section className="rounded-2xl border border-border/60 bg-card/50 overflow-hidden">
+    <section className="rounded-xl border border-border/60 bg-card/50 overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="w-full flex items-start gap-3 p-5 text-left hover:bg-secondary/30 transition-colors"
+        className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-left hover:bg-secondary/30 transition-colors"
       >
-        <div className="w-9 h-9 rounded-lg bg-primary/15 text-primary flex items-center justify-center flex-shrink-0">
+        <div className="w-7 h-7 rounded-md bg-primary/15 text-primary flex items-center justify-center flex-shrink-0">
           {icon}
         </div>
         <div className="flex-1 min-w-0">
-          <h2 className="text-base font-semibold">{title}</h2>
-          {description && <p className="text-xs text-muted-foreground mt-0.5">{description}</p>}
+          <h2 className="text-sm font-semibold truncate">{title}</h2>
+          {description && <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{description}</p>}
         </div>
         <ChevronDown
-          className={`w-5 h-5 text-muted-foreground flex-shrink-0 mt-1 transition-transform duration-300 ${
+          className={`w-4 h-4 text-muted-foreground flex-shrink-0 transition-transform duration-300 ${
             open ? "rotate-180" : "rotate-0"
           }`}
         />
@@ -427,7 +427,7 @@ function CollapsibleSection({
         }`}
       >
         <div className="overflow-hidden">
-          <div className="px-5 pb-5">{children}</div>
+          <div className="px-4 pb-4 pt-1">{children}</div>
         </div>
       </div>
     </section>
