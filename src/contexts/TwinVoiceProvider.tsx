@@ -489,7 +489,10 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
 
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token || (import.meta as any).env.VITE_SUPABASE_PUBLISHABLE_KEY;
-    const url = `${(import.meta as any).env.VITE_SUPABASE_URL}/functions/v1/ai-orchestrator`;
+    // Mode vocal → endpoint dédié `voice-chat` : ultra léger (pas de tools,
+    // pas de routage web/image/code, pas de calcul de crédits côté serveur),
+    // streaming direct, modèle le plus rapide. Latence divisée par 2 à 4.
+    const url = `${(import.meta as any).env.VITE_SUPABASE_URL}/functions/v1/voice-chat`;
 
     const resp = await fetch(url, {
       method: "POST",
@@ -497,14 +500,13 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
       body: JSON.stringify({
         // On n'envoie que les 6 derniers tours pour limiter les tokens en vocal.
         messages: conversationHistoryRef.current.slice(-6),
-        lang: "fr",
-        // En vocal : réponses COURTES par défaut (économie tokens + meilleure UX vocale).
-        detailLevel: "short",
-        customInstructions: "Mode vocal : réponds en 1 à 3 phrases courtes, naturelles, parlées. Pas de markdown, pas de listes, pas d'émojis. NE TERMINE JAMAIS ta réponse par une question de relance du type \"voulez-vous que je modifie votre agenda ?\", \"souhaitez-vous que je…\", \"dites-le moi si…\". NE TERMINE JAMAIS non plus par des formules de disponibilité ou d'attente du type \"je suis prêt\", \"je suis là\", \"à votre écoute\", \"dites-moi ce que vous voulez\", \"dites-moi ce qu'on fait\", \"je vous écoute\", \"n'hésitez pas\". Pas de relance, pas d'invitation à parler, pas d'offre d'aide finale. Conclus directement sur l'information utile, point final.",
+        customInstructions:
+          "NE TERMINE JAMAIS par une question de relance ni par une formule d'attente (\"je suis là\", \"à votre écoute\", \"dites-moi\"). Conclus sur l'info utile, point final.",
         timezone: (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; } catch { return "UTC"; } })(),
-        moodContext: moodCtx,
-        memories,
-        insights,
+        memoriesContext: memories.length
+          ? memories.map((m) => `- [${m.category}] ${m.content}`).join("\n")
+          : "",
+        eventsContext: "",
       }),
     });
 
