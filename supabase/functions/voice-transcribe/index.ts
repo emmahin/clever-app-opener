@@ -1,3 +1,6 @@
+// Limite raisonnable pour éviter les payloads géants (~environ 15 MB d'audio).
+const MAX_BASE64_LEN = 20_000_000;
+const ALLOWED_MIME_PREFIX = "audio/";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -136,12 +139,22 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const body = await req.json();
+    let body: any = null;
+    try { body = await req.json(); } catch {
+      return new Response(JSON.stringify({ error: "JSON body required" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     const audio: string | undefined = body?.audio;
     if (!audio || typeof audio !== "string") {
       return new Response(JSON.stringify({ error: "audio (base64) required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (audio.length > MAX_BASE64_LEN) {
+      return new Response(JSON.stringify({ error: "audio too large" }), {
+        status: 413, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -150,7 +163,16 @@ Deno.serve(async (req) => {
     let base64Audio = audio;
     if (audio.startsWith("data:")) {
       const m = audio.match(/^data:([^;]+);base64,(.*)$/);
-      if (m) { mime = m[1]; base64Audio = m[2]; }
+      if (m) {
+        const candidate = m[1];
+        if (!candidate.startsWith(ALLOWED_MIME_PREFIX)) {
+          return new Response(JSON.stringify({ error: "audio mime not allowed" }), {
+            status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        mime = candidate;
+        base64Audio = m[2];
+      }
     }
 
     // 1) Whisper en priorité si la clé est configurée
