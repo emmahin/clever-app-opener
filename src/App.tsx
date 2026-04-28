@@ -22,10 +22,8 @@ import AdminUsers from "./pages/AdminUsers.tsx";
 import Agenda from "./pages/Agenda.tsx";
 import OpenAIDiagnostics from "./pages/OpenAIDiagnostics.tsx";
 import VoiceAdmin from "./pages/VoiceAdmin.tsx";
-import Cockpit from "./pages/Cockpit.tsx";
 import { AuthGuard } from "@/components/AuthGuard";
 import { RootErrorBoundary } from "@/components/RootErrorBoundary";
-import { HudFrame } from "@/components/hud/HudFrame";
 
 const queryClient = new QueryClient();
 
@@ -39,7 +37,6 @@ const App = () => (
         <TooltipProvider>
         <Toaster />
         <Sonner />
-        <HudFrame />
         <BrowserRouter>
           <Routes>
             <Route path="/auth" element={<Auth />} />
@@ -56,7 +53,6 @@ const App = () => (
             <Route path="/agenda" element={<AuthGuard><Agenda /></AuthGuard>} />
             <Route path="/openai-diagnostics" element={<OpenAIDiagnostics />} />
             <Route path="/admin/voice" element={<AuthGuard><VoiceAdmin /></AuthGuard>} />
-            <Route path="/cockpit" element={<AuthGuard><Cockpit /></AuthGuard>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

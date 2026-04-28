@@ -2,281 +2,100 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ═══════════════════════════════════════════════════════════════
-   STARK HUD — Design System
-   Cyan neon on deep black, futuristic Iron Man dashboard vibe.
-   All colors HSL.
-   ═══════════════════════════════════════════════════════════════ */
+/* Design system — AI Chatbot. All colors HSL. */
 
 @layer base {
   :root {
-    /* Core surfaces — deep void black with hint of cyan */
-    --background: 200 80% 3%;
-    --foreground: 185 95% 88%;
+    --background: 250 35% 6%;
+    --foreground: 250 20% 96%;
 
-    --card: 200 70% 6%;
-    --card-foreground: 185 90% 92%;
+    --card: 250 35% 9%;
+    --card-foreground: 250 20% 96%;
 
-    --popover: 200 80% 5%;
-    --popover-foreground: 185 95% 90%;
+    --popover: 250 40% 8%;
+    --popover-foreground: 250 20% 96%;
 
-    /* Cyan neon — the signature */
-    --primary: 185 100% 55%;
-    --primary-foreground: 200 80% 4%;
-    --primary-glow: 180 100% 65%;
+    --primary: 270 90% 65%;
+    --primary-foreground: 250 20% 98%;
+    --primary-glow: 285 95% 70%;
 
-    --secondary: 200 60% 10%;
-    --secondary-foreground: 185 90% 88%;
+    --secondary: 250 30% 14%;
+    --secondary-foreground: 250 20% 96%;
 
-    --muted: 200 50% 9%;
-    --muted-foreground: 190 40% 60%;
+    --muted: 250 25% 14%;
+    --muted-foreground: 250 15% 65%;
 
-    --accent: 175 100% 50%;
-    --accent-foreground: 200 80% 4%;
+    --accent: 285 80% 60%;
+    --accent-foreground: 250 20% 98%;
 
-    --destructive: 0 95% 60%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 0 75% 60%;
+    --destructive-foreground: 250 20% 98%;
 
-    /* Glowing borders */
-    --border: 185 80% 25%;
-    --input: 200 60% 10%;
-    --ring: 185 100% 55%;
+    --border: 260 30% 18%;
+    --input: 260 30% 14%;
+    --ring: 270 90% 65%;
 
-    --radius: 0.25rem; /* sharp HUD corners */
+    --radius: 0.85rem;
 
-    /* Sidebar — Stark rail */
-    --sidebar-background: 200 80% 4%;
-    --sidebar-foreground: 185 95% 88%;
-    --sidebar-primary: 185 100% 55%;
-    --sidebar-primary-foreground: 200 80% 4%;
-    --sidebar-accent: 185 80% 15%;
-    --sidebar-accent-foreground: 185 100% 80%;
-    --sidebar-border: 185 80% 22%;
-    --sidebar-ring: 185 100% 55%;
+    --sidebar-background: 290 65% 35%;
+    --sidebar-foreground: 250 20% 98%;
+    --sidebar-primary: 270 90% 65%;
+    --sidebar-primary-foreground: 250 20% 98%;
+    --sidebar-accent: 285 70% 50%;
+    --sidebar-accent-foreground: 250 20% 98%;
+    --sidebar-border: 285 50% 30%;
+    --sidebar-ring: 270 90% 65%;
 
-    /* Gradients */
-    --gradient-brand: linear-gradient(135deg, hsl(185 100% 50%), hsl(175 100% 45%));
-    --gradient-pillar: linear-gradient(180deg, hsl(185 100% 50% / 0.9), hsl(195 100% 40% / 0.9));
-    --gradient-topbar: linear-gradient(90deg, hsl(200 80% 5% / 0.95), hsl(200 70% 8% / 0.95));
-    --gradient-glow: radial-gradient(circle at center, hsl(185 100% 55% / 0.55), transparent 65%);
-    --gradient-hud: linear-gradient(135deg, hsl(200 80% 6% / 0.85), hsl(200 60% 10% / 0.65));
+    --gradient-brand: linear-gradient(135deg, hsl(270 90% 60%), hsl(295 85% 55%));
+    --gradient-pillar: linear-gradient(180deg, hsl(280 70% 45%), hsl(315 75% 55%));
+    --gradient-topbar: linear-gradient(90deg, hsl(255 75% 50% / 0.9), hsl(290 75% 55% / 0.9));
+    --gradient-glow: radial-gradient(circle at center, hsl(285 95% 65% / 0.55), transparent 65%);
 
-    /* Glows & shadows — neon halos */
-    --shadow-glow: 0 0 24px hsl(185 100% 55% / 0.55), 0 0 60px hsl(185 100% 55% / 0.25);
-    --shadow-glow-soft: 0 0 14px hsl(185 100% 55% / 0.35);
-    --shadow-elegant: 0 0 0 1px hsl(185 100% 55% / 0.45), 0 8px 30px hsl(185 100% 50% / 0.18);
-    --shadow-pill: 0 0 12px hsl(185 100% 55% / 0.4);
+    --shadow-glow: 0 0 60px hsl(285 95% 65% / 0.45);
+    --shadow-elegant: 0 20px 60px -20px hsl(270 80% 30% / 0.6);
+    --shadow-pill: 0 4px 18px hsl(270 80% 20% / 0.4);
 
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 }
 
-/* Force dark only — Stark HUD doesn't do daylight */
-html { color-scheme: dark; }
-
 @layer base {
   * { @apply border-border; }
-
-  html, body {
-    font-family: 'Rajdhani', 'Inter', system-ui, sans-serif;
-    letter-spacing: 0.01em;
-  }
-
   body {
     @apply bg-background text-foreground antialiased;
-    background-color: hsl(200 80% 3%);
     background-image:
-      /* radial cyan glow center bottom */
-      radial-gradient(ellipse 70% 60% at 50% 110%, hsl(185 100% 45% / 0.35), transparent 60%),
-      /* subtle top corner glow */
-      radial-gradient(ellipse 50% 40% at 10% 0%, hsl(195 100% 50% / 0.18), transparent 60%),
-      radial-gradient(ellipse 50% 40% at 90% 0%, hsl(175 100% 50% / 0.18), transparent 60%),
-      /* circuit grid */
-      linear-gradient(hsl(185 100% 50% / 0.06) 1px, transparent 1px),
-      linear-gradient(90deg, hsl(185 100% 50% / 0.06) 1px, transparent 1px),
-      linear-gradient(180deg, hsl(200 85% 4%) 0%, hsl(200 80% 2%) 100%);
-    background-size: 100% 100%, 100% 100%, 100% 100%, 40px 40px, 40px 40px, 100% 100%;
+      radial-gradient(ellipse 90% 70% at 20% 10%, hsl(270 90% 45% / 0.85), transparent 60%),
+      radial-gradient(ellipse 90% 70% at 85% 20%, hsl(295 90% 50% / 0.75), transparent 60%),
+      radial-gradient(ellipse 100% 80% at 50% 100%, hsl(255 85% 40% / 0.85), transparent 65%),
+      linear-gradient(135deg, hsl(260 70% 12%) 0%, hsl(285 75% 18%) 50%, hsl(310 70% 22%) 100%);
     background-attachment: fixed;
-    min-height: 100vh;
-    position: relative;
-  }
-
-  /* Scanlines overlay — global */
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: 1;
-    background-image: repeating-linear-gradient(
-      0deg,
-      transparent 0px,
-      transparent 2px,
-      hsl(185 100% 50% / 0.025) 3px,
-      transparent 4px
-    );
-    mix-blend-mode: screen;
-  }
-
-  /* Vignette + faint rotating ring decoration */
-  body::after {
-    content: '';
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: 0;
-    background:
-      radial-gradient(ellipse at center, transparent 50%, hsl(200 90% 2% / 0.7) 100%);
-  }
-
-  #root { position: relative; z-index: 2; }
-
-  /* Headings — Orbitron techno */
-  h1, h2, h3, h4, h5, h6,
-  .font-display {
-    font-family: 'Orbitron', 'Rajdhani', sans-serif;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-  }
-  h1 { text-shadow: 0 0 14px hsl(185 100% 55% / 0.55); }
-
-  /* Mono techno */
-  code, pre, .font-mono {
-    font-family: 'Share Tech Mono', 'JetBrains Mono', monospace;
-  }
-
-  /* Selection */
-  ::selection {
-    background: hsl(185 100% 55% / 0.4);
-    color: hsl(0 0% 100%);
-  }
-
-  /* Scrollbar — neon */
-  ::-webkit-scrollbar { width: 8px; height: 8px; }
-  ::-webkit-scrollbar-track { background: hsl(200 80% 4%); }
-  ::-webkit-scrollbar-thumb {
-    background: linear-gradient(180deg, hsl(185 100% 45%), hsl(195 100% 35%));
-    border-radius: 4px;
-    box-shadow: 0 0 8px hsl(185 100% 50% / 0.5);
   }
 }
 
 @layer utilities {
-  /* HUD gradients */
   .bg-gradient-brand { background: var(--gradient-brand); }
   .bg-gradient-pillar { background: var(--gradient-pillar); }
   .bg-gradient-topbar { background: var(--gradient-topbar); }
-  .bg-gradient-hud { background: var(--gradient-hud); }
   .bg-glow { background: var(--gradient-glow); }
-
-  /* Shadows */
   .shadow-glow { box-shadow: var(--shadow-glow); }
-  .shadow-glow-soft { box-shadow: var(--shadow-glow-soft); }
   .shadow-elegant { box-shadow: var(--shadow-elegant); }
   .shadow-pill { box-shadow: var(--shadow-pill); }
   .transition-smooth { transition: var(--transition-smooth); }
-
-  /* Glass HUD panel */
   .glass {
-    background: hsl(200 80% 6% / 0.55);
+    background: hsl(250 35% 10% / 0.6);
     backdrop-filter: blur(14px);
-    border: 1px solid hsl(185 100% 50% / 0.35);
-    box-shadow:
-      inset 0 0 24px hsl(185 100% 50% / 0.06),
-      0 0 18px hsl(185 100% 50% / 0.18);
+    border: 1px solid hsl(260 40% 22% / 0.7);
   }
-
-  /* HUD bordered panel with corner brackets */
-  .hud-panel {
-    position: relative;
-    background: linear-gradient(135deg, hsl(200 80% 6% / 0.85), hsl(200 60% 9% / 0.7));
-    border: 1px solid hsl(185 100% 55% / 0.4);
-    box-shadow:
-      inset 0 1px 0 hsl(185 100% 60% / 0.15),
-      0 0 18px hsl(185 100% 50% / 0.25),
-      0 0 60px hsl(185 100% 50% / 0.08);
-  }
-  .hud-panel::before,
-  .hud-panel::after {
-    content: '';
-    position: absolute;
-    width: 14px;
-    height: 14px;
-    border-color: hsl(var(--primary));
-    border-style: solid;
-    pointer-events: none;
-  }
-  .hud-panel::before {
-    top: -1px; left: -1px;
-    border-width: 2px 0 0 2px;
-  }
-  .hud-panel::after {
-    bottom: -1px; right: -1px;
-    border-width: 0 2px 2px 0;
-  }
-
-  /* Neon text */
-  .text-neon {
-    color: hsl(var(--primary));
-    text-shadow: 0 0 6px hsl(185 100% 55% / 0.7), 0 0 18px hsl(185 100% 55% / 0.35);
-  }
-  .text-neon-soft {
-    color: hsl(185 100% 75%);
-    text-shadow: 0 0 6px hsl(185 100% 55% / 0.5);
-  }
-
-  /* Borders */
-  .border-neon { border-color: hsl(var(--primary) / 0.6); box-shadow: 0 0 10px hsl(var(--primary) / 0.4); }
-
-  /* ═══════════════════════════════════════════════════
-     Animations — HUD specific
-     ═══════════════════════════════════════════════════ */
   @keyframes pulse-orb {
     0%, 100% { transform: scale(1); opacity: 0.85; }
     50% { transform: scale(1.08); opacity: 1; }
   }
   .animate-orb { animation: pulse-orb 4s ease-in-out infinite; }
-
   @keyframes float-slow {
     0%, 100% { transform: translateY(0); }
     50% { transform: translateY(-8px); }
   }
   .animate-float { animation: float-slow 6s ease-in-out infinite; }
-
-  @keyframes hud-spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-  }
-  .animate-hud-spin { animation: hud-spin 24s linear infinite; }
-  .animate-hud-spin-rev { animation: hud-spin 32s linear infinite reverse; }
-  .animate-hud-spin-fast { animation: hud-spin 8s linear infinite; }
-
-  @keyframes hud-pulse {
-    0%, 100% { box-shadow: 0 0 10px hsl(185 100% 55% / 0.4), 0 0 22px hsl(185 100% 55% / 0.2); }
-    50% { box-shadow: 0 0 18px hsl(185 100% 55% / 0.7), 0 0 40px hsl(185 100% 55% / 0.35); }
-  }
-  .animate-hud-pulse { animation: hud-pulse 2.4s ease-in-out infinite; }
-
-  @keyframes scanline {
-    0% { transform: translateY(-100%); }
-    100% { transform: translateY(100vh); }
-  }
-  .animate-scanline { animation: scanline 8s linear infinite; }
-
-  @keyframes flicker {
-    0%, 100% { opacity: 1; }
-    45% { opacity: 1; }
-    50% { opacity: 0.85; }
-    55% { opacity: 1; }
-  }
-  .animate-flicker { animation: flicker 4s infinite; }
-
-  @keyframes voice-wave {
-    0%, 100% { height: 8px; opacity: 0.5; }
-    50% { height: 36px; opacity: 1; }
-  }
-
-  /* Galaxy keyframes (kept for ChatOrb) */
   @keyframes galaxy-idle {
     0% { transform: scale(1) rotate(0deg); }
     50% { transform: scale(1.03) rotate(180deg); }
@@ -297,26 +116,8 @@ html { color-scheme: dark; }
     50% { transform: scale(1.12) rotate(180deg); }
     100% { transform: scale(1.05) rotate(360deg); }
   }
-
-  /* HUD ring decoration — drop-in ::before/after via class */
-  .hud-rings {
-    position: relative;
-  }
-  .hud-rings::before {
-    content: '';
-    position: absolute;
-    inset: -8px;
-    border: 1px dashed hsl(185 100% 55% / 0.35);
-    border-radius: inherit;
-    pointer-events: none;
-    animation: hud-spin 30s linear infinite;
-  }
-
-  /* Clip-path angled buttons */
-  .clip-hud {
-    clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  @keyframes voice-wave {
+    0%, 100% { height: 8px; opacity: 0.5; }
+    50% { height: 36px; opacity: 1; }
   }
 }
-
-/* Ensure components above background overlays */
-header, aside, main, nav, footer { position: relative; z-index: 3; }

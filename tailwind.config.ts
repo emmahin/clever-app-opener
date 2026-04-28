@@ -13,11 +13,6 @@ export default {
       },
     },
     extend: {
-      fontFamily: {
-        display: ["Orbitron", "Rajdhani", "sans-serif"],
-        sans: ["Rajdhani", "Inter", "system-ui", "sans-serif"],
-        mono: ["Share Tech Mono", "JetBrains Mono", "monospace"],
-      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -85,42 +80,12 @@ export default {
             height: "0",
           },
         },
-        "hud-spin": {
-          from: { transform: "rotate(0deg)" },
-          to: { transform: "rotate(360deg)" },
-        },
-        "hud-pulse": {
-          "0%, 100%": {
-            boxShadow:
-              "0 0 10px hsl(185 100% 55% / 0.4), 0 0 22px hsl(185 100% 55% / 0.2)",
-          },
-          "50%": {
-            boxShadow:
-              "0 0 18px hsl(185 100% 55% / 0.7), 0 0 40px hsl(185 100% 55% / 0.35)",
-          },
-        },
-        flicker: {
-          "0%, 100%": { opacity: "1" },
-          "45%": { opacity: "1" },
-          "50%": { opacity: "0.85" },
-          "55%": { opacity: "1" },
-        },
-        "fade-in": {
-          "0%": { opacity: "0", transform: "translateY(8px)" },
-          "100%": { opacity: "1", transform: "translateY(0)" },
-        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         orb: "pulse-orb 4s ease-in-out infinite",
         float: "float-slow 6s ease-in-out infinite",
-        "hud-spin": "hud-spin 24s linear infinite",
-        "hud-spin-rev": "hud-spin 32s linear infinite reverse",
-        "hud-spin-fast": "hud-spin 8s linear infinite",
-        "hud-pulse": "hud-pulse 2.4s ease-in-out infinite",
-        flicker: "flicker 4s infinite",
-        "fade-in": "fade-in 0.4s ease-out",
       },
     },
   },
