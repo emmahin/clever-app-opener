@@ -1,4 +1,18 @@
-import { Menu, X, Search, MessageSquare, Trash2, Plus } from "lucide-react";
+import {
+  Menu,
+  X,
+  Search,
+  MessageSquare,
+  Trash2,
+  Plus,
+  Newspaper,
+  Activity,
+  Calendar,
+  Settings as SettingsIcon,
+  Mic,
+  FileText,
+  Video,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
@@ -82,33 +96,66 @@ export function Sidebar() {
     if (pathname !== "/") navigate("/");
   };
 
+  // ─── Nav rail (icônes principales toujours visibles) ───
+  const navItems = [
+    { to: "/", label: "AI Tools", icon: MessageSquare },
+    { to: "/dashboard", label: "Dashboard", icon: Newspaper },
+    { to: "/analytics", label: "Analytics", icon: Activity },
+    { to: "/agenda", label: "Agenda", icon: Calendar },
+    { to: "/documents", label: "Documents", icon: FileText },
+    { to: "/video", label: "Video", icon: Video },
+    { to: "/admin/voice", label: "Voice", icon: Mic },
+    { to: "/settings", label: "Settings", icon: SettingsIcon },
+  ];
+
+  const NavRailItem = ({ to, label, Icon }: { to: string; label: string; Icon: typeof MessageSquare }) => {
+    const active = pathname === to;
+    return (
+      <button
+        onClick={() => { navigate(to); setMobileOpen(false); }}
+        title={label}
+        className={cn(
+          "group relative w-10 h-10 rounded-sm flex items-center justify-center transition-all border",
+          active
+            ? "bg-primary/20 text-primary border-primary/70 shadow-[0_0_14px_hsl(var(--primary)/0.55)]"
+            : "text-primary/55 border-transparent hover:text-primary hover:bg-primary/10 hover:border-primary/40",
+        )}
+      >
+        <Icon className="w-4 h-4" />
+        {active && (
+          <span className="absolute -left-1 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-primary rounded-full shadow-[0_0_6px_hsl(var(--primary))]" />
+        )}
+      </button>
+    );
+  };
+
   // ─── Contenu replié (rail vertical) ───
   const collapsedContent = (
-    <div className="flex flex-col items-center h-full py-3 gap-3">
+    <div className="flex flex-col items-center h-full py-3 gap-2">
       <button
         onClick={handleLogoClick}
         title="Afficher l'historique"
-        className="w-10 h-10 rounded-xl overflow-hidden bg-black/40 ring-1 ring-white/20 shadow-[0_0_18px_rgba(168,85,247,0.45)] hover:ring-white/40 transition"
+        className="w-10 h-10 rounded-sm overflow-hidden bg-background border border-primary/60 shadow-[0_0_14px_hsl(var(--primary)/0.5)] hover:border-primary transition relative"
       >
         <img src={nexLogo} alt="Nex" className="w-full h-full object-cover" />
+        <span className="pointer-events-none absolute inset-0 bg-primary/10 mix-blend-overlay" />
       </button>
-      <button
-        onClick={goAiTools}
-        title="AI Tools"
-        className={cn(
-          "w-10 h-10 rounded-lg flex items-center justify-center text-white/70 hover:bg-white/10 hover:text-white transition",
-          pathname === "/" && "bg-white/15 text-white"
-        )}
-      >
-        <MessageSquare className="w-5 h-5" />
-      </button>
+      <span className="block w-6 h-px bg-primary/40 my-1" />
+      {navItems.map((it) => (
+        <NavRailItem key={it.to} to={it.to} label={it.label} Icon={it.icon} />
+      ))}
+      <span className="block w-6 h-px bg-primary/40 my-1" />
       <button
         onClick={newChat}
         title="Nouveau chat"
-        className="w-10 h-10 rounded-lg flex items-center justify-center text-white/70 hover:bg-white/10 hover:text-white transition"
+        className="w-10 h-10 rounded-sm flex items-center justify-center bg-primary/15 border border-primary/60 text-primary hover:bg-primary/25 hover:shadow-[0_0_12px_hsl(var(--primary)/0.55)] transition animate-hud-pulse"
       >
-        <Plus className="w-5 h-5" />
+        <Plus className="w-4 h-4" />
       </button>
+      <div className="mt-auto flex flex-col items-center gap-1 pb-2">
+        <span className="font-mono text-[8px] uppercase tracking-[0.2em] text-primary/50">NEX</span>
+        <span className="block w-1 h-1 bg-primary rounded-full animate-hud-pulse" />
+      </div>
     </div>
   );
 
@@ -119,45 +166,56 @@ export function Sidebar() {
       <button
         onClick={handleLogoClick}
         title="Masquer l'historique"
-        className="flex items-center gap-2.5 px-3 py-3 mx-1 mt-1 rounded-xl hover:bg-white/10 transition-colors text-left"
+        className="flex items-center gap-2.5 px-3 py-3 mx-1 mt-1 rounded-sm hover:bg-primary/10 border border-transparent hover:border-primary/40 transition-colors text-left"
       >
-        <div className="w-9 h-9 rounded-xl overflow-hidden bg-black/40 flex items-center justify-center ring-1 ring-white/20 shadow-[0_0_18px_rgba(168,85,247,0.45)] flex-shrink-0">
+        <div className="w-9 h-9 rounded-sm overflow-hidden bg-background flex items-center justify-center border border-primary/60 shadow-[0_0_14px_hsl(var(--primary)/0.5)] flex-shrink-0">
           <img src={nexLogo} alt="Nex" className="w-full h-full object-cover" />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="text-white font-semibold text-sm leading-tight">AI Tools</div>
-          <div className="text-white/55 text-[11px] leading-tight">Nex assistant</div>
+          <div className="font-display text-sm font-bold uppercase tracking-[0.14em] text-neon leading-tight">NEX</div>
+          <div className="font-mono text-[9px] uppercase tracking-[0.18em] text-primary/60 leading-tight mt-0.5">// AI cockpit</div>
         </div>
+        <span className="ml-auto block w-1.5 h-1.5 rounded-full bg-primary animate-hud-pulse" />
       </button>
+
+      {/* Mini nav rail horizontale */}
+      <div className="mx-2 mt-2 px-2 py-2 rounded-sm border border-primary/30 bg-background/50 flex flex-wrap gap-1.5 justify-center">
+        {navItems.slice(0, 8).map((it) => (
+          <NavRailItem key={it.to} to={it.to} label={it.label} Icon={it.icon} />
+        ))}
+      </div>
 
       {/* Nouveau chat */}
       <button
         onClick={newChat}
-        className="mt-3 mx-2 px-3 py-2 rounded-lg bg-white/15 hover:bg-white/25 text-white text-sm font-medium flex items-center gap-2 transition-colors border border-white/15"
+        className="mt-3 mx-2 px-3 py-2 rounded-sm bg-primary/15 hover:bg-primary/25 text-primary text-xs font-bold uppercase tracking-[0.14em] flex items-center justify-center gap-2 transition-all border border-primary/60 hover:shadow-[0_0_14px_hsl(var(--primary)/0.5)] font-display"
       >
-        <Plus className="w-4 h-4" />
+        <Plus className="w-3.5 h-3.5" />
         Nouveau chat
       </button>
 
       {/* Recherche */}
-      <div className="mt-3 mx-2 flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 border border-white/10 focus-within:bg-white/15">
-        <Search className="w-4 h-4 text-white/60 flex-shrink-0" />
+      <div className="mt-3 mx-2 flex items-center gap-2 px-3 py-2 rounded-sm bg-background/60 border border-primary/30 focus-within:border-primary focus-within:shadow-[0_0_10px_hsl(var(--primary)/0.45)] transition-all">
+        <Search className="w-3.5 h-3.5 text-primary/70 flex-shrink-0" />
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Rechercher un chat..."
-          className="bg-transparent outline-none text-sm text-white placeholder:text-white/50 w-full"
+          placeholder="SEARCH..."
+          className="bg-transparent outline-none text-xs text-primary placeholder:text-primary/40 placeholder:tracking-widest placeholder:uppercase w-full font-mono"
         />
       </div>
 
       {/* Historique */}
-      <div className="mt-3 px-3 text-[10px] uppercase tracking-wider text-white/45 font-semibold">
-        Historique
+      <div className="mt-4 mx-3 flex items-center gap-2">
+        <span className="block w-1 h-1 bg-primary rounded-full" />
+        <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-primary/70">// LOGS</span>
+        <span className="block flex-1 h-px bg-primary/25" />
+        <span className="font-mono text-[9px] text-primary/50">{filtered.length}</span>
       </div>
       <div className="flex-1 overflow-y-auto mt-1 px-1 pb-3">
         {filtered.length === 0 ? (
-          <div className="px-3 py-4 text-center text-xs text-white/45">
-            {chats.length === 0 ? "Aucun chat sauvegardé" : "Aucun résultat"}
+          <div className="px-3 py-4 text-center font-mono text-[10px] uppercase tracking-wider text-primary/40">
+            {chats.length === 0 ? "// no logs" : "// no match"}
           </div>
         ) : (
           <ul className="space-y-0.5">
@@ -165,12 +223,12 @@ export function Sidebar() {
               <li key={c.id} className="group relative">
                 <button
                   onClick={() => loadChat(c)}
-                  className="w-full flex items-start gap-2 px-3 py-2 rounded-lg text-left hover:bg-white/10 transition-colors"
+                  className="w-full flex items-start gap-2 px-3 py-2 rounded-sm text-left hover:bg-primary/10 border border-transparent hover:border-primary/30 transition-colors"
                 >
-                  <MessageSquare className="w-4 h-4 mt-0.5 text-white/60 flex-shrink-0" />
+                  <MessageSquare className="w-3.5 h-3.5 mt-0.5 text-primary/70 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm text-white truncate">{c.name}</div>
-                    <div className="text-[10px] text-white/45">
+                    <div className="text-xs text-foreground truncate">{c.name}</div>
+                    <div className="font-mono text-[9px] uppercase tracking-wider text-primary/50">
                       {new Date(c.updatedAt).toLocaleDateString()}
                     </div>
                   </div>
@@ -186,6 +244,14 @@ export function Sidebar() {
             ))}
           </ul>
         )}
+      </div>
+      {/* Footer status */}
+      <div className="mx-2 mb-2 px-3 py-2 rounded-sm border border-primary/25 bg-background/50 flex items-center justify-between font-mono text-[9px] uppercase tracking-[0.16em]">
+        <span className="flex items-center gap-1.5 text-primary/80">
+          <span className="block w-1.5 h-1.5 rounded-full bg-primary animate-hud-pulse" />
+          ONLINE
+        </span>
+        <span className="text-primary/50">CORE · STABLE</span>
       </div>
     </div>
   );
@@ -214,7 +280,7 @@ export function Sidebar() {
       type="button"
       onClick={() => setMobileOpen(true)}
       aria-label="Ouvrir le menu"
-      className="md:hidden fixed top-2.5 left-2.5 z-50 w-10 h-10 rounded-lg bg-black/60 backdrop-blur-md border border-white/20 text-white flex items-center justify-center shadow-lg active:scale-95 transition-transform"
+      className="md:hidden fixed top-2.5 left-2.5 z-50 w-10 h-10 rounded-sm bg-background/80 backdrop-blur-md border border-primary/60 text-primary flex items-center justify-center shadow-[0_0_14px_hsl(var(--primary)/0.4)] active:scale-95 transition-transform"
     >
       <Menu className="w-5 h-5" />
     </button>
