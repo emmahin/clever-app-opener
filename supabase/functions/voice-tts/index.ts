@@ -4,15 +4,18 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Voix OpenAI TTS — « sage » : féminine, posée, mature, plus naturelle
-// que nova/shimmer en français (moins "robotique").
-// Voix dispo : alloy, echo, fable, onyx, nova, shimmer, sage, coral.
-const DEFAULT_VOICE = "sage";
-const ALLOWED_VOICES = new Set(["alloy", "echo", "fable", "onyx", "nova", "shimmer", "sage", "coral"]);
+// ─── Voix par défaut : ElevenLabs (vraiment naturelle) ───────────────
+// "Sarah" (EXAVITQu4vr4xnSDxMaL) : voix féminine douce, posée, expressive,
+// excellente prononciation française. Modèle eleven_turbo_v2_5 = faible
+// latence, qualité quasi équivalente à multilingual_v2.
+const ELEVEN_DEFAULT_VOICE_ID = "EXAVITQu4vr4xnSDxMaL"; // Sarah
+const ELEVEN_MODEL = "eleven_turbo_v2_5";
+
+// ─── Fallback OpenAI TTS (si ElevenLabs indisponible) ─────────────────
+const OPENAI_DEFAULT_VOICE = "sage";
+const OPENAI_ALLOWED_VOICES = new Set(["alloy", "echo", "fable", "onyx", "nova", "shimmer", "sage", "coral"]);
 const MAX_TEXT_LEN = 4000;
-// Ordre : on tente d'abord le modèle le plus susceptible d'être autorisé sur une clé restreinte
-// (gpt-4o-mini-tts), puis on dégrade vers tts-1 / tts-1-hd.
-const TTS_MODELS = ["gpt-4o-mini-tts", "tts-1", "tts-1-hd"];
+const OPENAI_TTS_MODELS = ["gpt-4o-mini-tts", "tts-1", "tts-1-hd"];
 
 const parseOpenAIError = (raw: string) => {
   try {
@@ -41,10 +44,62 @@ Deno.serve(async (req) => {
       });
     }
     const safeText = text.trim().slice(0, MAX_TEXT_LEN);
-    const safeVoice = typeof voice === "string" && ALLOWED_VOICES.has(voice) ? voice : DEFAULT_VOICE;
+    // `voice` côté client peut être soit un voiceId ElevenLabs (≥ 20 chars),
+    // soit un nom de voix OpenAI (alloy, sage…). On route en conséquence.
+    const isElevenVoiceId = typeof voice === "string" && /^[a-zA-Z0-9]{18,}$/.test(voice);
+    const elevenVoiceId = isElevenVoiceId ? voice : ELEVEN_DEFAULT_VOICE_ID;
+    const openaiVoice = typeof voice === "string" && OPENAI_ALLOWED_VOICES.has(voice) ? voice : OPENAI_DEFAULT_VOICE;
 
-    // Clé dédiée TTS (saisie depuis platform.openai.com avec accès aux modèles audio).
-    // Fallback sur OPENAI_API_KEY si jamais la clé dédiée n'est pas configurée.
+    // ─── 1) ElevenLabs en priorité ──────────────────────────────────────
+    const ELEVEN_KEY = Deno.env.get("ELEVENLABS_API_KEY");
+    if (ELEVEN_KEY) {
+      try {
+        const elevenResp = await fetch(
+          `https://api.elevenlabs.io/v1/text-to-speech/${elevenVoiceId}/stream?output_format=mp3_44100_128`,
+          {
+            method: "POST",
+            headers: {
+              "xi-api-key": ELEVEN_KEY,
+              "Content-Type": "application/json",
+              Accept: "audio/mpeg",
+            },
+            body: JSON.stringify({
+              text: safeText,
+              model_id: ELEVEN_MODEL,
+              // Réglages voix : naturel + chaleureux, peu d'inertie pour
+              // garder de l'expressivité.
+              voice_settings: {
+                stability: 0.45,
+                similarity_boost: 0.8,
+                style: 0.35,
+                use_speaker_boost: true,
+                speed: 1.0,
+              },
+              language_code: "fr",
+            }),
+          },
+        );
+        if (elevenResp.ok && elevenResp.body) {
+          return new Response(elevenResp.body, {
+            headers: {
+              ...corsHeaders,
+              "Content-Type": "audio/mpeg",
+              "Cache-Control": "no-store",
+              "X-TTS-Provider": "elevenlabs",
+              "X-TTS-Model": ELEVEN_MODEL,
+              "X-TTS-Voice": elevenVoiceId,
+            },
+          });
+        }
+        const errText = await elevenResp.text();
+        console.error("ElevenLabs TTS error:", elevenResp.status, errText);
+        // On bascule sur OpenAI ci-dessous.
+      } catch (e) {
+        console.error("ElevenLabs TTS exception, falling back to OpenAI:", e);
+      }
+    }
+
+    // ─── 2) Fallback OpenAI TTS ─────────────────────────────────────────
     const OPENAI_TTS_KEY = Deno.env.get("OPENAI_TTS_API_KEY") || Deno.env.get("OPENAI_API_KEY");
     const KEY_USED = Deno.env.get("OPENAI_TTS_API_KEY") ? "OPENAI_TTS_API_KEY" : "OPENAI_API_KEY";
     if (!OPENAI_TTS_KEY) {
@@ -54,10 +109,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    const selectedVoice = safeVoice;
+    const selectedVoice = openaiVoice;
     let lastError: { status: number; body: string; code?: string } | null = null;
 
-    for (const model of TTS_MODELS) {
+    for (const model of OPENAI_TTS_MODELS) {
       const response = await fetch("https://api.openai.com/v1/audio/speech", {
         method: "POST",
         headers: {
@@ -80,6 +135,7 @@ Deno.serve(async (req) => {
             ...corsHeaders,
             "Content-Type": "audio/mpeg",
             "Cache-Control": "no-store",
+            "X-TTS-Provider": "openai",
             "X-TTS-Model": model,
             "X-TTS-Key-Used": KEY_USED,
           },
