@@ -165,6 +165,27 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
     }
   };
 
+  // Coller des images / fichiers depuis le presse-papiers (Ctrl+V).
+  // Si du texte est aussi présent, on laisse le comportement natif insérer le texte.
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items || items.length === 0) return;
+    const files: File[] = [];
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      if (it.kind === "file") {
+        const f = it.getAsFile();
+        if (f) files.push(f);
+      }
+    }
+    if (files.length === 0) return;
+    e.preventDefault();
+    const dt = new DataTransfer();
+    files.forEach((f) => dt.items.add(f));
+    handleFiles(dt.files);
+    toast.success(files.length > 1 ? `${files.length} fichiers collés` : "Image collée");
+  };
+
   const handleFiles = async (files: FileList | null) => {
     if (!files || !files.length) return;
     setProcessing(true);
@@ -308,6 +329,7 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={handleKeyDown}
+          onPaste={handlePaste}
           placeholder={t("askAnything")}
           rows={2}
           disabled={disabled}
