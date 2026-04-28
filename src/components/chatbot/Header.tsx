@@ -31,8 +31,16 @@ export function Header(_props: HeaderProps = {}) {
   };
   return (
     <header
-      className="fixed top-0 left-0 md:[left:var(--sidebar-w,280px)] md:transition-[left] md:duration-300 right-0 h-14 flex items-center justify-end pl-14 pr-3 md:px-6 gap-2 z-40"
-      style={{ background: "linear-gradient(90deg, hsl(0, 0%, 4%, 0.95), hsl(275, 70%, 22%, 0.95))" }}>
+      className="fixed top-0 left-0 md:[left:var(--sidebar-w,280px)] md:transition-[left] md:duration-300 right-0 h-14 flex items-center justify-end pl-14 pr-3 md:px-6 gap-2 z-40 border-b border-primary/40 backdrop-blur-md shadow-[0_2px_24px_hsl(185_100%_50%_/_0.25)]"
+      style={{
+        background:
+          "linear-gradient(90deg, hsl(200 85% 4% / 0.92) 0%, hsl(200 80% 7% / 0.92) 50%, hsl(200 85% 4% / 0.92) 100%)",
+      }}
+    >
+      {/* HUD bottom line accents */}
+      <div className="pointer-events-none absolute left-0 right-0 bottom-0 h-px bg-gradient-to-r from-transparent via-primary to-transparent" />
+      <div className="pointer-events-none absolute left-4 bottom-1 w-2 h-2 border-l border-b border-primary/70" />
+      <div className="pointer-events-none absolute right-4 bottom-1 w-2 h-2 border-r border-b border-primary/70" />
       {showBack && (
         <button
           onClick={goBack}
