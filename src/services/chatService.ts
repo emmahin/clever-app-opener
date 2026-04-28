@@ -28,6 +28,8 @@ export interface StreamChatParams {
   memories?: { category: string; content: string; importance: number }[];
   /** Insights émotionnels hebdo non-dismissés (top 3). */
   insights?: { category: string; insight: string }[];
+  /** Actions n8n déclarées par l'utilisateur (id + description). Vide si non configuré. */
+  n8nActions?: { id: string; description: string }[];
 }
 
 export interface IChatService {
@@ -37,7 +39,7 @@ export interface IChatService {
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-orchestrator`;
 
 export const webChatService: IChatService = {
-  async streamChat({ messages, onDelta, onWidgets, onDone, onError, signal, lang, detailLevel, customInstructions, aiName, attachments, webSearch, deepThink, forceTool, schedule, moodContext, memories, insights }) {
+  async streamChat({ messages, onDelta, onWidgets, onDone, onError, signal, lang, detailLevel, customInstructions, aiName, attachments, webSearch, deepThink, forceTool, schedule, moodContext, memories, insights, n8nActions }) {
     try {
       // Récupère le JWT utilisateur (nécessaire pour identifier le user côté serveur — débit crédits).
       const { data: { session } } = await supabase.auth.getSession();
@@ -63,6 +65,7 @@ export const webChatService: IChatService = {
           moodContext,
           memories,
           insights,
+          n8nActions,
           // Donne au backend le fuseau horaire du navigateur pour qu'il
           // injecte l'heure locale + le jour de la semaine dans le system prompt.
           timezone: (() => {
