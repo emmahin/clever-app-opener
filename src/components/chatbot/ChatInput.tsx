@@ -225,71 +225,10 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
     }
   };
 
-  // Raccourci clavier : maintenir Ctrl pour enregistrer la voix (push-to-talk)
-  useEffect(() => {
-    const onKeyDown = async (e: KeyboardEvent) => {
-      // Uniquement si Ctrl est appuy\u00e9 seul (pas Ctrl+C, Ctrl+V, etc.)
-      if (
-        e.key === "Control" &&
-        !e.repeat &&
-        !ctrlHoldingRef.current &&
-        !isRecordingRef.current &&
-        !disabled
-      ) {
-        ctrlHoldingRef.current = true;
-        try {
-          setIsRecording(true);
-          await voiceService.startRecording();
-          startVisualizer();
-          startTimer();
-        } catch (err: any) {
-          setIsRecording(false);
-          ctrlHoldingRef.current = false;
-          toast.error(err?.message || "Erreur micro");
-        }
-      }
-    };
-    const onKeyUp = async (e: KeyboardEvent) => {
-      if (e.key === "Control" && ctrlHoldingRef.current) {
-        ctrlHoldingRef.current = false;
-        if (isRecordingRef.current) {
-          setIsRecording(false);
-          stopVisualizer();
-          stopTimer();
-          setTranscribing(true);
-          try {
-            const text = await voiceService.stopAndTranscribe();
-            if (text) {
-              // Ins\u00e8re puis envoie automatiquement
-              setValue(text);
-              setTimeout(() => handleSendRef.current(), 50);
-            }
-          } catch (err) {
-            console.error("Voice error:", err);
-          } finally {
-            setTranscribing(false);
-          }
-        }
-      }
-    };
-    const onBlur = () => {
-      if (ctrlHoldingRef.current && isRecordingRef.current) {
-        ctrlHoldingRef.current = false;
-        setIsRecording(false);
-        stopVisualizer();
-        stopTimer();
-        voiceService.stopAndTranscribe().catch(() => {});
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    window.addEventListener("keyup", onKeyUp);
-    window.addEventListener("blur", onBlur);
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("keyup", onKeyUp);
-      window.removeEventListener("blur", onBlur);
-    };
-  }, [disabled]);
+  // Les raccourcis natifs du navigateur (Ctrl+V coller, Ctrl+C copier,
+  // Ctrl+A tout sélectionner, Ctrl+Z annuler, etc.) restent disponibles
+  // dans la zone de saisie. Le push-to-talk via Ctrl a été retiré pour
+  // ne pas entrer en conflit avec ces raccourcis.
 
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault();
