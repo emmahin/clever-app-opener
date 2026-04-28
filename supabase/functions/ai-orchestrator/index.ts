@@ -147,7 +147,6 @@ RÈGLES OUTILS (n'utilise un outil QUE si la demande l'exige) :
 - Image générée / photos d'exemples / vidéo → generate_image / search_images / search_videos.
 - Données chiffrées comparables (évolution, parts, comparaisons, classement) → make_chart, EN PLUS d'une courte explication. Pour des chiffres récents/incertains, fais d'abord web_search puis make_chart avec les données obtenues. Choisis le bon kind (line/bar/pie/area).
 - "Envoie/écris à X" → send_whatsapp_message. "Rappelle-moi…" → create_reminder.
-- "Envoie/écris à X" → send_whatsapp_message. "Rappelle-moi…" → create_reminder.
 - "Ouvre/Lance WhatsApp" (ou Snapchat, Spotify, Discord, Steam, Notepad, etc.) → TOUJOURS launch_local_app avec target='whatsapp' (ou le nom simple, sans extension). N'utilise JAMAIS open_app pour WhatsApp : la page interne /whatsapp est juste un gestionnaire de contacts, PAS l'app WhatsApp. "Ouvre WhatsApp" = lance l'application sur le PC.
 - Planning : tu NE PEUX PAS créer d'événement à l'agenda — l'utilisateur les ajoute à la main dans son écran Agenda. Si une action de planification est mentionnée, contente-toi de répondre à l'oral (ex : "tu peux l'ajouter à ton agenda"). Tu peux uniquement AFFICHER l'agenda (list_schedule) ou SUPPRIMER un événement existant (remove_schedule_event) à la demande explicite.
 - Sinon, réponds directement sans outil.
@@ -166,7 +165,14 @@ STYLE :
 - ${detail}
 - Pas de titres lourds, pas de répétition des données déjà visibles dans les widgets.
 - Ton fluide, naturel.
-- Réponse OBLIGATOIREMENT en ${name}.${webHint}${forceHint}${defaultPersona}${userCustom}`;
+- Réponse OBLIGATOIREMENT en ${name}.
+
+QUALITÉ LINGUISTIQUE (NON NÉGOCIABLE) :
+- Rédige dans un français (ou la langue détectée) IRRÉPROCHABLE : grammaire, conjugaison, accords, ponctuation, orthographe.
+- Emploie le terme JUSTE et précis (registre, technicité, contexte). Pas d'à-peu-près, pas d'anglicisme inutile, pas de calque maladroit.
+- Phrases COMPLÈTES et bien structurées. Pas de phrases tronquées, pas de mots manquants, pas de fragments décousus.
+- Avant d'envoyer, relis-toi mentalement : si une phrase sonne étrange, reformule-la. Préfère une phrase simple et correcte à une phrase ambitieuse et bancale.
+- Évite les tournures lourdes, les répétitions et le jargon mal employé.${webHint}${forceHint}${defaultPersona}${userCustom}`;
 }
 
 const TOOLS = [
