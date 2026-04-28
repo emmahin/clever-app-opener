@@ -21,6 +21,7 @@ import Billing from "./pages/Billing.tsx";
 import AdminUsers from "./pages/AdminUsers.tsx";
 import Agenda from "./pages/Agenda.tsx";
 import OpenAIDiagnostics from "./pages/OpenAIDiagnostics.tsx";
+import VoiceAdmin from "./pages/VoiceAdmin.tsx";
 import { AuthGuard } from "@/components/AuthGuard";
 import { RootErrorBoundary } from "@/components/RootErrorBoundary";
 
@@ -51,6 +52,7 @@ const App = () => (
             <Route path="/admin/users" element={<AuthGuard><AdminUsers /></AuthGuard>} />
             <Route path="/agenda" element={<AuthGuard><Agenda /></AuthGuard>} />
             <Route path="/openai-diagnostics" element={<OpenAIDiagnostics />} />
+            <Route path="/admin/voice" element={<AuthGuard><VoiceAdmin /></AuthGuard>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

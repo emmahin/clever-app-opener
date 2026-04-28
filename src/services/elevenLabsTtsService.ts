@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { loadVoiceConfig } from "./elevenLabsConfig";
 
 export interface ElevenLabsTtsOptions {
   text: string;
@@ -17,8 +18,20 @@ export interface ElevenLabsTtsOptions {
  * Génère un blob audio MP3 via l'edge function `elevenlabs-tts`.
  */
 export async function synthesizeWithElevenLabs(options: ElevenLabsTtsOptions): Promise<Blob> {
+  const cfg = loadVoiceConfig();
+  const merged: ElevenLabsTtsOptions = {
+    voiceId: cfg.voiceId,
+    modelId: cfg.modelId,
+    outputFormat: cfg.outputFormat,
+    stability: cfg.stability,
+    similarityBoost: cfg.similarityBoost,
+    style: cfg.style,
+    useSpeakerBoost: cfg.useSpeakerBoost,
+    speed: cfg.speed,
+    ...options,
+  };
   const { data, error } = await supabase.functions.invoke("elevenlabs-tts", {
-    body: options,
+    body: merged,
   });
   if (error) throw error;
   if (data instanceof Blob) return data;
