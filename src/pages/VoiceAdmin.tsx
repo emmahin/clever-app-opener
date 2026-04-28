@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Activity, Loader2, Play, RefreshCw, RotateCcw, Save, Sparkles, Square } from "lucide-react";
+import { Activity, Euro, Loader2, Play, RefreshCw, RotateCcw, Save, Sparkles, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -7,6 +7,7 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -17,8 +18,13 @@ import {
 import { toast } from "@/hooks/use-toast";
 import {
   DEFAULT_VOICE_CONFIG,
+  DEFAULT_PRICING,
   ElevenLabsVoiceConfig,
+  ElevenLabsPricingConfig,
   loadVoiceConfig,
+  loadPricing,
+  savePricing,
+  subscribePricing,
   MODEL_PRESETS,
   resetVoiceConfig,
   saveVoiceConfig,
@@ -166,6 +172,7 @@ export default function VoiceAdmin() {
         </Card>
 
         <UsageCard modelCreditsPerChar={selectedModel?.creditsPerChar ?? 1} />
+        <PricingCard />
 
         <Card>
           <CardHeader>
