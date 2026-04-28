@@ -4,10 +4,10 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Voix OpenAI TTS — « nova » : féminine, naturelle, chaleureuse, excellente
-// sur le français (plus humaine que "shimmer", moins "robotique").
+// Voix OpenAI TTS — « sage » : féminine, posée, mature, plus naturelle
+// que nova/shimmer en français (moins "robotique").
 // Voix dispo : alloy, echo, fable, onyx, nova, shimmer, sage, coral.
-const DEFAULT_VOICE = "nova";
+const DEFAULT_VOICE = "sage";
 const ALLOWED_VOICES = new Set(["alloy", "echo", "fable", "onyx", "nova", "shimmer", "sage", "coral"]);
 const MAX_TEXT_LEN = 4000;
 // Ordre : on tente d'abord le modèle le plus susceptible d'être autorisé sur une clé restreinte
