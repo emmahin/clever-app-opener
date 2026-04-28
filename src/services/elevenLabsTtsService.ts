@@ -30,16 +30,44 @@ export async function synthesizeWithElevenLabs(options: ElevenLabsTtsOptions): P
     speed: cfg.speed,
     ...options,
   };
-  const { data, error } = await supabase.functions.invoke("elevenlabs-tts", {
-    body: merged,
+
+  // On utilise fetch() directement plutôt que supabase.functions.invoke()
+  // car ce dernier ne gère pas correctement les réponses binaires (audio/mpeg).
+  const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`;
+  const { data: sessionData } = await supabase.auth.getSession();
+  const accessToken = sessionData.session?.access_token;
+  const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: anonKey,
+      Authorization: `Bearer ${accessToken ?? anonKey}`,
+    },
+    body: JSON.stringify(merged),
   });
-  if (error) throw error;
-  if (data instanceof Blob) return data;
-  // Si la réponse a été parsée en JSON (cas d'erreur), on lève.
-  if (data && typeof data === "object" && "error" in (data as Record<string, unknown>)) {
-    throw new Error(String((data as Record<string, unknown>).error));
+
+  if (!response.ok) {
+    let message = `TTS failed: ${response.status}`;
+    try {
+      const errJson = await response.json();
+      if (errJson?.error) message = String(errJson.error);
+    } catch {
+      try {
+        const txt = await response.text();
+        if (txt) message = txt;
+      } catch { /* ignore */ }
+    }
+    throw new Error(message);
   }
-  throw new Error("Réponse inattendue depuis elevenlabs-tts");
+
+  const blob = await response.blob();
+  // Forcer le type MIME audio si manquant.
+  if (!blob.type || !blob.type.startsWith("audio/")) {
+    return new Blob([await blob.arrayBuffer()], { type: "audio/mpeg" });
+  }
+  return blob;
 }
 
 /**
