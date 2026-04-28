@@ -1,16 +1,17 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { fetchStocks, type StockSnapshot } from "@/services/stockService";
+import { yahooStockService } from "@/services/stockService";
+import type { Stock } from "@/services/types";
 import { HudLoader } from "@/components/hud/HudLoader";
 import { TrendingDown, TrendingUp } from "lucide-react";
 
 export function StocksWidget() {
-  const [items, setItems] = useState<StockSnapshot[] | null>(null);
+  const [items, setItems] = useState<Stock[] | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     const load = () => {
-      fetchStocks()
+      yahooStockService.getTrending()
         .then((all) => { if (!cancelled) setItems(all.slice(0, 5)); })
         .catch(() => { if (!cancelled) setItems([]); });
     };
@@ -29,7 +30,7 @@ export function StocksWidget() {
   return (
     <ul className="h-full overflow-auto space-y-1 pr-1">
       {items.map((s, i) => {
-        const up = (s.changePercent ?? 0) >= 0;
+        const up = (s.changePct ?? 0) >= 0;
         return (
           <motion.li
             key={s.symbol}
@@ -48,7 +49,7 @@ export function StocksWidget() {
               </div>
               <div className={`flex items-center justify-end gap-0.5 font-mono text-[10px] tabular-nums ${up ? "text-primary" : "text-destructive"}`}>
                 {up ? <TrendingUp className="w-2.5 h-2.5" /> : <TrendingDown className="w-2.5 h-2.5" />}
-                {(s.changePercent ?? 0).toFixed(2)}%
+                {(s.changePct ?? 0).toFixed(2)}%
               </div>
             </div>
           </motion.li>

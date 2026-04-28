@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { fetchNews, type NewsItem } from "@/services/newsService";
+import { rssNewsService } from "@/services/newsService";
+import type { NewsItem } from "@/services/types";
 import { HudLoader } from "@/components/hud/HudLoader";
 
 export function NewsTickerWidget() {
@@ -10,7 +11,7 @@ export function NewsTickerWidget() {
 
   useEffect(() => {
     let cancelled = false;
-    fetchNews()
+    rssNewsService.getLatest()
       .then((all) => { if (!cancelled) setItems(all.slice(0, 5)); })
       .catch(() => { if (!cancelled) setItems([]); });
     return () => { cancelled = true; };
