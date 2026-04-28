@@ -586,6 +586,15 @@ export default function Index() {
       moodContext,
       memories,
       insights,
+      n8nActions: (() => {
+        try {
+          const cfg = n8nService.loadConfig();
+          if (!cfg.enabled || !cfg.webhookUrl) return [];
+          return cfg.actions
+            .filter((a) => a.id && a.description)
+            .map((a) => ({ id: a.id, description: a.description }));
+        } catch { return []; }
+      })(),
     });
   };
 
