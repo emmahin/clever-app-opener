@@ -3,7 +3,17 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(({ className, ...props }, ref) => (
-  <div ref={ref} className={cn("rounded-lg border bg-card text-card-foreground shadow-sm", className)} {...props} />
+  <div
+    ref={ref}
+    className={cn(
+      "relative rounded-sm border border-primary/40 bg-card/70 text-card-foreground backdrop-blur-sm",
+      "shadow-[inset_0_1px_0_hsl(var(--primary)/0.12),0_0_18px_hsl(var(--primary)/0.18)]",
+      "before:content-[''] before:absolute before:top-0 before:left-0 before:w-3 before:h-3 before:border-l-2 before:border-t-2 before:border-primary before:pointer-events-none",
+      "after:content-[''] after:absolute after:bottom-0 after:right-0 after:w-3 after:h-3 after:border-r-2 after:border-b-2 after:border-primary after:pointer-events-none",
+      className,
+    )}
+    {...props}
+  />
 ));
 Card.displayName = "Card";
 
@@ -16,7 +26,14 @@ CardHeader.displayName = "CardHeader";
 
 const CardTitle = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLHeadingElement>>(
   ({ className, ...props }, ref) => (
-    <h3 ref={ref} className={cn("text-2xl font-semibold leading-none tracking-tight", className)} {...props} />
+    <h3
+      ref={ref}
+      className={cn(
+        "font-display text-xl font-bold leading-none tracking-[0.08em] uppercase text-neon",
+        className,
+      )}
+      {...props}
+    />
   ),
 );
 CardTitle.displayName = "CardTitle";
