@@ -158,7 +158,7 @@ class TwinMemoryService implements ITwinMemoryService {
     }
     const { data, error } = await supabase
       .from("user_memories")
-      .update(safePatch)
+      .update(safePatch as never)
       .eq("id", id)
       .select("*")
       .maybeSingle();
