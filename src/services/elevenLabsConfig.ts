@@ -43,10 +43,39 @@ export const VOICE_PRESETS: Array<{ id: string; name: string; description: strin
   { id: "iP95p4xoKVk53GoZ742B", name: "Chris", description: "Masculine, conversationnelle" },
 ];
 
-export const MODEL_PRESETS: Array<{ id: string; name: string; description: string }> = [
-  { id: "eleven_multilingual_v2", name: "Multilingual v2", description: "Qualité maximale, 29 langues" },
-  { id: "eleven_turbo_v2_5", name: "Turbo v2.5", description: "Faible latence, idéal streaming" },
-  { id: "eleven_turbo_v2", name: "Turbo v2", description: "Très rapide, qualité correcte" },
+/**
+ * Coût indicatif : nombre de "crédits ElevenLabs" consommés par caractère.
+ * (1 crédit ≈ 1 caractère sur Multilingual v2, 0.5 sur Turbo, 0.33 sur Flash.)
+ * Les valeurs sont indicatives — voir https://elevenlabs.io/pricing pour les tarifs exacts.
+ */
+export const MODEL_PRESETS: Array<{
+  id: string;
+  name: string;
+  description: string;
+  creditsPerChar: number;
+  costHint: string;
+}> = [
+  {
+    id: "eleven_multilingual_v2",
+    name: "Multilingual v2",
+    description: "Qualité maximale, 29 langues",
+    creditsPerChar: 1,
+    costHint: "1 crédit / caractère (~$0.18 / 1k car.)",
+  },
+  {
+    id: "eleven_turbo_v2_5",
+    name: "Turbo v2.5",
+    description: "Faible latence, idéal streaming",
+    creditsPerChar: 0.5,
+    costHint: "0,5 crédit / caractère (~$0.09 / 1k car.)",
+  },
+  {
+    id: "eleven_turbo_v2",
+    name: "Turbo v2",
+    description: "Très rapide, qualité correcte",
+    creditsPerChar: 0.5,
+    costHint: "0,5 crédit / caractère (~$0.09 / 1k car.)",
+  },
 ];
 
 export function loadVoiceConfig(): ElevenLabsVoiceConfig {
