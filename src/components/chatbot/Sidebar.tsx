@@ -12,6 +12,7 @@ import {
   Mic,
   FileText,
   Video,
+  LayoutGrid,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -95,6 +96,7 @@ export function Sidebar() {
   // ─── Nav rail (icônes principales toujours visibles) ───
   const navItems = [
     { to: "/", label: "AI Tools", icon: MessageSquare },
+    { to: "/cockpit", label: "Cockpit", icon: LayoutGrid },
     { to: "/dashboard", label: "Dashboard", icon: Newspaper },
     { to: "/analytics", label: "Analytics", icon: Activity },
     { to: "/agenda", label: "Agenda", icon: Calendar },
