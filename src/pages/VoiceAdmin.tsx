@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { Loader2, Play, RotateCcw, Save, Sparkles, Square } from "lucide-react";
+import { Activity, Loader2, Play, RefreshCw, RotateCcw, Save, Sparkles, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -24,6 +25,7 @@ import {
   VOICE_PRESETS,
 } from "@/services/elevenLabsConfig";
 import { synthesizeWithElevenLabs } from "@/services/elevenLabsTtsService";
+import { ElevenLabsUsage, fetchElevenLabsUsage } from "@/services/elevenLabsUsageService";
 
 const DEMO_TEXT =
   "Bonjour ! Je suis votre assistant vocal propulsé par ElevenLabs. " +
@@ -117,6 +119,7 @@ export default function VoiceAdmin() {
   };
 
   const selectedVoice = VOICE_PRESETS.find((v) => v.id === config.voiceId);
+  const selectedModel = MODEL_PRESETS.find((m) => m.id === config.modelId);
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -162,6 +165,8 @@ export default function VoiceAdmin() {
           </CardContent>
         </Card>
 
+        <UsageCard modelCreditsPerChar={selectedModel?.creditsPerChar ?? 1} />
+
         <Card>
           <CardHeader>
             <CardTitle>Voix & modèle</CardTitle>
@@ -196,12 +201,22 @@ export default function VoiceAdmin() {
                 <SelectContent>
                   {MODEL_PRESETS.map((m) => (
                     <SelectItem key={m.id} value={m.id}>
-                      <span className="font-medium">{m.name}</span>
-                      <span className="ml-2 text-xs text-muted-foreground">{m.description}</span>
+                      <div className="flex flex-col">
+                        <span>
+                          <span className="font-medium">{m.name}</span>
+                          <span className="ml-2 text-xs text-muted-foreground">{m.description}</span>
+                        </span>
+                        <span className="text-[10px] text-muted-foreground/80">💰 {m.costHint}</span>
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {selectedModel && (
+                <p className="text-xs text-muted-foreground">
+                  Coût indicatif : <span className="font-medium">{selectedModel.costHint}</span>
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
