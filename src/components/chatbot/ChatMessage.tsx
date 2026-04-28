@@ -72,7 +72,11 @@ export function ChatMessageItem({ message, isThinking, onRegenerate, onEditAndRe
       <div
         className={cn(
           "rounded-2xl px-4 py-3 transition-shadow",
-          isRichAssistant ? "w-full max-w-full" : "max-w-[85%]",
+          isRichAssistant
+            ? "w-full max-w-full"
+            : isUser
+            ? "max-w-[85%]"
+            : "max-w-[92%] w-full",
           isUser
             ? "bg-primary text-primary-foreground rounded-br-md"
             : isRichAssistant
@@ -125,7 +129,7 @@ export function ChatMessageItem({ message, isThinking, onRegenerate, onEditAndRe
                 {settings.typewriter ? (
                   <TypewriterMarkdown text={message.content} />
                 ) : (
-                  <div className="prose prose-sm prose-invert max-w-none">
+                  <div className="prose prose-sm prose-invert max-w-none leading-relaxed prose-p:my-2 prose-headings:mt-4 prose-headings:mb-2 prose-li:my-1 prose-ul:my-2 prose-ol:my-2 prose-pre:my-2">
                     <ReactMarkdown>{message.content}</ReactMarkdown>
                   </div>
                 )}
@@ -138,7 +142,10 @@ export function ChatMessageItem({ message, isThinking, onRegenerate, onEditAndRe
       {showActions && !isEditing && (
         <div
           className={cn(
-            "mt-1 flex items-center gap-1 px-1 opacity-0 group-hover/msg:opacity-100 focus-within:opacity-100 transition-opacity",
+            "mt-1 flex items-center gap-1 px-1 transition-opacity",
+            isUser
+              ? "opacity-0 group-hover/msg:opacity-100 focus-within:opacity-100"
+              : "opacity-70 hover:opacity-100",
             isUser ? "justify-end" : "justify-start",
           )}
         >
