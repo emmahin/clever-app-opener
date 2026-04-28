@@ -241,10 +241,9 @@ export default function Index() {
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   useEffect(() => scrollToBottom(), [messages]);
 
-  // Au mount (= ouverture/connexion) : on démarre TOUJOURS un nouveau chat.
-  // L'ancienne conversation est conservée dans l'historique uniquement si
-  // l'utilisateur a envoyé au moins 4 messages ; sinon elle est supprimée
-  // pour ne pas polluer la sidebar avec des chats vides ou anecdotiques.
+  // Au mount (= ouverture/refresh) : on recharge automatiquement le DERNIER chat
+  // pour que l'utilisateur retrouve sa conversation en cours après un refresh.
+  // Si aucune conversation n'existe, on démarre vierge.
   useEffect(() => {
     let active = true;
     (async () => {
@@ -252,21 +251,19 @@ export default function Index() {
         const list = await conversationService.list();
         if (!active) return;
         const latest = list[0];
-        if (latest) {
-          const msgs = await conversationService.getMessages(latest.id);
-          const userCount = msgs.filter((m) => m.role === "user").length;
-          if (userCount < 4) {
-            await conversationService.remove(latest.id).catch((e) =>
-              console.warn("[chat] cleanup short conversation failed", e),
-            );
-          }
+        if (!latest) {
+          conversationIdRef.current = null;
+          setMessages([]);
+          return;
         }
+        const msgs = await conversationService.getMessages(latest.id);
         if (!active) return;
-        // Toujours repartir d'un chat vierge (la conv DB sera créée au 1er message).
+        conversationIdRef.current = latest.id;
+        setMessages(msgs as ChatMessage[]);
+      } catch (e) {
+        console.warn("[chat] restore latest conversation failed", e);
         conversationIdRef.current = null;
         setMessages([]);
-      } catch (e) {
-        console.warn("[chat] init new conversation failed", e);
       }
     })();
     return () => { active = false; };
