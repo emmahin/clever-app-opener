@@ -45,6 +45,7 @@ function buildSystemPrompt(opts: {
   moodContext?: { dominantMood: string; trend: string; topThemes: string[]; sampleSize: number } | null;
   memories?: Array<{ category: string; content: string; importance: number }>;
   insights?: Array<{ category: string; insight: string }>;
+  n8nActions?: Array<{ id: string; description: string }>;
 }): string {
   const name = LANG_NAMES[opts.lang] || "français";
   const detail = DETAIL_STYLES[opts.detailLevel || "normal"] || DETAIL_STYLES.normal;
@@ -115,6 +116,17 @@ ADAPTATION : ajuste subtilement ton ton à cet état émotionnel. Si "stressed/a
     ? `\n\nTENDANCES RÉCENTES OBSERVÉES :\n` +
       insArr.map((i) => `- (${i.category}) ${i.insight.slice(0, 110)}`).join("\n")
     : "";
+  // ─── ACTIONS n8n DISPONIBLES ───
+  // L'utilisateur a déclaré N actions dans Paramètres. On les liste pour que
+  // l'IA appelle trigger_n8n_workflow avec le bon `action` quand pertinent.
+  const n8nArr = (opts.n8nActions || [])
+    .filter((a) => a && typeof a.id === "string" && a.id.trim().length > 0)
+    .slice(0, 20);
+  const n8nBlock = n8nArr.length
+    ? `\n\nAUTOMATISATIONS n8n DISPONIBLES (utilise l'outil trigger_n8n_workflow avec le bon "action") :\n` +
+      n8nArr.map((a) => `- ${a.id} : ${a.description.slice(0, 200)}`).join("\n") +
+      `\nN'invente PAS d'autre nom d'action. Si aucune ne correspond, n'appelle pas l'outil.`
+    : "";
   const webHint = opts.webSearch
     ? `\n\nMODE RECHERCHE WEB ACTIVÉ : utilise OBLIGATOIREMENT l'outil web_search pour appuyer ta réponse sur des sources web fraîches. Cite les sources dans ta réponse.`
     : "";
@@ -128,7 +140,7 @@ ADAPTATION : ajuste subtilement ton ton à cet état émotionnel. Si "stressed/a
 ${aiIdentity}
 LANGUE DE RÉPONSE : détecte automatiquement la langue du DERNIER message de l'utilisateur et réponds STRICTEMENT dans cette même langue, en markdown. N'utilise JAMAIS la langue de l'interface (${name}) pour décider — uniquement la langue du message reçu. Si l'utilisateur change de langue, change avec lui.
 Heure locale: ${nowLocalReadable} (${tz}, ${tzOffsetStr}). UTC: ${nowIsoUtc}.
-Quand l'utilisateur dit une heure, c'est l'heure LOCALE. Format ISO 8601 avec offset ${tzOffsetStr} (jamais "Z").${schedBlock}${moodBlock}${memBlock}${insBlock}
+Quand l'utilisateur dit une heure, c'est l'heure LOCALE. Format ISO 8601 avec offset ${tzOffsetStr} (jamais "Z").${schedBlock}${moodBlock}${memBlock}${insBlock}${n8nBlock}
 
 RÈGLES OUTILS (n'utilise un outil QUE si la demande l'exige) :
 - Données fraîches/web/actu/finance → fetch_news / fetch_stocks / web_search.
