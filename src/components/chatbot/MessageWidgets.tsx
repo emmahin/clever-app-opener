@@ -9,6 +9,7 @@ import { ScheduleWidget } from "./widgets/ScheduleWidget";
 import { OpenAppWidget } from "./widgets/OpenAppWidget";
 import { LocalAppLaunchWidget } from "./widgets/LocalAppLaunchWidget";
 import { OrganizeFilesWidget } from "./widgets/OrganizeFilesWidget";
+import { N8nTriggerWidget } from "./widgets/N8nTriggerWidget";
 
 export function MessageWidgets({ widgets, messageId }: { widgets: ChatWidget[]; messageId?: string }) {
   if (!widgets?.length) return null;
@@ -59,6 +60,9 @@ function renderWidget(w: ChatWidget, i: number, messageId?: string): ReactNode {
   }
   if (w.type === "launch_local_app") {
     return <LocalAppLaunchWidget target={w.target} args={w.args} label={w.label} />;
+  }
+  if (w.type === "n8n_trigger") {
+    return <N8nTriggerWidget action={w.action} params={w.params} label={w.label} />;
   }
   if (w.type === "organize_files") {
     return (
