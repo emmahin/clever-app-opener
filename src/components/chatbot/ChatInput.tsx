@@ -83,11 +83,19 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
 
   const startVisualizer = () => {
     const stream = voiceService.getStream?.();
-    if (!stream) return;
+    if (!stream) {
+      console.warn("[ChatInput] startVisualizer: no stream available");
+      return;
+    }
     try {
       const AC = window.AudioContext || (window as any).webkitAudioContext;
       const ctx = new AC();
       audioCtxRef.current = ctx;
+      // Sur certains navigateurs (Safari/iOS), l'AudioContext démarre en
+      // "suspended" tant qu'aucune interaction ne l'a réveillé.
+      if (ctx.state === "suspended") {
+        ctx.resume().catch(() => {});
+      }
       const source = ctx.createMediaStreamSource(stream);
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 512;
