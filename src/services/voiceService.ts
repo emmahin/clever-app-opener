@@ -26,20 +26,59 @@ class WebVoiceService implements IVoiceService {
 
   async startRecording() {
     this.chunks = [];
-    // Contraintes audio optimisées pour la transcription Whisper :
-    //  - echoCancellation : évite que la voix de Lia rentre dans le micro
-    //  - noiseSuppression : nettoie le bruit de fond constant
-    //  - autoGainControl : remonte automatiquement les voix faibles/lointaines
-    //  - sampleRate 48k + channelCount 1 (mono) : qualité optimale pour STT
+    // Contraintes audio optimisées pour ISOLER la voix principale (proche du micro)
+    // et IGNORER les sons parasites (vent, voix d'arrière-plan, TV, conversation
+    // dans une autre pièce…).
+    //
+    //  - echoCancellation        : évite que la voix de Lia rentre dans le micro
+    //  - noiseSuppression        : nettoie le bruit de fond constant (vent, ventilo)
+    //  - autoGainControl: FALSE  : volontairement désactivé. L'AGC remonte le
+    //    volume quand on se tait → il amplifie alors les voix lointaines et le
+    //    vent. En le coupant, seul le signal réellement fort (ta voix proche)
+    //    reste audible pour le STT.
+    //  - voiceIsolation          : extension Chrome/Edge récente — isole
+    //    spécifiquement la voix la plus proche du micro (gating spatial).
+    //  - googHighpassFilter      : extension Chrome — coupe les très basses
+    //    fréquences (vent, grondements).
+    //  - channelCount 1 + sampleRate 48k : mono, qualité STT optimale.
+    // Ces flags Chrome/Edge ne sont pas standard mais améliorent fortement
+    // la qualité quand ils sont disponibles ; ignorés silencieusement sinon.
+    const advanced: MediaTrackConstraints[] = [
+      {
+        googEchoCancellation: true,
+        googNoiseSuppression: true,
+        googHighpassFilter: true,
+        googAutoGainControl: false,
+        googExperimentalNoiseSuppression: true,
+      } as unknown as MediaTrackConstraints,
+    ];
+
     this.stream = await navigator.mediaDevices.getUserMedia({
-      audio: {
+      audio: ({
         echoCancellation: true,
         noiseSuppression: true,
-        autoGainControl: true,
+        autoGainControl: false,
         channelCount: 1,
         sampleRate: 48000,
-      } as MediaTrackConstraints,
+        voiceIsolation: true,
+        advanced,
+      } as unknown) as MediaTrackConstraints,
     });
+
+    // Si le navigateur supporte les contraintes avancées, on tente d'appliquer
+    // dynamiquement voiceIsolation + désactivation AGC sur la piste active
+    // (certains navigateurs n'honorent les flags que via applyConstraints).
+    try {
+      const track = this.stream.getAudioTracks()[0];
+      if (track && typeof track.applyConstraints === "function") {
+        await track.applyConstraints(({
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: false,
+          voiceIsolation: true,
+        } as unknown) as MediaTrackConstraints).catch(() => { /* ignoré */ });
+      }
+    } catch { /* ignore */ }
     // Bitrate plus élevé que la valeur par défaut (~32 kbps) pour préserver
     // les consonnes (s, ch, f, t) qui sont les premières détruites par la
     // compression. Whisper a besoin de ces fréquences pour bien transcrire.
