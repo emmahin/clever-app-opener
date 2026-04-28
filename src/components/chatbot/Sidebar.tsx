@@ -193,12 +193,17 @@ export function Sidebar() {
   // ─── Sidebar desktop (>= md) ───
   const desktopAside = (
     <aside
-      className="fixed left-0 top-0 h-full hidden md:flex flex-col z-50 transition-[width] duration-300 ease-out overflow-hidden"
+      className="fixed left-0 top-0 h-full hidden md:flex flex-col z-50 transition-[width] duration-300 ease-out overflow-hidden border-r border-primary/40 shadow-[0_0_30px_hsl(185_100%_50%_/_0.25)]"
       style={{
         width: collapsed ? `${SIDEBAR_COLLAPSED}px` : `${SIDEBAR_WIDTH}px`,
-        background: "linear-gradient(180deg, hsl(0, 0%, 4%), hsl(275, 70%, 18%))",
+        background:
+          "linear-gradient(180deg, hsl(200 85% 4%) 0%, hsl(200 80% 6%) 50%, hsl(200 85% 3%) 100%)",
       }}
     >
+      {/* Decorative HUD vertical line */}
+      <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-primary/70 to-transparent" />
+      <div className="pointer-events-none absolute right-2 top-12 w-2 h-2 border-r border-t border-primary/70" />
+      <div className="pointer-events-none absolute right-2 bottom-12 w-2 h-2 border-r border-b border-primary/70" />
       {collapsed ? collapsedContent : expandedContent}
     </aside>
   );
@@ -228,10 +233,13 @@ export function Sidebar() {
       />
       <aside
         className={cn(
-          "md:hidden fixed left-0 top-0 h-full w-72 max-w-[85vw] z-[61] flex flex-col transition-transform duration-200 ease-out",
+          "md:hidden fixed left-0 top-0 h-full w-72 max-w-[85vw] z-[61] flex flex-col transition-transform duration-200 ease-out border-r border-primary/40",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
-        style={{ background: "linear-gradient(180deg, hsl(0, 0%, 4%), hsl(275, 70%, 18%))" }}
+        style={{
+          background:
+            "linear-gradient(180deg, hsl(200 85% 4%) 0%, hsl(200 80% 6%) 50%, hsl(200 85% 3%) 100%)",
+        }}
         aria-label="Menu de navigation"
       >
         <div className="flex items-center justify-end px-2 pt-2">
