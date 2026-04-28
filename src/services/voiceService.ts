@@ -26,59 +26,28 @@ class WebVoiceService implements IVoiceService {
 
   async startRecording() {
     this.chunks = [];
-    // Contraintes audio optimisées pour ISOLER la voix principale (proche du micro)
-    // et IGNORER les sons parasites (vent, voix d'arrière-plan, TV, conversation
-    // dans une autre pièce…).
+    // Contraintes audio standard, larges et compatibles tous navigateurs.
+    // Le filtrage avancé (high-pass 120 Hz / low-pass 7 kHz) est déjà
+    // réalisé en aval via Web Audio API dans TwinVoiceProvider, donc on
+    // garde ici uniquement les flags STANDARD qui ne risquent pas de
+    // déclencher un OverconstrainedError sur certains navigateurs.
     //
-    //  - echoCancellation        : évite que la voix de Lia rentre dans le micro
-    //  - noiseSuppression        : nettoie le bruit de fond constant (vent, ventilo)
-    //  - autoGainControl: FALSE  : volontairement désactivé. L'AGC remonte le
-    //    volume quand on se tait → il amplifie alors les voix lointaines et le
-    //    vent. En le coupant, seul le signal réellement fort (ta voix proche)
-    //    reste audible pour le STT.
-    //  - voiceIsolation          : extension Chrome/Edge récente — isole
-    //    spécifiquement la voix la plus proche du micro (gating spatial).
-    //  - googHighpassFilter      : extension Chrome — coupe les très basses
-    //    fréquences (vent, grondements).
-    //  - channelCount 1 + sampleRate 48k : mono, qualité STT optimale.
-    // Ces flags Chrome/Edge ne sont pas standard mais améliorent fortement
-    // la qualité quand ils sont disponibles ; ignorés silencieusement sinon.
-    const advanced: MediaTrackConstraints[] = [
-      {
-        googEchoCancellation: true,
-        googNoiseSuppression: true,
-        googHighpassFilter: true,
-        googAutoGainControl: false,
-        googExperimentalNoiseSuppression: true,
-      } as unknown as MediaTrackConstraints,
-    ];
-
-    this.stream = await navigator.mediaDevices.getUserMedia({
-      audio: ({
+    // Stratégie de repli : si la première tentative échoue (contraintes
+    // refusées par le device), on retombe sur `audio: true` brut.
+    const idealConstraints: MediaStreamConstraints = {
+      audio: {
         echoCancellation: true,
         noiseSuppression: true,
-        autoGainControl: false,
+        autoGainControl: true,
         channelCount: 1,
-        sampleRate: 48000,
-        voiceIsolation: true,
-        advanced,
-      } as unknown) as MediaTrackConstraints,
-    });
-
-    // Si le navigateur supporte les contraintes avancées, on tente d'appliquer
-    // dynamiquement voiceIsolation + désactivation AGC sur la piste active
-    // (certains navigateurs n'honorent les flags que via applyConstraints).
+      },
+    };
     try {
-      const track = this.stream.getAudioTracks()[0];
-      if (track && typeof track.applyConstraints === "function") {
-        await track.applyConstraints(({
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: false,
-          voiceIsolation: true,
-        } as unknown) as MediaTrackConstraints).catch(() => { /* ignoré */ });
-      }
-    } catch { /* ignore */ }
+      this.stream = await navigator.mediaDevices.getUserMedia(idealConstraints);
+    } catch (err) {
+      console.warn("[voiceService] constraints rejected, falling back to audio:true", err);
+      this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    }
     // Bitrate plus élevé que la valeur par défaut (~32 kbps) pour préserver
     // les consonnes (s, ch, f, t) qui sont les premières détruites par la
     // compression. Whisper a besoin de ces fréquences pour bien transcrire.
