@@ -24,6 +24,7 @@ import OpenAIDiagnostics from "./pages/OpenAIDiagnostics.tsx";
 import VoiceAdmin from "./pages/VoiceAdmin.tsx";
 import { AuthGuard } from "@/components/AuthGuard";
 import { RootErrorBoundary } from "@/components/RootErrorBoundary";
+import { HudFrame } from "@/components/hud/HudFrame";
 
 const queryClient = new QueryClient();
 
@@ -37,6 +38,7 @@ const App = () => (
         <TooltipProvider>
         <Toaster />
         <Sonner />
+        <HudFrame />
         <BrowserRouter>
           <Routes>
             <Route path="/auth" element={<Auth />} />
