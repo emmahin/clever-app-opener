@@ -1540,6 +1540,7 @@ Deno.serve(async (req) => {
                   { role: "assistant", content: msg.content || "", tool_calls: toolCalls },
                   ...toolResults,
                 ],
+                max_tokens: 4096,
             };
             const streamed = await streamModelResponse(phase3Body, sendWithCount);
             if (!streamed.trim()) sendWithCount({ delta: `Voilà monsieur.\n\n${toolResults.map((r) => r.content).join("\n")}` });
@@ -1549,6 +1550,7 @@ Deno.serve(async (req) => {
             const directBody = {
               model: "google/gemini-3-flash-preview",
               messages: [{ role: "system", content: SYSTEM_PROMPT }, ...messages],
+              max_tokens: 4096,
             };
             const streamed = await streamModelResponse(directBody, sendWithCount);
             if (!streamed.trim()) {
