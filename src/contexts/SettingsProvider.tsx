@@ -10,6 +10,8 @@ export interface Settings {
   detailLevel: DetailLevel;
   typewriter: boolean;
   customInstructions: string;
+  /** Si vrai, ouvre automatiquement le mode vocal au lancement de l'app. */
+  autoOpenVoice: boolean;
   readonly aiName: string;
 }
 
@@ -17,6 +19,7 @@ const DEFAULTS: Settings = {
   detailLevel: "normal",
   typewriter: true,
   customInstructions: "",
+  autoOpenVoice: false,
   aiName: AI_NAME,
 };
 
@@ -65,6 +68,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         detailLevel: (cloud.detail_level as DetailLevel) ?? "normal",
         typewriter: cloud.typewriter ?? true,
         customInstructions: cloud.custom_instructions ?? "",
+        // autoOpenVoice reste local (pas de colonne cloud) → on garde la valeur courante.
+        autoOpenVoice: loadLocal().autoOpenVoice,
         aiName: AI_NAME,
       });
     };
