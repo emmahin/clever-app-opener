@@ -749,6 +749,7 @@ export type Database = {
         }
         Returns: Json
       }
+      get_my_credits: { Args: never; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
