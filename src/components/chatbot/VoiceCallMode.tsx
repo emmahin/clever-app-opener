@@ -34,7 +34,8 @@ export type VoiceIntent =
   | { kind: "stocks" }
   | { kind: "route"; path: string; label: string }
   | { kind: "settings" }
-  | { kind: "notifications" };
+  | { kind: "notifications" }
+  | { kind: "n8n"; prompt: string };
 
 /**
  * Détecte si la requête vocale demande l'affichage de quelque chose
@@ -44,6 +45,11 @@ export type VoiceIntent =
  */
 function detectVoiceIntent(text: string): VoiceIntent | null {
   const t = text.toLowerCase();
+  // n8n : "lance le workflow ...", "déclenche n8n ...", "exécute mon automatisation ..."
+  if (/\b(n8n|workflow|automatisation|automation)\b/.test(t) ||
+      /\b(lance|d[ée]clenche|ex[ée]cute|envoie)\b.*\b(workflow|automatisation|n8n|webhook)\b/.test(t)) {
+    return { kind: "n8n", prompt: text };
+  }
   const wantsDirectRoute = /\b(ouvre|ouvrir|va|vas|aller|redirige|redirection|am[eè]ne|emm[eè]ne|acc[eè]de|affiche|montrer?|montre|page|menu)\b/.test(t);
   const routes: Array<{ path: string; label: string; re: RegExp }> = [
     { path: "/dashboard", label: "Tableau de bord", re: /\b(tableau de bord|dashboard)\b/ },
