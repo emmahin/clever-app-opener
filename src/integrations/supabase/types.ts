@@ -573,6 +573,54 @@ export type Database = {
           },
         ]
       }
+      subscriptions: {
+        Row: {
+          cancel_at_period_end: boolean | null
+          created_at: string | null
+          current_period_end: string | null
+          current_period_start: string | null
+          environment: string
+          id: string
+          paddle_customer_id: string
+          paddle_subscription_id: string
+          price_id: string
+          product_id: string
+          status: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          cancel_at_period_end?: boolean | null
+          created_at?: string | null
+          current_period_end?: string | null
+          current_period_start?: string | null
+          environment?: string
+          id?: string
+          paddle_customer_id: string
+          paddle_subscription_id: string
+          price_id: string
+          product_id: string
+          status?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          cancel_at_period_end?: boolean | null
+          created_at?: string | null
+          current_period_end?: string | null
+          current_period_start?: string | null
+          environment?: string
+          id?: string
+          paddle_customer_id?: string
+          paddle_subscription_id?: string
+          price_id?: string
+          product_id?: string
+          status?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_credits: {
         Row: {
           created_at: string
@@ -737,6 +785,15 @@ export type Database = {
         Args: { _target_user_id: string; _tier: string }
         Returns: Json
       }
+      apply_purchase_credits: {
+        Args: { _paddle_txn: string; _price_id: string; _user_id: string }
+        Returns: Json
+      }
+      apply_subscription_credits: {
+        Args: { _price_id: string; _renews_at: string; _user_id: string }
+        Returns: Json
+      }
+      clear_subscription_credits: { Args: { _user_id: string }; Returns: Json }
       consume_credits: {
         Args: {
           _action?: string
@@ -772,6 +829,8 @@ export type Database = {
           user_id: string
         }[]
       }
+      paddle_credits_for_price: { Args: { _price_id: string }; Returns: number }
+      paddle_tier_for_price: { Args: { _price_id: string }; Returns: string }
       promote_to_admin: { Args: { _target_user_id: string }; Returns: Json }
       revoke_admin: { Args: { _target_user_id: string }; Returns: Json }
     }
