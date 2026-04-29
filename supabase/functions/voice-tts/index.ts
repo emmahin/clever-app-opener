@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
             // 1.05 = ton posé et naturel, légèrement plus vif que la valeur
             // par défaut. L'utilisateur veut un rythme "calme et agréable",
             // pas une voix précipitée.
-            speed: 1.05,
+            speed: 1.22,
           }),
         });
         if (response.ok) {
@@ -121,7 +121,7 @@ Deno.serve(async (req) => {
                 similarity_boost: 0.8,
                 style: 0.35,
                 use_speaker_boost: true,
-                speed: 1.0,
+                speed: 1.18,
               },
               language_code: "fr",
             }),
