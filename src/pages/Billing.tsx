@@ -348,7 +348,7 @@ export default function Billing() {
               <InfinityIcon className="w-3.5 h-3.5" /> Les crédits achetés n'expirent jamais
             </span>
           </div>
-          <div className="grid sm:grid-cols-3 gap-4">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {PACKS.map((p) => (
               <Card key={p.id} className="border-border/50">
                 <CardContent className="pt-6 flex items-center justify-between gap-4">
@@ -417,7 +417,7 @@ export default function Billing() {
         </section>
 
         <p className="text-xs text-muted-foreground mt-10 text-center">
-          Le module de paiement sera activé prochainement. Contactez le support pour un accès anticipé.
+          Paiements sécurisés via notre fournisseur. Vous recevrez un reçu par email.
         </p>
       </div>
     </div>
