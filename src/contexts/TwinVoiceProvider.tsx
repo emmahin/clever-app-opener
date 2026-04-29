@@ -256,7 +256,7 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
           voices.find((v) => v.lang.toLowerCase().startsWith("fr")) ||
           null;
         utterance.lang = "fr-FR";
-        utterance.rate = 1.12;
+        utterance.rate = 1.3;
         utterance.pitch = 1.08;
         utterance.volume = 1;
         currentUtteranceRef.current = utterance;
@@ -295,8 +295,10 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
         audio.volume = 1;
         audio.muted = false;
         audio.preload = "auto";
-        // Vitesse de lecture accélérée pour une élocution plus dynamique.
-        audio.playbackRate = 1.12;
+        // Vitesse de lecture accélérée côté client EN PLUS de la vitesse
+        // demandée à OpenAI (1.25). Résultat global ≈ 1.4x — élocution
+        // rapide et énergique, sans déformation audible.
+        audio.playbackRate = 1.15;
         currentAudioRef.current = audio;
         // L'indicateur de niveau audio reste piloté par le moniteur micro
         // permanent (voir startMicMonitor) — l'utilisateur voit en continu si
@@ -367,11 +369,9 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
     // "y a-t-il eu de la parole ?".
     const ABSOLUTE_FLOOR = 0.012;          // plancher absolu (sous ça = silence pur)
     const VOICE_RATIO = 0.35;              // un son doit faire ≥ 35% du pic vocal
-    // 800ms de silence suffisent pour détecter une fin de phrase naturelle.
-    // Avant : 1500ms — l'IA "réfléchissait" en réalité juste parce qu'on
-    // attendait que l'utilisateur ait fini. Diviser ce délai = -700ms perçus
-    // avant la réponse de Lia.
-    const SILENCE_DURATION_MS = 800;
+    // 600ms de silence suffisent pour détecter une fin de phrase naturelle
+    // en conversation rapide. Lia enchaîne quasi instantanément.
+    const SILENCE_DURATION_MS = 600;
     const MAX_DURATION_MS = 30000;         // 30s max par tour
     const MIN_SPEECH_MS = 350;             // au moins 0.35s de voix réelle
     // Délai d'attente AVANT la première parole : on laisse l'utilisateur le
