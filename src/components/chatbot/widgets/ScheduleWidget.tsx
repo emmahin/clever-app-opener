@@ -171,37 +171,37 @@ export function ScheduleWidget({
       : `${days[0].toLocaleDateString([], { day: "numeric", month: "short" })} – ${days[6].toLocaleDateString([], { day: "numeric", month: "short", year: "numeric" })}`;
 
   return (
-    <div className="rounded-xl border border-violet-500/40 bg-gradient-to-br from-violet-900/25 to-fuchsia-900/15 p-4 md:p-5 w-full">
+    <div className="rounded-xl border border-cyan-500/40 bg-gradient-to-br from-teal-900/25 to-teal-900/15 p-4 md:p-5 w-full">
       {/* Header */}
       <div className="flex items-center justify-between gap-2 mb-3">
         <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
-          {added ? <Plus className="w-3.5 h-3.5 text-violet-300" /> :
+          {added ? <Plus className="w-3.5 h-3.5 text-cyan-300" /> :
             remove_query ? <Trash2 className="w-3.5 h-3.5 text-pink-300" /> :
-            <Calendar className="w-3.5 h-3.5 text-violet-300" />}
+            <Calendar className="w-3.5 h-3.5 text-cyan-300" />}
           {headerLabel}
         </div>
         <div className="flex items-center gap-1">
           <button
             onClick={() => setView("day")}
-            className={`px-2 py-1 rounded-md text-[11px] transition-colors ${view === "day" ? "bg-violet-500/30 text-foreground" : "text-muted-foreground hover:bg-white/5"}`}
+            className={`px-2 py-1 rounded-md text-[11px] transition-colors ${view === "day" ? "bg-cyan-500/30 text-foreground" : "text-muted-foreground hover:bg-white/5"}`}
           >Jour</button>
           <button
             onClick={() => setView("week")}
-            className={`px-2 py-1 rounded-md text-[11px] transition-colors ${view === "week" ? "bg-violet-500/30 text-foreground" : "text-muted-foreground hover:bg-white/5"}`}
+            className={`px-2 py-1 rounded-md text-[11px] transition-colors ${view === "week" ? "bg-cyan-500/30 text-foreground" : "text-muted-foreground hover:bg-white/5"}`}
           >Semaine</button>
         </div>
       </div>
 
       {/* Confirmation banners */}
       {added && (
-        <div className="mb-3 rounded-lg bg-violet-500/15 border border-violet-400/30 p-3">
+        <div className="mb-3 rounded-lg bg-cyan-500/15 border border-cyan-400/30 p-3">
           <p className="text-sm font-semibold text-foreground">{added.title}</p>
           <p className="text-xs text-muted-foreground mt-0.5">
             📅 {fmtDayLong(added.start_iso)} · ⏰ {fmtTime(added.start_iso)}
             {added.end_iso ? ` → ${fmtTime(added.end_iso)}` : ""}
           </p>
           {added.location && (
-            <p className="text-xs text-violet-200/80 mt-0.5 flex items-center gap-1">
+            <p className="text-xs text-cyan-200/80 mt-0.5 flex items-center gap-1">
               <MapPin className="w-3 h-3" /> {added.location}
             </p>
           )}
@@ -247,7 +247,7 @@ export function ScheduleWidget({
                 <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
                   {d.toLocaleDateString([], { weekday: "short" })}
                 </p>
-                <p className={`text-base font-semibold ${isToday ? "text-violet-300" : "text-foreground"}`}>
+                <p className={`text-base font-semibold ${isToday ? "text-cyan-300" : "text-foreground"}`}>
                   {d.getDate()}
                 </p>
               </div>
@@ -299,7 +299,7 @@ export function ScheduleWidget({
                 ))}
                 {/* Today highlight */}
                 {isToday && (
-                  <div className="absolute inset-0 bg-violet-500/[0.04] pointer-events-none" />
+                  <div className="absolute inset-0 bg-cyan-500/[0.04] pointer-events-none" />
                 )}
                 {/* Now line */}
                 {nowTop >= 0 && (
@@ -307,8 +307,8 @@ export function ScheduleWidget({
                     className="absolute left-0 right-0 z-10 pointer-events-none"
                     style={{ top: `${nowTop}px` }}
                   >
-                    <div className="h-px bg-fuchsia-400 shadow-[0_0_8px_rgba(232,121,249,0.6)]" />
-                    <div className="absolute -left-1 -top-[3px] w-1.5 h-1.5 rounded-full bg-fuchsia-400" />
+                    <div className="h-px bg-teal-400 shadow-[0_0_8px_rgba(232,121,249,0.6)]" />
+                    <div className="absolute -left-1 -top-[3px] w-1.5 h-1.5 rounded-full bg-teal-400" />
                   </div>
                 )}
                 {/* Events */}

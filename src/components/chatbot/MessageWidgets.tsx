@@ -238,7 +238,7 @@ function VideoCard({ v }: { v: VideoItem }) {
                 className="w-full h-full object-cover"
               />
             ) : (
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/30 to-fuchsia-500/30" />
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/30 to-teal-500/30" />
             )}
             <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition-colors">
               <PlayCircle className="w-12 h-12 text-white drop-shadow-lg group-hover:scale-110 transition-transform" />
@@ -351,7 +351,7 @@ function NewsWidget({ items }: { items: NewsItem[] }) {
             rel="noopener noreferrer"
             className="group flex-shrink-0 w-72 snap-start glass rounded-2xl overflow-hidden border border-border/40 hover:border-primary/50 transition-all hover:-translate-y-0.5"
           >
-            <div className="aspect-video bg-gradient-to-br from-primary/20 to-fuchsia-500/20 overflow-hidden relative">
+            <div className="aspect-video bg-gradient-to-br from-primary/20 to-teal-500/20 overflow-hidden relative">
               <div className="absolute inset-0 flex items-center justify-center">
                 <Newspaper className="w-10 h-10 text-white/30" />
               </div>

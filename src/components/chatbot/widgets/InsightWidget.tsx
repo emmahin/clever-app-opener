@@ -20,9 +20,9 @@ export function InsightWidget({ title, body }: { title: string; body: string }) 
   }, [title, body]);
 
   return (
-    <div className="rounded-xl border border-fuchsia-500/40 bg-gradient-to-br from-fuchsia-900/30 to-purple-900/20 p-4">
+    <div className="rounded-xl border border-teal-500/40 bg-gradient-to-br from-teal-900/30 to-teal-900/20 p-4">
       <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-3">
-        <Lightbulb className="w-3.5 h-3.5 text-fuchsia-400" />
+        <Lightbulb className="w-3.5 h-3.5 text-teal-400" />
         INSIGHT
       </div>
       <p className="text-sm font-semibold text-foreground">{title}</p>
