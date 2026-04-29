@@ -13,7 +13,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  ArrowLeft, Shield, ShieldOff, Coins, Crown, Search, Lock,
+  ArrowLeft, Shield, ShieldOff, Coins, Crown, Search, Lock, ArrowUpRight,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -42,6 +42,17 @@ export default function AdminUsers() {
   const [creditDialog, setCreditDialog] = useState<{ user: AdminUserRow } | null>(null);
   const [creditAmount, setCreditAmount] = useState("100");
   const [creditBucket, setCreditBucket] = useState<"purchased" | "subscription">("purchased");
+  const [transferDialog, setTransferDialog] = useState<{ user: AdminUserRow } | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? null));
+  }, []);
+
+  const callerIsPrimary = useMemo(
+    () => rows.some(r => r.user_id === currentUserId && r.is_primary_admin),
+    [rows, currentUserId],
+  );
 
   useEffect(() => {
     if (!adminLoading && !isAdmin) navigate("/");
@@ -86,6 +97,20 @@ export default function AdminUsers() {
     const { error } = await supabase.rpc("revoke_admin", { _target_user_id: u.user_id });
     if (error) toast.error("Échec : " + error.message);
     else { toast.success(`Rôle admin retiré à ${u.email}`); load(); }
+  };
+
+  const transferPrimary = async () => {
+    if (!transferDialog) return;
+    const { error } = await supabase.rpc("transfer_primary_admin", {
+      _target_user_id: transferDialog.user.user_id,
+    });
+    if (error) {
+      toast.error("Échec : " + error.message);
+    } else {
+      toast.success(`${transferDialog.user.email} est désormais l'admin principal`);
+      setTransferDialog(null);
+      load();
+    }
   };
 
   const setTier = async (u: AdminUserRow, tier: string) => {
