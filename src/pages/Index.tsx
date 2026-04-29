@@ -891,6 +891,42 @@ export default function Index() {
           }
           if (intent.kind === "notifications") { navigate("/notifications"); return true; }
           if (intent.kind === "settings") { navigate("/settings"); return true; }
+          if (intent.kind === "n8n") {
+            const cfg = n8nService.loadConfig();
+            if (!n8nService.isConfigured()) {
+              const assistantMsg: ChatMessage = {
+                id: crypto.randomUUID(),
+                role: "assistant",
+                content: "Aucun webhook n8n actif. Va dans **Paramètres → n8n** pour activer le webhook et déclarer tes actions.",
+                createdAt: Date.now(),
+              };
+              setMessages((prev) => [...prev, assistantMsg]);
+              void persistVoiceAssistant(assistantMsg, "n8n-missing");
+              return true;
+            }
+            // Choisit l'action dont la description matche le prompt vocal,
+            // sinon utilise la première action déclarée, sinon "voice_command".
+            const lower = intent.prompt.toLowerCase();
+            const matched =
+              cfg.actions.find((a) =>
+                a.description && lower.includes(a.description.toLowerCase().split(/\s+/)[0]),
+              ) ||
+              cfg.actions.find((a) => a.id && lower.includes(a.id.toLowerCase())) ||
+              cfg.actions[0];
+            const actionId = matched?.id || "voice_command";
+            const result = await n8nService.trigger(actionId, { prompt: intent.prompt, source: "lia-voice" });
+            const assistantMsg: ChatMessage = {
+              id: crypto.randomUUID(),
+              role: "assistant",
+              content: result.ok
+                ? `✅ Workflow n8n « ${actionId} » déclenché.`
+                : `❌ n8n : ${result.detail || `erreur ${result.status ?? ""}`.trim()}`,
+              createdAt: Date.now(),
+            };
+            setMessages((prev) => [...prev, assistantMsg]);
+            void persistVoiceAssistant(assistantMsg, "n8n");
+            return true;
+          }
           return false;
         }}
       />
