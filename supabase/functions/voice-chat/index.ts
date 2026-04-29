@@ -81,11 +81,16 @@ Date et heure : ${nowLocal} (fuseau ${tz}).${
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        // Le modèle le plus rapide disponible.
-        model: "google/gemini-3-flash-preview",
+        // Modèle le plus rapide & le moins cher : idéal pour des réponses
+        // vocales courtes (1-2 phrases). Latence avant 1er token ~2x plus
+        // faible que gemini-3-flash-preview.
+        model: "google/gemini-2.5-flash-lite",
         messages: [
           { role: "system", content: systemFull },
-          ...messages.slice(-6),
+          // Limite stricte à 4 derniers tours en vocal : moins de tokens en
+          // entrée = TTFT plus rapide. Le contexte mémoire reste injecté via
+          // le system prompt.
+          ...messages.slice(-4),
         ],
         stream: true,
       }),
