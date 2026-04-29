@@ -120,10 +120,31 @@ export const VoiceCallMode = forwardRef<HTMLDivElement, Props>(function VoiceCal
   // Permet de masquer l'overlay plein écran tout en GARDANT l'appel actif
   // (l'utilisateur revient au menu principal mais Lia continue à parler/écouter).
   const [minimized, setMinimized] = useState(false);
+  // Niveau audio lissé via interpolation (lerp) — évite tout pic brusque.
+  const [smoothedLevel, setSmoothedLevel] = useState(0);
+  const smoothedRef = useRef(0);
   const memoriesContextRef = useRef<string>("");
   const eventsContextRef = useRef<string>("");
   const sentTurnSigsRef = useRef<Map<string, string>>(new Map());
   const handledIntentIdsRef = useRef<Set<string>>(new Set());
+
+  // Boucle d'interpolation : on rapproche en douceur le niveau affiché du
+  // niveau réel (montée plus lente que la descente pour un rendu organique).
+  useEffect(() => {
+    let raf = 0;
+    const tick = () => {
+      const target = audioLevel || 0;
+      const cur = smoothedRef.current;
+      // Lerp asymétrique : montée 0.08, descente 0.05 → mouvement "respirant".
+      const k = target > cur ? 0.08 : 0.05;
+      const next = cur + (target - cur) * k;
+      smoothedRef.current = next;
+      setSmoothedLevel(next);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [audioLevel]);
 
   // Notifie le parent à chaque nouveau turn (user ou assistant) — pour persistance dans le chat
   useEffect(() => {
