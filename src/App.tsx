@@ -22,7 +22,6 @@ import AdminUsers from "./pages/AdminUsers.tsx";
 import Agenda from "./pages/Agenda.tsx";
 import OpenAIDiagnostics from "./pages/OpenAIDiagnostics.tsx";
 import VoiceAdmin from "./pages/VoiceAdmin.tsx";
-import VoiceOrb from "./pages/VoiceOrb.tsx";
 import { AuthGuard } from "@/components/AuthGuard";
 import { RootErrorBoundary } from "@/components/RootErrorBoundary";
 import { useVoiceNavigation } from "@/hooks/useVoiceNavigation";
@@ -50,7 +49,7 @@ const App = () => (
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route path="/install" element={<Install />} />
-            <Route path="/" element={<AuthGuard><VoiceOrb /></AuthGuard>} />
+            <Route path="/" element={<AuthGuard><Index /></AuthGuard>} />
             <Route path="/home" element={<AuthGuard><Index /></AuthGuard>} />
             <Route path="/dashboard" element={<AuthGuard><Dashboard /></AuthGuard>} />
             <Route path="/analytics" element={<AuthGuard><Analytics /></AuthGuard>} />
@@ -63,7 +62,7 @@ const App = () => (
             <Route path="/agenda" element={<AuthGuard><Agenda /></AuthGuard>} />
             <Route path="/openai-diagnostics" element={<OpenAIDiagnostics />} />
             <Route path="/admin/voice" element={<AuthGuard><VoiceAdmin /></AuthGuard>} />
-            <Route path="/voice-orb" element={<AuthGuard><VoiceOrb /></AuthGuard>} />
+            {/* /voice-orb supprimé : l'unique interface vocale est l'overlay VoiceCallMode (depuis l'icône téléphone du chat). */}
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
