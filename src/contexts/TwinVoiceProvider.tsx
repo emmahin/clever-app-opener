@@ -455,12 +455,13 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
         const rms = Math.sqrt(sum / buf.length);
         if (rms < noiseFloor) noiseFloor = noiseFloor * 0.9 + rms * 0.1;
         else noiseFloor = noiseFloor * 0.999 + rms * 0.001;
-        const energy = Math.max(0, rms - noiseFloor * 1.5);
-        const norm = Math.min(1, Math.sqrt(energy * 13));
+        const visualThreshold = Math.max(0.055, noiseFloor * 4.5, voicePeak * 0.55);
+        const energy = rms > visualThreshold ? rms - visualThreshold : 0;
+        const norm = Math.min(1, Math.sqrt(energy * 5));
         displayedLevel = norm > displayedLevel
-          ? displayedLevel * 0.25 + norm * 0.75
-          : displayedLevel * 0.72 + norm * 0.28;
-        setAudioLevel(webVoiceService.isRecording() ? displayedLevel : 0);
+          ? displayedLevel * 0.55 + norm * 0.45
+          : displayedLevel * 0.92 + norm * 0.08;
+        setAudioLevel(webVoiceService.isRecording() && displayedLevel > 0.035 ? displayedLevel : 0);
         const now = Date.now();
         const dt = now - lastTickAt;
         lastTickAt = now;
