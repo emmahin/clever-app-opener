@@ -1378,6 +1378,16 @@ Deno.serve(async (req) => {
         code: isInsufficient ? "insufficient_credits" : "debit_error",
         balance: debit.balance ?? 0,
         required: estimate.credits,
+        missing: isInsufficient ? Math.max(0, estimate.credits - (debit.balance ?? 0)) : 0,
+        action: "chat",
+        model: deepThink ? "google/gemini-3.1-pro-preview" : "google/gemini-3-flash-preview",
+        breakdown: {
+          input_tokens: estimate.inputTokens,
+          estimated_output_tokens: estimate.estimatedOutputTokens,
+          complexity_multiplier: estimate.multiplier,
+          action_tokens: estimate.actionTokens,
+          total_tokens: estimate.totalTokens,
+        },
       }), {
         status: isInsufficient ? 402 : 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
