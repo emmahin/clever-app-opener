@@ -267,10 +267,11 @@ export const VoiceCallMode = forwardRef<HTMLDivElement, Props>(function VoiceCal
 
   // ─── Mode RÉDUIT : pastille flottante en bas à droite, l'appel reste actif ───
   if (minimized) {
+    // Tout en violet : on ne change que la luminosité selon la phase.
     const ringColor =
-      phase === "speaking" ? "hsl(150 80% 60%)"
-        : phase === "thinking" ? "hsl(45 95% 60%)"
-        : "hsl(var(--primary))";
+      phase === "speaking" ? "hsl(270 95% 70%)"
+        : phase === "thinking" ? "hsl(270 80% 55%)"
+        : "hsl(270 90% 65%)";
     return (
       <button
         ref={ref as unknown as React.Ref<HTMLButtonElement>}
@@ -328,9 +329,9 @@ export const VoiceCallMode = forwardRef<HTMLDivElement, Props>(function VoiceCal
             style={{
               background:
                 phase === "listening"
-                  ? "conic-gradient(from 0deg, hsl(320 95% 60% / 0.55), hsl(280 90% 60% / 0.45), hsl(260 95% 65% / 0.55), hsl(320 95% 60% / 0.55))"
+                  ? "conic-gradient(from 0deg, hsl(280 95% 65% / 0.55), hsl(270 90% 60% / 0.45), hsl(260 95% 65% / 0.55), hsl(280 95% 65% / 0.55))"
                   : phase === "thinking"
-                  ? "conic-gradient(from 0deg, hsl(45 95% 60% / 0.45), hsl(285 90% 60% / 0.45), hsl(200 90% 60% / 0.45), hsl(45 95% 60% / 0.45))"
+                  ? "conic-gradient(from 0deg, hsl(285 90% 65% / 0.5), hsl(270 85% 55% / 0.45), hsl(260 90% 60% / 0.5), hsl(285 90% 65% / 0.5))"
                   : phase === "speaking"
                   ? "conic-gradient(from 0deg, hsl(270 95% 65% / 0.55), hsl(310 90% 65% / 0.5), hsl(250 95% 65% / 0.55), hsl(270 95% 65% / 0.55))"
                   : "radial-gradient(circle at center, hsl(270 80% 50% / 0.35), transparent 70%)",
@@ -378,10 +379,10 @@ export const VoiceCallMode = forwardRef<HTMLDivElement, Props>(function VoiceCal
             const h = 2 + amp * 14;
             const color =
               phase === "speaking"
-                ? "hsl(150 80% 60%)"
+                ? "hsl(280 95% 70%)"
                 : phase === "thinking"
-                ? "hsl(45 95% 60%)"
-                : "hsl(var(--foreground))";
+                ? "hsl(270 80% 60%)"
+                : "hsl(270 90% 65%)";
             return (
               <span
                 key={i}
