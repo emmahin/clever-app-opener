@@ -244,7 +244,28 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const speak = useCallback((text: string): Promise<void> => {
+  /** Pré-fetch d'une phrase TTS — retourne le blob audio (ou null si fallback). */
+  const fetchTtsBlob = useCallback(async (text: string): Promise<Blob | null> => {
+    if (!text.trim()) return null;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || (import.meta as any).env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const url = `${(import.meta as any).env.VITE_SUPABASE_URL}/functions/v1/voice-tts`;
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ text }),
+      });
+      if (!resp.ok) return null;
+      const ct = resp.headers.get("Content-Type") || "";
+      if (!ct.startsWith("audio/")) return null;
+      return await resp.blob();
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const speak = useCallback((text: string, preloaded?: Blob | null): Promise<void> => {
     return new Promise(async (resolve) => {
       if (!text.trim()) return resolve();
       const speakWithBrowserVoice = () => {
@@ -274,22 +295,25 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
         return true;
       };
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const token = session?.access_token || (import.meta as any).env.VITE_SUPABASE_PUBLISHABLE_KEY;
-        const url = `${(import.meta as any).env.VITE_SUPABASE_URL}/functions/v1/voice-tts`;
-        const resp = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ text }),
-        });
-        if (!resp.ok) throw new Error(`TTS HTTP ${resp.status}`);
-        const contentType = resp.headers.get("Content-Type") || "";
-        if (!contentType.startsWith("audio/")) {
-          const payload = await resp.json().catch(() => null);
-          if (payload?.fallback === "browser") throw new Error(payload.reason || "TTS browser fallback requested");
-          throw new Error("TTS response is not audio");
+        let blob: Blob | null = preloaded ?? null;
+        if (!blob) {
+          const { data: { session } } = await supabase.auth.getSession();
+          const token = session?.access_token || (import.meta as any).env.VITE_SUPABASE_PUBLISHABLE_KEY;
+          const url = `${(import.meta as any).env.VITE_SUPABASE_URL}/functions/v1/voice-tts`;
+          const resp = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ text }),
+          });
+          if (!resp.ok) throw new Error(`TTS HTTP ${resp.status}`);
+          const contentType = resp.headers.get("Content-Type") || "";
+          if (!contentType.startsWith("audio/")) {
+            const payload = await resp.json().catch(() => null);
+            if (payload?.fallback === "browser") throw new Error(payload.reason || "TTS browser fallback requested");
+            throw new Error("TTS response is not audio");
+          }
+          blob = await resp.blob();
         }
-        const blob = await resp.blob();
         const audioUrl = URL.createObjectURL(blob);
         const audio = new Audio(audioUrl);
         audio.volume = 1;
@@ -310,7 +334,24 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
           stopBargeInDetector();
           resolve();
         };
-        audio.onended = cleanup;
+        // Résout la promesse JUSTE AVANT la fin réelle de l'audio pour
+        // enchaîner la phrase suivante sans micro-silence perceptible.
+        let resolved = false;
+        const earlyResolve = () => {
+          if (resolved) return;
+          resolved = true;
+          stopBargeInDetector();
+          resolve();
+        };
+        audio.ontimeupdate = () => {
+          if (!audio.duration || !isFinite(audio.duration)) return;
+          if (audio.currentTime >= audio.duration - 0.08) earlyResolve();
+        };
+        audio.onended = () => {
+          URL.revokeObjectURL(audioUrl);
+          if (currentAudioRef.current === audio) currentAudioRef.current = null;
+          earlyResolve();
+        };
         audio.onerror = cleanup;
         try {
           await audio.play();
@@ -630,16 +671,29 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
       let ttsRunning = false;
       let firstSpoken = false;
       let drainResolveOnIdle: (() => void) | null = null;
+      // Pré-fetch TTS : dès qu'une phrase entre dans la file, on lance la
+      // requête vers voice-tts EN PARALLÈLE. Pendant qu'on lit la phrase N,
+      // la phrase N+1 (et N+2…) est déjà téléchargée → enchaînement collé.
+      const prefetched = new Map<string, Promise<Blob | null>>();
+      const ensureFetched = (s: string) => {
+        if (!prefetched.has(s)) prefetched.set(s, fetchTtsBlob(s));
+      };
       const drainQueue = async () => {
         if (ttsRunning) return;
         ttsRunning = true;
         while (ttsQueue.length > 0 && !cycleAbortRef.current.aborted) {
           const next = ttsQueue.shift()!;
+          ensureFetched(next);
+          // Pré-chauffe les 2 phrases suivantes en parallèle.
+          if (ttsQueue[0]) ensureFetched(ttsQueue[0]);
+          if (ttsQueue[1]) ensureFetched(ttsQueue[1]);
           if (!firstSpoken) {
             firstSpoken = true;
             setPhase("speaking");
           }
-          await speak(next);
+          const blob = await prefetched.get(next)!;
+          prefetched.delete(next);
+          await speak(next, blob);
         }
         ttsRunning = false;
         if (drainResolveOnIdle) { drainResolveOnIdle(); drainResolveOnIdle = null; }
@@ -691,7 +745,7 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
       }
     }
     setPhase("idle");
-  }, [askAI, recordUntilSilence, speak, playListenCue]);
+  }, [askAI, recordUntilSilence, speak, fetchTtsBlob, playListenCue]);
 
   const status = phase;
 
