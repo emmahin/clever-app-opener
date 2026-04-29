@@ -745,7 +745,7 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
       }
     }
     setPhase("idle");
-  }, [askAI, recordUntilSilence, speak, playListenCue]);
+  }, [askAI, recordUntilSilence, speak, fetchTtsBlob, playListenCue]);
 
   const status = phase;
 
