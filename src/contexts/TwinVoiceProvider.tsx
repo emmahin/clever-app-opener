@@ -70,6 +70,8 @@ interface TwinVoiceContextValue {
     onMemoryChange?: () => void;
     onError?: (msg: string) => void;
   }) => void;
+  /** Coupe immédiatement la lecture vocale en cours (utilisé par la nav vocale). */
+  stopSpeaking: () => void;
 }
 
 const TwinVoiceContext = createContext<TwinVoiceContextValue | null>(null);
@@ -740,7 +742,7 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
 
   const value: TwinVoiceContextValue = {
     isCallActive, status, transcript, interim, supported, audioLevel,
-    startCall, endCall, clearTranscript, setContextProviders,
+    startCall, endCall, clearTranscript, setContextProviders, stopSpeaking,
   };
 
   return <TwinVoiceContext.Provider value={value}>{children}</TwinVoiceContext.Provider>;
