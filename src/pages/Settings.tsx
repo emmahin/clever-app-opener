@@ -104,6 +104,13 @@ export default function Settings() {
                 checked={settings.typewriter}
                 onChange={(v) => update("typewriter", v)}
               />
+
+              <ToggleRow
+                label="Ouvrir le mode vocal au démarrage"
+                description="Lance automatiquement l'appel vocal avec Lia dès l'ouverture de l'application."
+                checked={settings.autoOpenVoice}
+                onChange={(v) => update("autoOpenVoice", v)}
+              />
             </div>
           </CollapsibleSection>
 

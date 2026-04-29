@@ -138,6 +138,18 @@ export default function Index() {
   const messagesRef = useRef<ChatMessage[]>([]);
   useEffect(() => { messagesRef.current = messages; }, [messages]);
 
+  // Auto-ouverture du mode vocal au premier rendu si l'utilisateur l'a activé
+  // dans Paramètres → Comportement IA. Une seule fois par session.
+  const autoVoiceTriggeredRef = useRef(false);
+  useEffect(() => {
+    if (autoVoiceTriggeredRef.current) return;
+    if (!settings.autoOpenVoice) return;
+    autoVoiceTriggeredRef.current = true;
+    // Petit délai pour laisser l'UI se monter et l'auth se stabiliser.
+    const id = setTimeout(() => setVoiceCallOpen(true), 400);
+    return () => clearTimeout(id);
+  }, [settings.autoOpenVoice]);
+
   // ID de la conversation persistée actuellement chargée.
   // null = aucune (sera créée au premier message envoyé).
   const conversationIdRef = useRef<string | null>(null);
