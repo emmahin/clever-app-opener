@@ -327,6 +327,37 @@ export default function AdminUsers() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!transferDialog} onOpenChange={(o) => !o && setTransferDialog(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Crown className="w-5 h-5 text-amber-500" />
+              Transférer le rôle d'admin principal
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-sm">
+            <p>
+              Vous êtes sur le point de transférer le statut d'<strong>admin principal</strong> à
+              {" "}<strong>{transferDialog?.user.email}</strong>.
+            </p>
+            <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-amber-700 dark:text-amber-300">
+              <p className="font-medium mb-1">⚠️ Action irréversible (sans accès au nouvel admin principal)</p>
+              <ul className="list-disc list-inside space-y-1 text-xs">
+                <li>Vous resterez admin, mais perdrez la protection "principal".</li>
+                <li>Un autre admin pourra alors révoquer votre rôle.</li>
+                <li>Seul le nouvel admin principal pourra vous le retransférer.</li>
+              </ul>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTransferDialog(null)}>Annuler</Button>
+            <Button onClick={transferPrimary} className="gap-2">
+              <ArrowUpRight className="w-4 h-4" /> Confirmer le transfert
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
