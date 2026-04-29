@@ -261,10 +261,10 @@ export default function Billing() {
                     </ul>
 
                     <Button
-                      onClick={notReady}
+                      onClick={() => t.priceId && openCheckout(t.priceId)}
                       className="w-full"
                       variant={t.popular ? "default" : "outline"}
-                      disabled={isCurrent}
+                      disabled={isCurrent || !t.priceId || checkoutLoading}
                     >
                       {isCurrent ? "Plan actuel" : t.priceNum === 0 ? "Plan gratuit" : "Choisir"}
                     </Button>
@@ -365,7 +365,15 @@ export default function Billing() {
                   </div>
                   <div className="text-right">
                     <div className="text-lg font-bold">{p.price}</div>
-                    <Button onClick={notReady} size="sm" variant="outline" className="mt-1">Acheter</Button>
+                    <Button
+                      onClick={() => openCheckout(p.id)}
+                      size="sm"
+                      variant="outline"
+                      className="mt-1"
+                      disabled={checkoutLoading}
+                    >
+                      Acheter
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
