@@ -2,9 +2,10 @@ import { Sidebar } from "@/components/chatbot/Sidebar";
 import { Header } from "@/components/chatbot/Header";
 import { useSettings, DetailLevel } from "@/contexts/SettingsProvider";
 import { useLanguage, LANGS, Lang } from "@/i18n/LanguageProvider";
-import { Settings as SettingsIcon, Globe, Sparkles, MessageSquare, Trash2, RotateCcw, Check, Bell, Monitor, ChevronDown, Brain, CalendarClock, Heart, Workflow } from "lucide-react";
+import { Settings as SettingsIcon, Globe, Sparkles, MessageSquare, Trash2, RotateCcw, Check, Bell, Monitor, ChevronDown, Brain, CalendarClock, Heart, Workflow, Mic, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { Link } from "react-router-dom";
 import { useNotificationPrefs } from "@/hooks/useNotifications";
 import { NotificationType } from "@/services/notificationService";
 import { LocalAgentSection } from "@/components/chatbot/LocalAgentSection";
@@ -113,6 +114,23 @@ export default function Settings() {
               />
             </div>
           </CollapsibleSection>
+
+          {/* Voix — page dédiée */}
+          <Link
+            to="/settings/voice"
+            className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border border-border/60 bg-card/50 hover:bg-secondary/30 transition-colors"
+          >
+            <div className="w-7 h-7 rounded-md bg-primary/15 text-primary flex items-center justify-center flex-shrink-0">
+              <Mic className="w-4 h-4" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-sm font-semibold truncate">Voix de Nex</h2>
+              <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
+                Voix, modèle, température (initiative) et application vocale active.
+              </p>
+            </div>
+            <ChevronRight className="w-4 h-4 text-muted-foreground" />
+          </Link>
 
           {/* Personnalisation */}
           <CollapsibleSection
