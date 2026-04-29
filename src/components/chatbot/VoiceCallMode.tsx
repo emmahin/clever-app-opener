@@ -1,5 +1,5 @@
 import { forwardRef, useEffect, useRef, useState } from "react";
-import { X, PhoneOff, Minimize2, Mic } from "lucide-react";
+import { X, Minimize2, Mic, MicOff, Square } from "lucide-react";
 import { useTwinVoiceContext } from "@/contexts/TwinVoiceProvider";
 import { twinMemoryService, type MemoryCategory } from "@/services";
 import { useLanguage } from "@/i18n/LanguageProvider";
@@ -120,6 +120,8 @@ export const VoiceCallMode = forwardRef<HTMLDivElement, Props>(function VoiceCal
     clearTranscript,
     setContextProviders,
     audioLevel,
+    muted,
+    setMuted,
   } = useTwinVoiceContext();
 
   const [starting, setStarting] = useState(false);
@@ -394,13 +396,40 @@ export const VoiceCallMode = forwardRef<HTMLDivElement, Props>(function VoiceCal
         </div>
       </div>
 
+      {/* Contrôles : Mute · Stop · Quitter — repris de l'ancienne VoiceOrb. */}
       <div className="flex items-center gap-4">
         <button
+          onClick={() => setMuted(!muted)}
+          className={
+            "h-14 w-14 rounded-full border-2 backdrop-blur-md transition-all flex items-center justify-center " +
+            (muted
+              ? "border-rose-400/60 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20"
+              : "border-primary/50 bg-primary/10 text-foreground hover:bg-primary/20 shadow-[0_0_30px_hsl(270_90%_65%/0.4)]")
+          }
+          aria-label={muted ? "Réactiver le micro" : "Couper le micro"}
+          title={muted ? "Réactiver le micro" : "Couper le micro"}
+        >
+          {muted ? <Mic className="w-5 h-5" style={{ display: "none" }} /> : null}
+          {muted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+        </button>
+
+        <button
+          onClick={() => { endCall(); setMuted(true); }}
+          disabled={!isCallActive}
+          className="h-14 w-14 rounded-full border-2 border-rose-400/60 bg-rose-500/15 text-rose-100 hover:bg-rose-500/25 backdrop-blur-md transition-all shadow-[0_0_30px_hsl(0_85%_60%/0.35)] disabled:opacity-40 disabled:shadow-none flex items-center justify-center"
+          aria-label="Arrêter l'enregistrement"
+          title="Arrêter l'enregistrement"
+        >
+          <Square className="w-5 h-5 fill-current" />
+        </button>
+
+        <button
           onClick={() => { endCall(); onClose(); }}
-          className="w-14 h-14 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center hover:scale-105 transition-transform"
+          className="h-14 w-14 rounded-full border-2 border-white/10 bg-white/5 text-white/70 hover:bg-white/10 backdrop-blur-md flex items-center justify-center"
+          aria-label="Quitter"
           title={t("voiceHangUp")}
         >
-          <PhoneOff className="w-6 h-6" />
+          <X className="w-5 h-5" />
         </button>
       </div>
     </div>
