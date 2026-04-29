@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Mic, MicOff, X, ArrowLeft, Square } from "lucide-react";
+import { Mic, MicOff, X, Square, MessageSquare } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useTwinVoiceContext } from "@/contexts/TwinVoiceProvider";
@@ -188,11 +188,11 @@ export default function VoiceOrb() {
       {/* Header */}
       <div className="relative z-10 flex items-center justify-between p-5">
         <Link
-          to="/"
-          className="flex items-center gap-2 text-sm text-cyan-200/70 hover:text-cyan-200 transition-colors"
+          to="/home"
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs text-cyan-200/80 hover:text-cyan-100 border border-cyan-400/20 hover:border-cyan-400/40 bg-cyan-500/5 hover:bg-cyan-500/10 backdrop-blur-sm transition-colors"
         >
-          <ArrowLeft className="size-4" />
-          Retour
+          <MessageSquare className="size-3.5" />
+          Chat principal
         </Link>
         <div className="flex items-center gap-2">
           <span

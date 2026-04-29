@@ -709,10 +709,6 @@ export default function Index() {
                     <Trash2 className="w-4 h-4 mr-2" />
                     Effacer les messages
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setVoiceCallOpen(true)}>
-                    <PhoneCall className="w-4 h-4 mr-2" />
-                    Mode appel vocal
-                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => navigate("/settings")}>
                     <SlidersHorizontal className="w-4 h-4 mr-2" />
@@ -765,7 +761,6 @@ export default function Index() {
               <ChatInput
                 onSend={sendMessage}
                 disabled={isLoading}
-                onOpenVoiceCall={() => setVoiceCallOpen(true)}
               />
 
               {/* Suggestions desktop uniquement */}
