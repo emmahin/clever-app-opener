@@ -953,6 +953,11 @@ export default function Index() {
           return false;
         }}
       />
+      <InsufficientCreditsDialog
+        open={!!creditsDialog}
+        info={creditsDialog}
+        onClose={() => setCreditsDialog(null)}
+      />
     </div>
   );
 }
