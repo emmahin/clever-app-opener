@@ -534,9 +534,12 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
       // Premier segment : on accepte aussi une virgule ou un saut sur >= 18
       // caractères pour que Lia commence à parler quasi instantanément.
       if (!firstChunkSent && !force) {
-        // On démarre le TTS le plus tôt possible : dès 10 caractères suivis
-        // d'une virgule/ponctuation. Lia commence à parler quasi instantanément.
-        const earlyMatch = sentenceBuf.match(/^([^.!?…,]{10,}?[,.!?…])\s?/);
+        // Premier segment : on attend une VRAIE fin de phrase (. ! ? …)
+        // ou au minimum une proposition complète terminée par une virgule
+        // ASSEZ longue (≥ 25 caractères) pour ne jamais lire un fragment
+        // tronqué qui sonnerait coupé.
+        const earlyMatch = sentenceBuf.match(/^([^.!?…]{25,}?[.!?…])\s?/)
+          || sentenceBuf.match(/^([^.!?…,]{40,}?,)\s/);
         if (earlyMatch) {
           const s = earlyMatch[1].trim();
           onSentence?.(s);
