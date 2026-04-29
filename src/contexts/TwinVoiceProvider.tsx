@@ -279,13 +279,15 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
         if (!("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) return false;
         const utterance = new SpeechSynthesisUtterance(text);
         const voices = window.speechSynthesis.getVoices();
+        // Voix masculine FR en priorité (cohérent avec Charlie côté serveur).
         utterance.voice =
-          voices.find((v) => v.lang.toLowerCase().startsWith("fr") && /female|femme|hortense|amelie|audrey|julie|marie/i.test(v.name)) ||
+          voices.find((v) => v.lang.toLowerCase().startsWith("fr") && /male|homme|thomas|nicolas|paul|daniel|henri|guillaume/i.test(v.name) && !/female|femme/i.test(v.name)) ||
+          voices.find((v) => v.lang.toLowerCase().startsWith("fr") && !/female|femme|hortense|amelie|audrey|julie|marie/i.test(v.name)) ||
           voices.find((v) => v.lang.toLowerCase().startsWith("fr")) ||
           null;
         utterance.lang = "fr-FR";
-        utterance.rate = 1.05;
-        utterance.pitch = 1.05;
+        utterance.rate = 1.0;
+        utterance.pitch = 0.9; // un peu plus grave
         utterance.volume = 1;
         currentUtteranceRef.current = utterance;
         const cleanup = () => {
