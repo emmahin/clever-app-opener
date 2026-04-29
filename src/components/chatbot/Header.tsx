@@ -1,4 +1,4 @@
-import { User, LogOut, Settings as SettingsIcon, Coins, Shield, Infinity as InfinityIcon, Calendar, ArrowLeft } from "lucide-react";
+import { User, LogOut, Settings as SettingsIcon, Coins, Shield, Infinity as InfinityIcon, Calendar, ArrowLeft, Phone } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { NotificationBell } from "./NotificationBell";
 import { useAuth } from "@/hooks/useAuth";
@@ -29,18 +29,53 @@ export function Header(_props: HeaderProps = {}) {
     if (window.history.length > 1) navigate(-1);
     else navigate("/");
   };
+  // Bouton « Retour au mode vocal » : ouvre l'overlay VoiceCallMode depuis n'importe quelle page.
+  // Si on n'est pas sur "/", on y navigue d'abord puis on dispatch l'évènement.
+  const openVoiceCall = () => {
+    if (location.pathname !== "/") {
+      navigate("/");
+      // Laisse le temps à Index de monter et d'attacher le listener.
+      setTimeout(() => window.dispatchEvent(new Event("app:open-voice-call")), 250);
+    } else {
+      window.dispatchEvent(new Event("app:open-voice-call"));
+    }
+  };
   return (
     <header
       className="fixed top-0 left-0 md:[left:var(--sidebar-w,280px)] md:transition-[left] md:duration-300 right-0 h-14 flex items-center justify-end pl-14 pr-3 md:px-6 gap-2 z-40"
       style={{ background: "linear-gradient(90deg, hsl(0, 0%, 4%, 0.95), hsl(275, 70%, 22%, 0.95))" }}>
       {showBack && (
+        <div className="mr-auto flex items-center gap-2">
+          <button
+            onClick={goBack}
+            title="Retour"
+            aria-label="Retour"
+            className="w-9 h-9 rounded-lg bg-white/20 flex items-center justify-center text-white hover:bg-white/25 transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <button
+            onClick={openVoiceCall}
+            title="Retour au mode vocal"
+            aria-label="Retour au mode vocal"
+            className="h-9 px-3 rounded-lg flex items-center gap-1.5 text-white text-xs font-semibold transition-colors"
+            style={{ background: "linear-gradient(135deg, hsl(275, 80%, 55%), hsl(290, 75%, 50%))" }}
+          >
+            <Phone className="w-4 h-4" />
+            <span className="hidden sm:inline">Mode vocal</span>
+          </button>
+        </div>
+      )}
+      {!showBack && (
         <button
-          onClick={goBack}
-          title="Retour"
-          aria-label="Retour"
-          className="mr-auto w-9 h-9 rounded-lg bg-white/20 flex items-center justify-center text-white hover:bg-white/25 transition-colors"
+          onClick={openVoiceCall}
+          title="Ouvrir le mode vocal"
+          aria-label="Ouvrir le mode vocal"
+          className="mr-auto h-9 px-3 rounded-lg flex items-center gap-1.5 text-white text-xs font-semibold transition-colors"
+          style={{ background: "linear-gradient(135deg, hsl(275, 80%, 55%), hsl(290, 75%, 50%))" }}
         >
-          <ArrowLeft className="w-5 h-5" />
+          <Phone className="w-4 h-4" />
+          <span className="hidden sm:inline">Mode vocal</span>
         </button>
       )}
       {/* Right actions */}
