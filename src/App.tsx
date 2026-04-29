@@ -23,6 +23,7 @@ import Agenda from "./pages/Agenda.tsx";
 import OpenAIDiagnostics from "./pages/OpenAIDiagnostics.tsx";
 import VoiceAdmin from "./pages/VoiceAdmin.tsx";
 import VoiceSettings from "./pages/VoiceSettings.tsx";
+import Admin from "./pages/Admin.tsx";
 import { AuthGuard } from "@/components/AuthGuard";
 import { RootErrorBoundary } from "@/components/RootErrorBoundary";
 import { useVoiceNavigation } from "@/hooks/useVoiceNavigation";
@@ -64,6 +65,7 @@ const App = () => (
             <Route path="/agenda" element={<AuthGuard><Agenda /></AuthGuard>} />
             <Route path="/openai-diagnostics" element={<OpenAIDiagnostics />} />
             <Route path="/admin/voice" element={<AuthGuard><VoiceAdmin /></AuthGuard>} />
+            <Route path="/admin" element={<AuthGuard><Admin /></AuthGuard>} />
             {/* /voice-orb supprimé : l'unique interface vocale est l'overlay VoiceCallMode (depuis l'icône téléphone du chat). */}
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
