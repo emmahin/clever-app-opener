@@ -612,22 +612,24 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
                 </div>
               </TooltipContent>
             </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={onOpenVoiceCall}
-                  className="w-10 h-10 rounded-full bg-foreground text-background flex items-center justify-center hover:scale-105 transition-transform shadow-lg"
-                >
-                  <AudioLines className="w-5 h-5" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                <div className="flex items-center gap-2">
-                  <AudioLines className="w-3.5 h-3.5" />
-                  <span>{t("voiceCall")}</span>
-                </div>
-              </TooltipContent>
-            </Tooltip>
+            {onOpenVoiceCall && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={onOpenVoiceCall}
+                    className="w-10 h-10 rounded-full bg-foreground text-background flex items-center justify-center hover:scale-105 transition-transform shadow-lg"
+                  >
+                    <AudioLines className="w-5 h-5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <div className="flex items-center gap-2">
+                    <AudioLines className="w-3.5 h-3.5" />
+                    <span>{t("voiceCall")}</span>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            )}
             </div>
           </TooltipProvider>
         </div>
