@@ -671,30 +671,29 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
       let ttsRunning = false;
       let firstSpoken = false;
       let drainResolveOnIdle: (() => void) | null = null;
-      // Pré-fetch TTS : on lance la requête réseau dès qu'une phrase entre
-      // dans la file, et on commence à parler la suivante AVANT même la fin
-      // de la précédente (lecture quasi-collée, sans micro-silence réseau).
-      const prefetched = new Map<string, Promise<void>>();
+      // Pré-fetch TTS : dès qu'une phrase entre dans la file, on lance la
+      // requête vers voice-tts EN PARALLÈLE. Pendant qu'on lit la phrase N,
+      // la phrase N+1 (et N+2…) est déjà téléchargée → enchaînement collé.
+      const prefetched = new Map<string, Promise<Blob | null>>();
       const ensureFetched = (s: string) => {
-        if (!prefetched.has(s)) {
-          // On lance la pré-requête : speak() utilisera le cache HTTP du
-          // navigateur si l'URL est identique. À défaut, l'objet n'est pas
-          // utilisé directement mais la connexion / DNS est déjà chaude.
-          prefetched.set(s, Promise.resolve());
-        }
+        if (!prefetched.has(s)) prefetched.set(s, fetchTtsBlob(s));
       };
       const drainQueue = async () => {
         if (ttsRunning) return;
         ttsRunning = true;
         while (ttsQueue.length > 0 && !cycleAbortRef.current.aborted) {
           const next = ttsQueue.shift()!;
-          // Pré-chauffe la phrase suivante en parallèle de la lecture actuelle.
-          if (ttsQueue.length > 0) ensureFetched(ttsQueue[0]);
+          ensureFetched(next);
+          // Pré-chauffe les 2 phrases suivantes en parallèle.
+          if (ttsQueue[0]) ensureFetched(ttsQueue[0]);
+          if (ttsQueue[1]) ensureFetched(ttsQueue[1]);
           if (!firstSpoken) {
             firstSpoken = true;
             setPhase("speaking");
           }
-          await speak(next);
+          const blob = await prefetched.get(next)!;
+          prefetched.delete(next);
+          await speak(next, blob);
         }
         ttsRunning = false;
         if (drainResolveOnIdle) { drainResolveOnIdle(); drainResolveOnIdle = null; }
