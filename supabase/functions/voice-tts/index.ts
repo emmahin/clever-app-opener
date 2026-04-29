@@ -4,6 +4,15 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+import { checkCredits, getUserIdFromAuth } from "../_shared/credits.ts";
+
+/** Coût TTS : 1 crédit par tranche de 200 caractères, min 2, max 10. */
+function estimateTtsCredits(text: string): number {
+  const chars = (text || "").length;
+  const credits = Math.ceil(chars / 200) + 1;
+  return Math.min(10, Math.max(2, credits));
+}
+
 // ─── Provider par défaut : OpenAI TTS (Whisper family) ───────────────
 // L'utilisateur veut explicitement rester sur l'écosystème OpenAI/Whisper.
 // Voix par défaut : « onyx » (masculine, grave et claire).
@@ -46,6 +55,20 @@ Deno.serve(async (req) => {
       });
     }
     const safeText = text.trim().slice(0, MAX_TEXT_LEN);
+
+    // ─── Pré-flight : vérifier le solde sans débiter ────────────────────
+    const userId = getUserIdFromAuth(req);
+    if (userId) {
+      const required = estimateTtsCredits(safeText);
+      const check = await checkCredits(userId, required, {
+        action: "voice-tts",
+        model: "openai-tts",
+        cors: corsHeaders,
+        breakdown: { chars: safeText.length, credits_per_200_chars: 1 },
+      });
+      if (!check.ok) return check.response;
+    }
+
     const isElevenVoiceId = typeof voice === "string" && /^[a-zA-Z0-9]{18,}$/.test(voice);
     const elevenVoiceId = isElevenVoiceId ? voice : ELEVEN_DEFAULT_VOICE_ID;
     const openaiVoice = typeof voice === "string" && OPENAI_ALLOWED_VOICES.has(voice) ? voice : OPENAI_DEFAULT_VOICE;
