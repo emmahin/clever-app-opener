@@ -25,8 +25,15 @@ import VoiceAdmin from "./pages/VoiceAdmin.tsx";
 import VoiceOrb from "./pages/VoiceOrb.tsx";
 import { AuthGuard } from "@/components/AuthGuard";
 import { RootErrorBoundary } from "@/components/RootErrorBoundary";
+import { useVoiceNavigation } from "@/hooks/useVoiceNavigation";
 
 const queryClient = new QueryClient();
+
+/** Composant interne pour activer la navigation vocale (doit être dans le Router). */
+const VoiceNavigationBridge = () => {
+  useVoiceNavigation();
+  return null;
+};
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -39,6 +46,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <VoiceNavigationBridge />
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route path="/install" element={<Install />} />
