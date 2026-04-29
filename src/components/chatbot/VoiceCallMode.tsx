@@ -409,7 +409,6 @@ export const VoiceCallMode = forwardRef<HTMLDivElement, Props>(function VoiceCal
           aria-label={muted ? "Réactiver le micro" : "Couper le micro"}
           title={muted ? "Réactiver le micro" : "Couper le micro"}
         >
-          {muted ? <Mic className="w-5 h-5" style={{ display: "none" }} /> : null}
           {muted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
         </button>
 
