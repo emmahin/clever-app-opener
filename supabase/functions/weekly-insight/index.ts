@@ -1,6 +1,7 @@
 // Edge function : génère 1-3 insights hebdomadaires depuis les moods des 7 derniers jours.
 // Évite les doublons : skippe si un insight a déjà été créé < 6 jours.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { checkCredits } from "../_shared/credits.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -82,6 +83,17 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: true, skipped: "not_enough_data", count: moods?.length ?? 0 }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // ─── Pré-flight crédits : 15 (génération IA hebdo, multi-insights) ──
+    {
+      const check = await checkCredits(user.id, 15, {
+        action: "weekly-insight",
+        model: "google/gemini-3-flash-preview",
+        cors: corsHeaders,
+        breakdown: { fixed_cost: 15, reason: "weekly summary (1 generation / 7 days)" },
+      });
+      if (!check.ok) return check.response;
     }
 
     const apiKey = Deno.env.get("LOVABLE_API_KEY");
