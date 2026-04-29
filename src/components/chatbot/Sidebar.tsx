@@ -1,4 +1,4 @@
-import { Menu, X, Search, MessageSquare, Trash2, Plus } from "lucide-react";
+import { Menu, X, Search, MessageSquare, Trash2, Plus, Mic } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
@@ -82,6 +82,10 @@ export function Sidebar() {
     if (pathname !== "/menu") navigate("/menu");
   };
 
+  const goVoice = () => {
+    if (pathname !== "/") navigate("/");
+  };
+
   // ─── Contenu replié (rail vertical) ───
   const collapsedContent = (
     <div className="flex flex-col items-center h-full py-3 gap-3">
@@ -93,11 +97,21 @@ export function Sidebar() {
         <img src={nexLogo} alt="Nex" className="w-full h-full object-cover" />
       </button>
       <button
+        onClick={goVoice}
+        title="Assistant vocal"
+        className={cn(
+          "w-10 h-10 rounded-lg flex items-center justify-center text-white/70 hover:bg-white/10 hover:text-white transition",
+          pathname === "/" && "bg-white/15 text-white"
+        )}
+      >
+        <Mic className="w-5 h-5" />
+      </button>
+      <button
         onClick={goAiTools}
         title="AI Tools"
         className={cn(
           "w-10 h-10 rounded-lg flex items-center justify-center text-white/70 hover:bg-white/10 hover:text-white transition",
-          pathname === "/" && "bg-white/15 text-white"
+          pathname === "/menu" && "bg-white/15 text-white"
         )}
       >
         <MessageSquare className="w-5 h-5" />
