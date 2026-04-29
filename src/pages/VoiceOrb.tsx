@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Mic, MicOff, X, ArrowLeft } from "lucide-react";
+import { Mic, MicOff, X, ArrowLeft, Square } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useTwinVoiceContext } from "@/contexts/TwinVoiceProvider";
@@ -250,6 +250,26 @@ export default function VoiceOrb() {
           aria-label={muted ? "Réactiver le micro" : "Couper le micro"}
         >
           {muted ? <MicOff className="size-5" /> : <Mic className="size-5" />}
+        </Button>
+
+        <Button
+          onClick={() => {
+            endCall();
+            setMuted(true);
+          }}
+          disabled={!isCallActive}
+          size="lg"
+          variant="outline"
+          className={cn(
+            "h-14 w-14 rounded-full border-2 backdrop-blur-md transition-all",
+            "border-rose-400/60 bg-rose-500/15 text-rose-100 hover:bg-rose-500/25",
+            "shadow-[0_0_30px_hsl(0_85%_60%/0.35)]",
+            "disabled:opacity-40 disabled:shadow-none",
+          )}
+          aria-label="Arrêter l'enregistrement"
+          title="Arrêter l'enregistrement"
+        >
+          <Square className="size-5 fill-current" />
         </Button>
 
         <Button
