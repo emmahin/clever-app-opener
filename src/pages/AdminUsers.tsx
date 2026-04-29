@@ -258,9 +258,22 @@ export default function AdminUsers() {
                                 <Lock className="w-3.5 h-3.5" />
                               </Button>
                             ) : u.is_admin ? (
-                              <Button size="sm" variant="outline" className="h-8 gap-1" onClick={() => revoke(u)}>
-                                <ShieldOff className="w-3.5 h-3.5" /> Révoquer
-                              </Button>
+                              <>
+                                {callerIsPrimary && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-8 gap-1"
+                                    title="Transférer le rôle d'admin principal à cet utilisateur"
+                                    onClick={() => setTransferDialog({ user: u })}
+                                  >
+                                    <Crown className="w-3.5 h-3.5 text-amber-500" />
+                                  </Button>
+                                )}
+                                <Button size="sm" variant="outline" className="h-8 gap-1" onClick={() => revoke(u)}>
+                                  <ShieldOff className="w-3.5 h-3.5" /> Révoquer
+                                </Button>
+                              </>
                             ) : (
                               <Button size="sm" className="h-8 gap-1" onClick={() => promote(u)}>
                                 <Shield className="w-3.5 h-3.5" /> Promouvoir
