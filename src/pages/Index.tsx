@@ -807,7 +807,6 @@ export default function Index() {
       <VoiceCallMode
         open={voiceCallOpen}
         onClose={() => setVoiceCallOpen(false)}
-        onInsufficientCredits={(info) => setCreditsDialog(info)}
         onTurn={(turn) => {
           // Enregistre chaque tour vocal (utilisateur + IA) dans le chat texte courant.
           const msg: ChatMessage = {
