@@ -1,96 +1,64 @@
+# Plan — Diagnostic de la clé OpenAI
+
 ## Objectif
 
-Transformer la racine `/` en **expérience vocale immersive** (style Jarvis), et déplacer **toute l'app actuelle** (chat texte, sidebar, projets, header) sur une nouvelle route `/menu` accessible aussi bien à la souris qu'à la voix ("ouvre le menu", "retour au chat", etc.).
+Créer un outil pour voir exactement à quoi votre clé `OPENAI_API_KEY` (celle de platform.openai.com, avec ses règles de projet) a accès : liste des modèles, accès Whisper, accès TTS, accès Chat Completions.
 
-Aucune fonctionnalité existante n'est supprimée. Aucune edge function n'est touchée. STT/TTS = pile actuelle (`voice-transcribe` + `voice-chat` + `elevenlabs-tts`).
+## Ce qui existe déjà (rappel)
 
-## Architecture des routes après changement
+- `**voice-tts**` = seule fonction qui parle directement à `api.openai.com` avec votre clé. C'est elle qui plante avec `model_not_found`.
+- Tout le reste (chat, transcription, traduction…) passe par **Lovable AI Gateway**, donc ne touche pas à votre clé OpenAI.
+- Aucune fonction d'introspection n'existe.
 
-```
-/              → NOUVELLE page Voice (orbe immersif plein écran)
-/menu          → l'ancienne page Index (chat texte + sidebar + projets)
-/dashboard     → inchangé
-/agenda        → inchangé
-/settings      → inchangé
-/documents, /video, /billing, /notifications, /admin/*, /auth → inchangés
-```
+## Ce qu'on va construire
 
-Aucune URL existante ne casse, sauf `/` qui change de rôle. Tous les composants qui faisaient `navigate("/")` pour revenir au chat seront mis à jour vers `/menu`.
+### 1. Nouvelle edge function `openai-diagnostics`
 
-## La nouvelle page `/` (Voice)
+Fichier : `supabase/functions/openai-diagnostics/index.ts`
 
-Fichier : `src/pages/Voice.tsx` + composants dédiés dans `src/components/voice/`.
+Appelle directement l'API OpenAI avec votre `OPENAI_API_KEY` (jamais Lovable AI Gateway) et retourne un rapport JSON :
 
-### Visuel
-- Plein écran, fond noir/bleu nuit avec dégradé radial spatial.
-- **Orbe central** unique, ~40% de la largeur viewport :
-  - Sphère SVG avec gradient cyan→violet, halo glow externe.
-  - **3 anneaux** SVG en rotation lente (déjà éprouvé via `ChatOrb`, on le réécrit en plus immersif).
-  - **Ondes / particules** générées en `<canvas>` à partir de l'AnalyserNode du micro (FFT 256 bins → barres radiales).
-- États avec couleur dominante :
-  - **idle** (respiration) → bleu doux, scale 1.0 ↔ 1.04, 4s.
-  - **listening** (utilisateur parle) → cyan vif, scale réagit au volume RMS du micro.
-  - **thinking** (IA réfléchit) → violet pulsant + anneaux qui accélèrent.
-  - **speaking** (IA répond) → cyan animé + ondes pilotées par l'AnalyserNode de l'audio TTS.
-- Transitions de couleur et d'échelle fluides via CSS transitions + `requestAnimationFrame` pour le canvas (60fps).
+- `**GET /v1/models**` → liste complète des modèles accessibles à la clé, regroupés par famille :
+  - Chat (`gpt-4o`, `gpt-4o-mini`, `gpt-4-turbo`, `gpt-3.5-*`, `o1-*`, `gpt-5-*`…)
+  - Audio TTS (`tts-1`, `tts-1-hd`, `gpt-4o-mini-tts`…)
+  - Audio STT / Whisper (`whisper-1`, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`…)
+  - Embeddings, Images, Moderation, Realtime, autres
+- **Tests d'accès réels** (probe minimal pour distinguer "listé" vs "vraiment utilisable") :
+  - Test Whisper : POST minimal sur `/v1/audio/transcriptions` avec un mini buffer audio silencieux → on regarde si on récupère 200, 401, 403 ou `model_not_found`.
+  - Test TTS : POST sur `/v1/audio/speech` avec `tts-1` + 1 mot → idem.
+  - Test Chat : POST sur `/v1/chat/completions` avec `gpt-4o-mini` + 1 token max.
+- Renvoie pour chaque test : `{ ok: boolean, status: number, errorCode?: string, errorMessage?: string }`.
 
-### Bas d'écran
-- Gros bouton micro circulaire (toggle mute / push-to-talk).
-- Pastille d'état texte discrète : "À l'écoute…", "Je réfléchis…", "Je réponds…".
-- Bouton "Menu" en haut à droite → navigue vers `/menu`.
-- Transcription live en bas (optionnelle, toggleable, petite typo).
-- Bouton mute en bas à gauche.
+Auth : la fonction exige un JWT utilisateur valide (lecture du header `Authorization`) pour éviter qu'un visiteur anonyme l'utilise pour pinger OpenAI à votre place.
 
-### Comportement
-- Au mount : démarre le mode vocal continu via `TwinVoiceProvider` (déjà existant).
-- Détection vocale d'intents (réutilise la fonction `detectVoiceIntent` déjà présente dans `VoiceCallMode.tsx`) : si l'utilisateur dit "ouvre le menu", "ouvre l'agenda", "va aux paramètres"… → `navigate(path)` automatique.
-- Ajout de l'intent `"menu"` qui mappe vers `/menu` ("ouvre le menu", "retour au chat", "le chat").
-- Timeout silence : après 30 s sans parole, retour à l'état idle (respiration).
+### 2. Nouvelle page front `/openai-diagnostics`
 
-### Technique
-- Web Audio API : `AudioContext` + `MediaStreamSource` + `AnalyserNode` (fftSize 256) sur le `MediaStream` exposé par `webVoiceService.getStream()`.
-- Animation canvas en `requestAnimationFrame`, cleanup propre dans `useEffect`.
-- Pour l'audio TTS, on branche aussi un `AnalyserNode` sur l'`HTMLAudioElement` retourné par `speakWithElevenLabs` (via `MediaElementAudioSource`).
-- Pas de nouvelle dépendance (pas de Framer Motion, pas de GSAP) — tout en CSS + canvas natif pour rester léger.
+Fichier : `src/pages/OpenAIDiagnostics.tsx` + route ajoutée dans `src/App.tsx`.
 
-## Réorganisation
+Interface simple (shadcn `Card` + `Badge` + `Button`) , accessible meme sans être logué (pour l'instant) :
 
-1. **`src/pages/Index.tsx` → `src/pages/Menu.tsx`** : renommé tel quel, zéro changement fonctionnel (le chat texte reste 100% identique).
-2. **`src/pages/Voice.tsx`** : nouvelle page (~250 lignes).
-3. **`src/components/voice/VoiceOrb.tsx`** : composant orbe immersif (SVG + canvas).
-4. **`src/components/voice/VoiceHud.tsx`** : boutons micro/mute/menu + état texte + transcription.
-5. **`src/App.tsx`** : route `/` → `<Voice />`, route `/menu` → `<Menu />`.
-6. **Recherche/remplacement** des `navigate("/")` qui voulaient dire "retourne au chat" → `navigate("/menu")`. Concerne notamment `Sidebar.tsx`, `VoiceCallMode.tsx`, `Header.tsx` (si présent). On ne touche PAS aux liens "logo accueil" : eux gardent `/` (= orbe).
-7. **`Sidebar.tsx`** : ajouter un item "Assistant vocal" pointant vers `/` en haut de menu.
+- Bouton **« Lancer le diagnostic »** qui appelle `supabase.functions.invoke("openai-diagnostics")`.
+- Affichage :
+  - **Bandeau de capacités** : 4 badges colorés (Chat / Whisper / TTS / Embeddings) → vert si accessible, rouge sinon, avec le message d'erreur OpenAI exact en tooltip.
+  - **Tableau des modèles** : liste complète retournée par `/v1/models`, groupée par catégorie, avec ID + date de création + propriétaire.
+  - **Détails bruts** : section pliable avec la réponse JSON complète pour debug.
+- État de chargement et gestion d'erreur propre (clé absente, 401, réseau).
 
-## Détails techniques (section dev)
+### 3. Accès à la page
 
-```text
-src/pages/Voice.tsx
-├── useTwinVoiceContext()        // déjà branché sur voice-chat + ElevenLabs
-├── useVoiceAnalyser(stream)     // hook custom : RMS + FFT bins, 60fps
-└── render
-    ├── <VoiceOrb state={...} amplitude={rms} fft={bins} />
-    └── <VoiceHud onMute onMenu transcript state />
+Ajouter un lien discret dans la sidebar (ou via une URL directe `/openai-diagnostics`). Dites-moi votre préférence si vous voulez un emplacement précis — sinon je la mets en accès direct par URL + lien dans Settings.
 
-src/components/voice/VoiceOrb.tsx
-├── <svg> sphère + 3 anneaux animés (CSS transform)
-└── <canvas> particules / waveform radial (rAF)
+## Détails techniques
 
-src/hooks/useVoiceAnalyser.ts
-└── crée AudioContext + AnalyserNode, expose { rms, frequencyData }
-```
+- Pas de modification de `voice-tts` dans ce plan — on traite d'abord le diagnostic. Une fois que vous saurez quels modèles TTS sont réellement accessibles à votre clé, on ajustera `voice-tts` pour n'utiliser que ceux-là (ou on basculera la transcription vers Whisper si vous y avez accès).
+- Aucune utilisation du Lovable AI Gateway dans cette nouvelle fonction.
+- CORS standard, `verify_jwt = false` côté config (la fonction valide le JWT manuellement) — cohérent avec les autres fonctions du projet.
+- Aucune migration DB nécessaire.
 
-État dérivé pour la couleur :
-- `idle`     → `--orb: hsl(220 90% 60%)`
-- `listening`→ `--orb: hsl(195 95% 60%)`
-- `thinking` → `--orb: hsl(280 90% 65%)`
-- `speaking` → `--orb: hsl(180 95% 60%)`
+## Livrable
 
-Couleurs ajoutées comme tokens dans `index.css` (HSL, semantic).
+Après approbation :
 
-## Hors scope
-- Pas de nouveau provider vocal (Conversational Agent, Realtime, etc.).
-- Pas de modification des edge functions.
-- Pas de suppression de pages, services, ou intégrations existantes.
-- Pas de migration DB.
+1. Edge function `openai-diagnostics` déployée.
+2. Page `/openai-diagnostics` accessible et fonctionnelle.
+3. Vous pourrez voir en un clic : liste exacte des modèles + statut Whisper/TTS/Chat derrière votre clé.
