@@ -4,7 +4,7 @@
  * Architecture (zéro abonnement payant) :
  *   1. STT (parole→texte)  : voiceService (edge function `voice-transcribe`, Gemini via Lovable AI)
  *   2. LLM (texte→réponse) : edge function `ai-orchestrator` — MÊMES mémoires/insights que le chat texte
- *   3. TTS (texte→parole)  : OpenAI TTS (voix « shimmer ») via edge function `voice-tts`,
+ *   3. TTS (texte→parole)  : OpenAI TTS (voix masculine « onyx ») via edge function `voice-tts`,
  *      avec repli automatique sur la voix native du navigateur en cas d'erreur.
  *
  * On garde EXACTEMENT la même API publique (`useTwinVoiceContext`) pour ne rien
@@ -260,7 +260,7 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
       const resp = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, voice: "onyx" }),
       });
       if (!resp.ok) return null;
       const ct = resp.headers.get("Content-Type") || "";
@@ -311,7 +311,7 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
           const resp = await fetch(url, {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ text }),
+            body: JSON.stringify({ text, voice: "onyx" }),
           });
           if (!resp.ok) throw new Error(`TTS HTTP ${resp.status}`);
           const contentType = resp.headers.get("Content-Type") || "";
