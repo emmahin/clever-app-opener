@@ -179,7 +179,7 @@ export default function VoiceOrb() {
         className="absolute inset-0 opacity-90"
         style={{
           background:
-            "radial-gradient(ellipse 70% 50% at 50% 40%, hsl(230 80% 18% / 0.9), transparent 70%), radial-gradient(ellipse 60% 60% at 20% 80%, hsl(275 80% 15% / 0.8), transparent 70%), radial-gradient(ellipse 60% 60% at 80% 20%, hsl(195 80% 14% / 0.8), transparent 70%), #03040d",
+            "radial-gradient(ellipse 70% 50% at 50% 40%, hsl(230 80% 18% / 0.9), transparent 70%), radial-gradient(ellipse 60% 60% at 20% 80%, hsl(190 80% 15% / 0.8), transparent 70%), radial-gradient(ellipse 60% 60% at 80% 20%, hsl(195 80% 14% / 0.8), transparent 70%), #03040d",
         }}
       />
       {/* Étoiles */}

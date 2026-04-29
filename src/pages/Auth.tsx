@@ -58,7 +58,7 @@ export default function Auth() {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex items-center justify-center px-4"
-      style={{ background: "radial-gradient(ellipse at top, hsl(275, 85%, 15%), hsl(0, 0%, 4%))" }}>
+      style={{ background: "radial-gradient(ellipse at top, hsl(190, 85%, 15%), hsl(0, 0%, 4%))" }}>
       <div className="w-full max-w-md">
         <div className="flex items-center justify-center mb-8 gap-3">
           <div className="w-12 h-12 rounded-2xl bg-primary/20 flex items-center justify-center">

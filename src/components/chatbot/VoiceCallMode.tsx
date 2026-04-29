@@ -328,12 +328,12 @@ export const VoiceCallMode = forwardRef<HTMLDivElement, Props>(function VoiceCal
             style={{
               background:
                 phase === "listening"
-                  ? "conic-gradient(from 0deg, hsl(320 95% 60% / 0.55), hsl(280 90% 60% / 0.45), hsl(260 95% 65% / 0.55), hsl(320 95% 60% / 0.55))"
+                  ? "conic-gradient(from 0deg, hsl(175 95% 60% / 0.55), hsl(190 90% 60% / 0.45), hsl(200 95% 65% / 0.55), hsl(175 95% 60% / 0.55))"
                   : phase === "thinking"
-                  ? "conic-gradient(from 0deg, hsl(45 95% 60% / 0.45), hsl(285 90% 60% / 0.45), hsl(200 90% 60% / 0.45), hsl(45 95% 60% / 0.45))"
+                  ? "conic-gradient(from 0deg, hsl(45 95% 60% / 0.45), hsl(175 90% 60% / 0.45), hsl(200 90% 60% / 0.45), hsl(45 95% 60% / 0.45))"
                   : phase === "speaking"
-                  ? "conic-gradient(from 0deg, hsl(270 95% 65% / 0.55), hsl(310 90% 65% / 0.5), hsl(250 95% 65% / 0.55), hsl(270 95% 65% / 0.55))"
-                  : "radial-gradient(circle at center, hsl(270 80% 50% / 0.35), transparent 70%)",
+                  ? "conic-gradient(from 0deg, hsl(190 95% 65% / 0.55), hsl(175 90% 65% / 0.5), hsl(200 95% 65% / 0.55), hsl(190 95% 65% / 0.55))"
+                  : "radial-gradient(circle at center, hsl(190 80% 50% / 0.35), transparent 70%)",
             }}
           />
           {/* Cercle + étoiles en orbite (même visuel que l'écran d'accueil) */}

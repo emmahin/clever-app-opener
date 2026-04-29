@@ -425,35 +425,35 @@ function StocksWidget({ items }: { items: Stock[] }) {
                   <LineChart data={s.series} margin={{ top: 6, right: 12, left: 2, bottom: 2 }}>
                     <defs>
                       <marker id={`mwAx-${s.symbol}`} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
-                        <path d="M0,0 L10,5 L0,10 z" fill="hsl(250, 15%, 55%)" />
+                        <path d="M0,0 L10,5 L0,10 z" fill="hsl(200, 15%, 55%)" />
                       </marker>
                       <marker id={`mwAy-${s.symbol}`} viewBox="0 0 10 10" refX="5" refY="2" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
-                        <path d="M0,10 L5,0 L10,10 z" fill="hsl(250, 15%, 55%)" />
+                        <path d="M0,10 L5,0 L10,10 z" fill="hsl(200, 15%, 55%)" />
                       </marker>
                     </defs>
-                    <CartesianGrid stroke="hsl(250, 15%, 45% / 0.22)" strokeWidth={0.5} />
+                    <CartesianGrid stroke="hsl(200, 15%, 45% / 0.22)" strokeWidth={0.5} />
                     <XAxis
                       dataKey="t"
-                      tick={{ fill: "hsl(250, 15%, 70%)", fontSize: 8 }}
+                      tick={{ fill: "hsl(200, 15%, 70%)", fontSize: 8 }}
                       tickLine={false}
-                      axisLine={{ stroke: "hsl(250, 15%, 55%)", strokeWidth: 1, markerEnd: `url(#mwAx-${s.symbol})` }}
+                      axisLine={{ stroke: "hsl(200, 15%, 55%)", strokeWidth: 1, markerEnd: `url(#mwAx-${s.symbol})` }}
                       interval="preserveStartEnd"
                     />
                     <YAxis
-                      tick={{ fill: "hsl(250, 15%, 70%)", fontSize: 8 }}
+                      tick={{ fill: "hsl(200, 15%, 70%)", fontSize: 8 }}
                       tickLine={false}
-                      axisLine={{ stroke: "hsl(250, 15%, 55%)", strokeWidth: 1, markerEnd: `url(#mwAy-${s.symbol})` }}
+                      axisLine={{ stroke: "hsl(200, 15%, 55%)", strokeWidth: 1, markerEnd: `url(#mwAy-${s.symbol})` }}
                       width={24}
                       domain={["auto", "auto"]}
                     />
                     <Tooltip
                       contentStyle={{
-                        background: "hsl(250, 35%, 9%)",
-                        border: "1px solid hsl(260, 30%, 18%)",
+                        background: "hsl(200, 35%, 9%)",
+                        border: "1px solid hsl(200, 30%, 18%)",
                         borderRadius: "8px",
                         fontSize: "10px",
                       }}
-                      labelStyle={{ color: "hsl(250, 15%, 65%)" }}
+                      labelStyle={{ color: "hsl(200, 15%, 65%)" }}
                       formatter={(v: number) => [v.toFixed(2), "Cours"]}
                     />
                     <Line type="monotone" dataKey="close" stroke={stroke} strokeWidth={2} dot={{ fill: stroke, stroke: stroke, r: 2.5 }} activeDot={{ r: 3.5 }} isAnimationActive={false} />
@@ -474,7 +474,7 @@ const CHART_PALETTE = [
   "hsl(var(--accent))",
   "hsl(142, 76%, 60%)",
   "hsl(38, 92%, 60%)",
-  "hsl(280, 70%, 65%)",
+  "hsl(190, 70%, 65%)",
   "hsl(190, 80%, 55%)",
   "hsl(0, 75%, 65%)",
 ];

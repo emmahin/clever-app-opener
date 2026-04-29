@@ -99,7 +99,7 @@ export function NotificationBell() {
       <PopoverContent
         align="end"
         sideOffset={8}
-        className="w-[360px] p-0 bg-gradient-to-b from-[hsl(0,0%,6%)] to-[hsl(275,40%,12%)] border-white/10"
+        className="w-[360px] p-0 bg-gradient-to-b from-[hsl(0,0%,6%)] to-[hsl(190,40%,12%)] border-white/10"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">

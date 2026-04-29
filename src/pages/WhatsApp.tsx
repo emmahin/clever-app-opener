@@ -407,7 +407,7 @@ export default function WhatsAppPage() {
 
   const pageBg = {
     backgroundImage:
-      "radial-gradient(ellipse 100% 80% at 20% 100%, hsl(280 90% 35%) 0%, transparent 55%), radial-gradient(ellipse 90% 70% at 80% 90%, hsl(295 85% 28%) 0%, transparent 55%), linear-gradient(180deg, hsl(0 0% 0%) 0%, hsl(275 60% 6%) 55%, hsl(270 75% 18%) 100%)",
+      "radial-gradient(ellipse 100% 80% at 20% 100%, hsl(190 90% 35%) 0%, transparent 55%), radial-gradient(ellipse 90% 70% at 80% 90%, hsl(175 85% 28%) 0%, transparent 55%), linear-gradient(180deg, hsl(0 0% 0%) 0%, hsl(190 60% 6%) 55%, hsl(190 75% 18%) 100%)",
     backgroundAttachment: "fixed" as const,
   };
 
@@ -538,7 +538,7 @@ export default function WhatsAppPage() {
 
           {/* RIGHT */}
           <section className="flex-1 flex flex-col relative" style={{
-            backgroundImage: `radial-gradient(circle at 50% 50%, hsl(275 40% 10%) 0%, hsl(270 50% 5%) 100%), url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><g fill='%23a855f7' fill-opacity='0.04'><circle cx='40' cy='40' r='1'/><circle cx='10' cy='10' r='0.5'/><circle cx='70' cy='20' r='0.5'/><circle cx='20' cy='65' r='0.5'/></g></svg>")`,
+            backgroundImage: `radial-gradient(circle at 50% 50%, hsl(190 40% 10%) 0%, hsl(190 50% 5%) 100%), url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><g fill='%2306b6d4' fill-opacity='0.04'><circle cx='40' cy='40' r='1'/><circle cx='10' cy='10' r='0.5'/><circle cx='70' cy='20' r='0.5'/><circle cx='20' cy='65' r='0.5'/></g></svg>")`,
             backgroundBlendMode: "overlay",
           }}>
             {!activeContact ? (
