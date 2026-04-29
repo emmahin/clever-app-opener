@@ -2,6 +2,7 @@
 // (modèle gratuit : google/gemini-2.5-flash-lite). Stocke le résultat dans message_moods.
 // Tolérante aux pannes : ne casse JAMAIS le chat si l'analyse échoue.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { checkCredits } from "../_shared/credits.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -57,6 +58,20 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const { message_id, conversation_id, content } = body;
+    if (!message_id || !conversation_id || !content || typeof content !== "string") {
+      // (existing validation continues below)
+    }
+
+    // ─── Pré-flight crédits : 1 crédit fixe (très court appel JSON) ──────
+    {
+      const check = await checkCredits(user.id, 1, {
+        action: "analyze-mood",
+        model: "google/gemini-2.5-flash-lite",
+        cors: corsHeaders,
+        breakdown: { fixed_cost: 1, reason: "mood analysis (single message)" },
+      });
+      if (!check.ok) return check.response;
+    }
     if (!message_id || !conversation_id || !content || typeof content !== "string") {
       return new Response(JSON.stringify({ error: "missing fields" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
