@@ -120,10 +120,31 @@ export const VoiceCallMode = forwardRef<HTMLDivElement, Props>(function VoiceCal
   // Permet de masquer l'overlay plein écran tout en GARDANT l'appel actif
   // (l'utilisateur revient au menu principal mais Lia continue à parler/écouter).
   const [minimized, setMinimized] = useState(false);
+  // Niveau audio lissé via interpolation (lerp) — évite tout pic brusque.
+  const [smoothedLevel, setSmoothedLevel] = useState(0);
+  const smoothedRef = useRef(0);
   const memoriesContextRef = useRef<string>("");
   const eventsContextRef = useRef<string>("");
   const sentTurnSigsRef = useRef<Map<string, string>>(new Map());
   const handledIntentIdsRef = useRef<Set<string>>(new Set());
+
+  // Boucle d'interpolation : on rapproche en douceur le niveau affiché du
+  // niveau réel (montée plus lente que la descente pour un rendu organique).
+  useEffect(() => {
+    let raf = 0;
+    const tick = () => {
+      const target = audioLevel || 0;
+      const cur = smoothedRef.current;
+      // Lerp asymétrique : montée 0.08, descente 0.05 → mouvement "respirant".
+      const k = target > cur ? 0.08 : 0.05;
+      const next = cur + (target - cur) * k;
+      smoothedRef.current = next;
+      setSmoothedLevel(next);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [audioLevel]);
 
   // Notifie le parent à chaque nouveau turn (user ou assistant) — pour persistance dans le chat
   useEffect(() => {
@@ -338,16 +359,17 @@ export const VoiceCallMode = forwardRef<HTMLDivElement, Props>(function VoiceCal
             const center = (BAR_COUNT - 1) / 2;
             const dist = Math.abs(i - center) / center;
             const envelope = Math.pow(1 - dist, 1.6) * 0.85 + 0.15;
-            const t1 = Date.now() / 220 + i * 0.8;
-            const wiggle = 0.35 + 0.25 * Math.abs(Math.sin(t1) * Math.cos(t1 * 0.6 + i));
-            // Pas de boost : on respecte le niveau réel après noise-gate
-            // côté provider. Les barres restent immobiles tant que la voix
-            // ne dépasse pas vraiment le bruit ambiant.
-            // Amplitude visuelle réduite : barres très calmes, ne s'animent
-            // qu'au-dessus d'un vrai signal de voix.
-            const boosted = phase === "listening" && audioLevel > 0.09 ? audioLevel * 0.22 : 0;
-            const amp = envelope * wiggle * boosted;
-            const h = boosted > 0 ? 2 + amp * 24 : 2;
+            // Oscillation très lente : impression de respiration organique.
+            const t1 = Date.now() / 600 + i * 0.45;
+            const wiggle = 0.55 + 0.18 * Math.sin(t1) * Math.cos(t1 * 0.5 + i * 0.3);
+            // Respiration de fond permanente (légère) pour ne jamais figer.
+            const breath = 0.05 + 0.025 * Math.sin(Date.now() / 1400 + i * 0.2);
+            // Le niveau lissé (smoothedLevel) intègre l'inertie : pas de pic
+            // brusque, transitions fluides via lerp ci-dessous.
+            const active = phase === "listening" && smoothedLevel > 0.08;
+            const signal = active ? Math.min(smoothedLevel * 0.18, 0.22) : 0;
+            const amp = envelope * (wiggle * (signal + breath));
+            const h = 2 + amp * 26;
             const color =
               phase === "speaking"
                 ? "hsl(150 80% 60%)"
@@ -357,7 +379,7 @@ export const VoiceCallMode = forwardRef<HTMLDivElement, Props>(function VoiceCal
             return (
               <span
                 key={i}
-                className="block w-[3px] rounded-full transition-[height] duration-75 ease-out"
+                className="block w-[3px] rounded-full transition-[height] duration-300 ease-out"
                 style={{ height: `${h}px`, background: color }}
               />
             );
