@@ -15,39 +15,140 @@ class WebVoiceService implements IVoiceService {
   private mediaRecorder: MediaRecorder | null = null;
   private chunks: Blob[] = [];
   private stream: MediaStream | null = null;
+  /** Flux brut du micro (à couper aussi à la fin). */
+  private rawStream: MediaStream | null = null;
+  /** Contexte WebAudio utilisé pour la chaîne d'isolation vocale. */
+  private audioCtx: AudioContext | null = null;
 
   isRecording() {
     return this.mediaRecorder?.state === "recording";
   }
 
   getStream() {
+    // On expose le flux NETTOYÉ pour que toute analyse externe
+    // (VAD, jauge, barge-in) bénéficie aussi du filtrage.
     return this.stream;
   }
 
   async startRecording() {
     this.chunks = [];
-    // Contraintes audio standard, larges et compatibles tous navigateurs.
-    // Le filtrage avancé (high-pass 120 Hz / low-pass 7 kHz) est déjà
-    // réalisé en aval via Web Audio API dans TwinVoiceProvider, donc on
-    // garde ici uniquement les flags STANDARD qui ne risquent pas de
-    // déclencher un OverconstrainedError sur certains navigateurs.
-    //
-    // Stratégie de repli : si la première tentative échoue (contraintes
-    // refusées par le device), on retombe sur `audio: true` brut.
-    const idealConstraints: MediaStreamConstraints = {
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-        channelCount: 1,
+    // ─── Étape 1 : capter le micro avec un MAX d'isolation côté OS/driver ──
+    // On essaie en cascade des contraintes de + en + agressives, en retombant
+    // sur des flags standards si le device refuse (OverconstrainedError).
+    const cascade: MediaStreamConstraints[] = [
+      // Idéal : flags Chromium étendus + mono 16kHz + voiceIsolation (Chrome 121+)
+      {
+        audio: {
+          echoCancellation: { ideal: true },
+          noiseSuppression: { ideal: true },
+          autoGainControl: { ideal: true },
+          // Chromium proposera "voiceIsolation" si l'OS le supporte (macOS/ChromeOS).
+          // Cette propriété n'est pas standard → on cast en any pour la passer.
+          voiceIsolation: { ideal: true },
+          channelCount: { ideal: 1 },
+          sampleRate: { ideal: 48000 },
+          sampleSize: { ideal: 16 },
+        } as unknown as MediaTrackConstraints,
       },
-    };
-    try {
-      this.stream = await navigator.mediaDevices.getUserMedia(idealConstraints);
-    } catch (err) {
-      console.warn("[voiceService] constraints rejected, falling back to audio:true", err);
-      this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Bon compromis : flags standards uniquement.
+      {
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          channelCount: 1,
+        },
+      },
+      // Filet de sécurité.
+      { audio: true },
+    ];
+    let raw: MediaStream | null = null;
+    for (const c of cascade) {
+      try {
+        raw = await navigator.mediaDevices.getUserMedia(c);
+        break;
+      } catch (err) {
+        console.warn("[voiceService] constraints rejected, trying next:", err);
+      }
     }
+    if (!raw) throw new Error("Aucune configuration micro acceptée par le navigateur.");
+    this.rawStream = raw;
+
+    // ─── Étape 2 : chaîne WebAudio d'isolation vocale appliquée AU SIGNAL
+    //              ENREGISTRÉ (Whisper reçoit donc un audio déjà nettoyé).
+    // Pipeline : src → highpass(100Hz) → lowpass(8kHz) → presencePeaking(2.5kHz)
+    //          → noiseGate(via DynamicsCompressor en mode expander-like)
+    //          → finalCompressor → destination MediaStream → MediaRecorder.
+    let recordableStream: MediaStream = raw;
+    try {
+      const Ctx: typeof AudioContext = (window.AudioContext || (window as any).webkitAudioContext);
+      const ctx = new Ctx();
+      this.audioCtx = ctx;
+      const src = ctx.createMediaStreamSource(raw);
+
+      // 1) High-pass 100 Hz : retire grondements/vent/ronflement secteur (50/60 Hz).
+      const highpass = ctx.createBiquadFilter();
+      highpass.type = "highpass";
+      highpass.frequency.value = 100;
+      highpass.Q.value = 0.707;
+
+      // 2) Low-pass 8 kHz : retire sifflements/bruit blanc/aigus parasites.
+      //    La voix intelligible va jusqu'à ~5 kHz, on garde un peu de marge
+      //    pour les consonnes (s/ch/f).
+      const lowpass = ctx.createBiquadFilter();
+      lowpass.type = "lowpass";
+      lowpass.frequency.value = 8000;
+      lowpass.Q.value = 0.707;
+
+      // 3) Boost de présence à 2.5 kHz (intelligibilité des consonnes).
+      const presence = ctx.createBiquadFilter();
+      presence.type = "peaking";
+      presence.frequency.value = 2500;
+      presence.Q.value = 1.2;
+      presence.gain.value = 4; // +4 dB de présence
+
+      // 4) Compresseur agressif = "noise gate + leveler" simple :
+      //    - threshold bas (-45 dB) → tout son sous ce seuil est fortement réduit
+      //    - ratio élevé (12:1)    → écrase les bruits faibles, laisse passer la voix
+      //    - knee dur (0)          → coupure nette
+      //    - attack très rapide    → pas de tail audible
+      //    - release modéré        → évite le pompage
+      const gate = ctx.createDynamicsCompressor();
+      gate.threshold.value = -45;
+      gate.knee.value = 0;
+      gate.ratio.value = 12;
+      gate.attack.value = 0.002;
+      gate.release.value = 0.12;
+
+      // 5) Compresseur final doux pour égaliser le volume final.
+      const leveler = ctx.createDynamicsCompressor();
+      leveler.threshold.value = -22;
+      leveler.knee.value = 6;
+      leveler.ratio.value = 3;
+      leveler.attack.value = 0.005;
+      leveler.release.value = 0.18;
+
+      // 6) Léger gain de make-up (le gate + filtres baissent le niveau global).
+      const makeup = ctx.createGain();
+      makeup.gain.value = 1.6;
+
+      const dest = ctx.createMediaStreamDestination();
+      src.connect(highpass);
+      highpass.connect(lowpass);
+      lowpass.connect(presence);
+      presence.connect(gate);
+      gate.connect(leveler);
+      leveler.connect(makeup);
+      makeup.connect(dest);
+
+      recordableStream = dest.stream;
+      console.debug("[voiceService] voice-isolation chain ENABLED");
+    } catch (err) {
+      // En cas de souci WebAudio : on enregistre le flux brut, ça reste fonctionnel.
+      console.warn("[voiceService] WebAudio isolation chain failed, recording raw stream", err);
+    }
+
+    this.stream = recordableStream;
     // Bitrate plus élevé que la valeur par défaut (~32 kbps) pour préserver
     // les consonnes (s, ch, f, t) qui sont les premières détruites par la
     // compression. Whisper a besoin de ces fréquences pour bien transcrire.
@@ -63,7 +164,9 @@ class WebVoiceService implements IVoiceService {
         break;
       }
     }
-    this.mediaRecorder = options ? new MediaRecorder(this.stream, options) : new MediaRecorder(this.stream);
+    this.mediaRecorder = options
+      ? new MediaRecorder(this.stream, options)
+      : new MediaRecorder(this.stream);
     this.mediaRecorder.ondataavailable = (e) => {
       if (e.data.size > 0) this.chunks.push(e.data);
     };
@@ -77,7 +180,12 @@ class WebVoiceService implements IVoiceService {
     });
     this.mediaRecorder.stop();
     await stopped;
-    this.stream?.getTracks().forEach((t) => t.stop());
+    // Ferme TOUT : flux nettoyé + flux brut + AudioContext.
+    try { this.stream?.getTracks().forEach((t) => t.stop()); } catch { /* ignore */ }
+    try { this.rawStream?.getTracks().forEach((t) => t.stop()); } catch { /* ignore */ }
+    try { await this.audioCtx?.close(); } catch { /* ignore */ }
+    this.rawStream = null;
+    this.audioCtx = null;
 
     const recordedType = this.mediaRecorder.mimeType || "audio/webm";
     const blob = new Blob(this.chunks, { type: recordedType });
