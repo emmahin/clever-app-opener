@@ -158,7 +158,7 @@ export default function VoiceOrb() {
   const statusColor: Record<string, string> = {
     idle: "text-cyan-300",
     listening: "text-sky-300",
-    thinking: "text-violet-300",
+    thinking: "text-cyan-300",
     speaking: "text-cyan-200",
   };
 
@@ -179,7 +179,7 @@ export default function VoiceOrb() {
         className="absolute inset-0 opacity-90"
         style={{
           background:
-            "radial-gradient(ellipse 70% 50% at 50% 40%, hsl(230 80% 18% / 0.9), transparent 70%), radial-gradient(ellipse 60% 60% at 20% 80%, hsl(275 80% 15% / 0.8), transparent 70%), radial-gradient(ellipse 60% 60% at 80% 20%, hsl(195 80% 14% / 0.8), transparent 70%), #03040d",
+            "radial-gradient(ellipse 70% 50% at 50% 40%, hsl(230 80% 18% / 0.9), transparent 70%), radial-gradient(ellipse 60% 60% at 20% 80%, hsl(190 80% 15% / 0.8), transparent 70%), radial-gradient(ellipse 60% 60% at 80% 20%, hsl(195 80% 14% / 0.8), transparent 70%), #03040d",
         }}
       />
       {/* Étoiles */}
@@ -199,7 +199,7 @@ export default function VoiceOrb() {
             className={cn(
               "size-2 rounded-full animate-pulse",
               status === "listening" && "bg-sky-400 shadow-[0_0_12px_hsl(200_100%_60%)]",
-              status === "thinking" && "bg-violet-400 shadow-[0_0_12px_hsl(275_90%_65%)]",
+              status === "thinking" && "bg-cyan-400 shadow-[0_0_12px_hsl(275_90%_65%)]",
               status === "speaking" && "bg-cyan-300 shadow-[0_0_12px_hsl(180_100%_60%)]",
               status === "idle" && "bg-cyan-400/60",
             )}

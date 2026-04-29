@@ -254,7 +254,7 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
   return (
     <div className="relative">
       <div
-        className="rounded-2xl p-4 shadow-elegant border border-primary/50 backdrop-blur-xl bg-gradient-to-br from-primary/40 via-accent/30 to-fuchsia-400/40 ring-1 ring-primary/30"
+        className="rounded-2xl p-4 shadow-elegant border border-primary/50 backdrop-blur-xl bg-gradient-to-br from-primary/40 via-accent/30 to-teal-400/40 ring-1 ring-primary/30"
         onDragOver={(e) => e.preventDefault()}
         onDrop={onDrop}
       >
@@ -305,7 +305,7 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
                   {waveform.map((v, i) => (
                     <div
                       key={i}
-                      className="w-1 rounded-full bg-gradient-to-t from-primary to-fuchsia-400 transition-all duration-75"
+                      className="w-1 rounded-full bg-gradient-to-t from-primary to-teal-400 transition-all duration-75"
                       style={{ height: `${Math.max(6, v * 100)}%` }}
                     />
                   ))}
@@ -397,7 +397,7 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
                     disabled={processing}
                     className={cn(
                       "w-9 h-9 rounded-xl flex items-center justify-center transition-all disabled:opacity-50",
-                      "bg-gradient-to-br from-primary/20 to-fuchsia-500/20 border border-primary/30",
+                      "bg-gradient-to-br from-primary/20 to-teal-500/20 border border-primary/30",
                       "text-primary hover:scale-105 hover:shadow-lg hover:shadow-primary/20",
                       plusOpen && "scale-105 shadow-lg shadow-primary/30 ring-2 ring-primary/40",
                     )}
@@ -425,8 +425,8 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
                       onClick={() => { setPlusOpen(false); galleryInputRef.current?.click(); }}
                       className="group flex items-center gap-3 p-2.5 rounded-xl hover:bg-accent transition-all hover:scale-[1.02] text-left"
                     >
-                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500/30 to-fuchsia-500/20 border border-violet-500/30 flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
-                        <ImageIcon className="w-4 h-4 text-violet-300" />
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500/30 to-teal-500/20 border border-cyan-500/30 flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
+                        <ImageIcon className="w-4 h-4 text-cyan-300" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-xs font-semibold text-foreground">Galerie</div>
@@ -519,7 +519,7 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
                     className={cn(
                       "h-8 px-2.5 rounded-lg flex items-center gap-1.5 text-xs transition-colors",
                       (deepThink || nextTool)
-                        ? "bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-500/40"
+                        ? "bg-teal-500/20 text-teal-300 border border-teal-500/40"
                         : "text-muted-foreground hover:text-foreground hover:bg-white/5",
                     )}
                   >
@@ -536,27 +536,27 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
                     onClick={() => { setDeepThink((v) => !v); }}
                     className={cn(
                       "w-full text-left px-3 py-2 rounded-md flex items-center gap-3 hover:bg-accent transition-colors",
-                      deepThink && "bg-fuchsia-500/10",
+                      deepThink && "bg-teal-500/10",
                     )}
                   >
-                    <Brain className="w-4 h-4 text-fuchsia-400" />
+                    <Brain className="w-4 h-4 text-teal-400" />
                     <div className="flex-1">
                       <div className="text-sm font-medium">{t("toolDeepThink")}</div>
                       <div className="text-[11px] text-muted-foreground">{t("toolDeepThinkHint")}</div>
                     </div>
                     <div className={cn(
                       "w-3 h-3 rounded-full border",
-                      deepThink ? "bg-fuchsia-500 border-fuchsia-500" : "border-muted-foreground",
+                      deepThink ? "bg-teal-500 border-teal-500" : "border-muted-foreground",
                     )} />
                   </button>
                   <button
                     onClick={() => { setNextTool(nextTool === "image" ? null : "image"); setToolsOpen(false); }}
                     className={cn(
                       "w-full text-left px-3 py-2 rounded-md flex items-center gap-3 hover:bg-accent transition-colors",
-                      nextTool === "image" && "bg-fuchsia-500/10",
+                      nextTool === "image" && "bg-teal-500/10",
                     )}
                   >
-                    <Wand2 className="w-4 h-4 text-fuchsia-400" />
+                    <Wand2 className="w-4 h-4 text-teal-400" />
                     <div className="flex-1">
                       <div className="text-sm font-medium">{t("toolImage")}</div>
                       <div className="text-[11px] text-muted-foreground">{t("toolImageHint")}</div>
@@ -566,10 +566,10 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
                     onClick={() => { setNextTool(nextTool === "code" ? null : "code"); setToolsOpen(false); }}
                     className={cn(
                       "w-full text-left px-3 py-2 rounded-md flex items-center gap-3 hover:bg-accent transition-colors",
-                      nextTool === "code" && "bg-fuchsia-500/10",
+                      nextTool === "code" && "bg-teal-500/10",
                     )}
                   >
-                    <Code className="w-4 h-4 text-fuchsia-400" />
+                    <Code className="w-4 h-4 text-teal-400" />
                     <div className="flex-1">
                       <div className="text-sm font-medium">{t("toolCode")}</div>
                       <div className="text-[11px] text-muted-foreground">{t("toolCodeHint")}</div>

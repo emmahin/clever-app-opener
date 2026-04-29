@@ -120,7 +120,7 @@ function NewsCard({ item }: { item: NewsItem }) {
       rel="noopener noreferrer"
       className="group flex-shrink-0 w-72 snap-start glass rounded-2xl overflow-hidden border border-border/40 hover:border-primary/50 transition-all hover:-translate-y-0.5"
     >
-      <div className="aspect-video bg-gradient-to-br from-primary/20 to-fuchsia-500/20 overflow-hidden relative">
+      <div className="aspect-video bg-gradient-to-br from-primary/20 to-teal-500/20 overflow-hidden relative">
         <div className="absolute inset-0 flex items-center justify-center">
           <Newspaper className="w-10 h-10 text-white/30" />
         </div>

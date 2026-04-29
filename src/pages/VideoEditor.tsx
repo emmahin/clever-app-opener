@@ -623,7 +623,7 @@ export default function VideoEditor() {
                         className={`relative flex-shrink-0 h-[64px] rounded-lg border cursor-pointer overflow-hidden ${
                           active ? "border-primary ring-2 ring-primary/40" : "border-border/60 hover:border-border"
                         }`}>
-                        <div className="absolute inset-0 bg-gradient-to-br from-primary/30 to-fuchsia-500/30" />
+                        <div className="absolute inset-0 bg-gradient-to-br from-primary/30 to-teal-500/30" />
                         <div className="relative p-2 flex flex-col h-full justify-between">
                           <div className="text-[11px] font-medium truncate text-white">{i + 1}. {c.name}</div>
                           <div className="flex items-center justify-between text-[10px] text-white/80">

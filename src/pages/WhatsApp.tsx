@@ -49,14 +49,14 @@ const LS_MESSAGES = "wa_messages";
 const LS_DEMO_SEEDED = "wa_demo_seeded";
 
 const AVATAR_COLORS = [
-  "from-purple-500 to-fuchsia-600",
-  "from-violet-500 to-purple-700",
-  "from-fuchsia-500 to-pink-600",
-  "from-indigo-500 to-violet-600",
-  "from-purple-400 to-indigo-600",
-  "from-pink-500 to-purple-600",
-  "from-violet-600 to-fuchsia-700",
-  "from-purple-600 to-pink-700",
+  "from-cyan-500 to-teal-600",
+  "from-cyan-500 to-cyan-700",
+  "from-teal-500 to-pink-600",
+  "from-indigo-500 to-cyan-600",
+  "from-cyan-400 to-indigo-600",
+  "from-pink-500 to-cyan-600",
+  "from-cyan-600 to-teal-700",
+  "from-cyan-600 to-pink-700",
 ];
 
 const EMOJI_GROUPS: { label: string; emojis: string[] }[] = [
@@ -407,7 +407,7 @@ export default function WhatsAppPage() {
 
   const pageBg = {
     backgroundImage:
-      "radial-gradient(ellipse 100% 80% at 20% 100%, hsl(280 90% 35%) 0%, transparent 55%), radial-gradient(ellipse 90% 70% at 80% 90%, hsl(295 85% 28%) 0%, transparent 55%), linear-gradient(180deg, hsl(0 0% 0%) 0%, hsl(275 60% 6%) 55%, hsl(270 75% 18%) 100%)",
+      "radial-gradient(ellipse 100% 80% at 20% 100%, hsl(190 90% 35%) 0%, transparent 55%), radial-gradient(ellipse 90% 70% at 80% 90%, hsl(175 85% 28%) 0%, transparent 55%), linear-gradient(180deg, hsl(0 0% 0%) 0%, hsl(190 60% 6%) 55%, hsl(190 75% 18%) 100%)",
     backgroundAttachment: "fixed" as const,
   };
 
@@ -428,51 +428,51 @@ export default function WhatsAppPage() {
           <aside className={`w-[400px] flex flex-col border-r ${BORDER}`}>
             <div className={`h-16 px-4 flex items-center justify-between ${PANEL_HEADER} border-b ${BORDER}`}>
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-fuchsia-600 flex items-center justify-center shadow-[0_0_15px_rgba(168,85,247,0.5)]">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500 to-teal-600 flex items-center justify-center shadow-[0_0_15px_rgba(168,85,247,0.5)]">
                   <Sparkles className="w-5 h-5 text-white" />
                 </div>
                 <div>
                   <div className="text-sm font-semibold text-white">Mon compte</div>
-                  <div className="text-[10px] text-purple-300/60 flex items-center gap-1">
+                  <div className="text-[10px] text-cyan-300/60 flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                     En ligne
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-1 text-purple-200/70">
+              <div className="flex items-center gap-1 text-cyan-200/70">
                 <Dialog open={addOpen} onOpenChange={setAddOpen}>
                   <DialogTrigger asChild>
-                    <button title="Nouveau contact" className="p-2 rounded-full hover:bg-purple-500/20 hover:text-white transition-colors">
+                    <button title="Nouveau contact" className="p-2 rounded-full hover:bg-cyan-500/20 hover:text-white transition-colors">
                       <Plus className="w-5 h-5" />
                     </button>
                   </DialogTrigger>
                   <DialogContent className={`${PANEL_HEADER} ${BORDER} text-white`}>
-                    <DialogHeader><DialogTitle className="text-purple-200">Nouveau contact</DialogTitle></DialogHeader>
+                    <DialogHeader><DialogTitle className="text-cyan-200">Nouveau contact</DialogTitle></DialogHeader>
                     <div className="space-y-3 py-2">
                       <div>
-                        <label className="text-xs text-purple-200/60">Nom</label>
+                        <label className="text-xs text-cyan-200/60">Nom</label>
                         <Input value={newName} onChange={(e) => setNewName(e.target.value)}
                           placeholder="Marie Dupont" className={`mt-1 ${INPUT_BG} ${BORDER} text-white`} />
                       </div>
                       <div>
-                        <label className="text-xs text-purple-200/60">Téléphone</label>
+                        <label className="text-xs text-cyan-200/60">Téléphone</label>
                         <Input value={newPhone} onChange={(e) => setNewPhone(e.target.value)}
                           placeholder="+33 6 12 34 56 78" className={`mt-1 ${INPUT_BG} ${BORDER} text-white`} />
                       </div>
                       <div>
-                        <label className="text-xs text-purple-200/60">À propos (optionnel)</label>
+                        <label className="text-xs text-cyan-200/60">À propos (optionnel)</label>
                         <Input value={newAbout} onChange={(e) => setNewAbout(e.target.value)}
                           placeholder="Disponible" className={`mt-1 ${INPUT_BG} ${BORDER} text-white`} />
                       </div>
                     </div>
                     <DialogFooter>
-                      <Button onClick={handleAddContact} className="bg-gradient-to-r from-purple-500 to-fuchsia-600 hover:opacity-90 text-white">
+                      <Button onClick={handleAddContact} className="bg-gradient-to-r from-cyan-500 to-teal-600 hover:opacity-90 text-white">
                         Ajouter
                       </Button>
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
-                <button className="p-2 rounded-full hover:bg-purple-500/20 hover:text-white transition-colors">
+                <button className="p-2 rounded-full hover:bg-cyan-500/20 hover:text-white transition-colors">
                   <MoreVertical className="w-5 h-5" />
                 </button>
               </div>
@@ -480,17 +480,17 @@ export default function WhatsAppPage() {
 
             <div className={`p-2 ${PANEL_BG}`}>
               <div className={`flex items-center gap-2 ${INPUT_BG} rounded-lg px-3 py-1.5 border ${BORDER}`}>
-                <Search className="w-4 h-4 text-purple-300/50" />
+                <Search className="w-4 h-4 text-cyan-300/50" />
                 <input value={search} onChange={(e) => setSearch(e.target.value)}
                   placeholder="Rechercher ou démarrer une discussion"
-                  className="flex-1 bg-transparent text-sm text-white placeholder:text-purple-200/30 outline-none" />
-                <Filter className="w-4 h-4 text-purple-300/40" />
+                  className="flex-1 bg-transparent text-sm text-white placeholder:text-cyan-200/30 outline-none" />
+                <Filter className="w-4 h-4 text-cyan-300/40" />
               </div>
             </div>
 
             <div className="flex-1 overflow-y-auto">
               {filteredContacts.length === 0 && (
-                <div className="p-8 text-center text-purple-200/40 text-sm">
+                <div className="p-8 text-center text-cyan-200/40 text-sm">
                   <Archive className="w-10 h-10 mx-auto mb-3 opacity-40" />
                   Aucun contact. Cliquez sur <Plus className="w-3 h-3 inline mx-1" /> pour en ajouter.
                 </div>
@@ -516,15 +516,15 @@ export default function WhatsAppPage() {
                         <span className="text-white font-medium truncate flex items-center gap-2">
                           {c.name}
                           {c.isDemo && (
-                            <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-purple-500/30 text-purple-200">démo</span>
+                            <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-cyan-500/30 text-cyan-200">démo</span>
                           )}
                         </span>
-                        {last && <span className="text-[11px] text-purple-200/40 shrink-0 ml-2">{formatTime(last.timestamp)}</span>}
+                        {last && <span className="text-[11px] text-cyan-200/40 shrink-0 ml-2">{formatTime(last.timestamp)}</span>}
                       </div>
-                      <div className="text-xs text-purple-200/50 truncate">
+                      <div className="text-xs text-cyan-200/50 truncate">
                         {last ? (
                           <>
-                            {last.fromMe && <CheckCheck className="w-3 h-3 inline mr-1 text-purple-300" />}
+                            {last.fromMe && <CheckCheck className="w-3 h-3 inline mr-1 text-cyan-300" />}
                             {lastPreview}
                           </>
                         ) : (c.about || c.phone)}
@@ -538,18 +538,18 @@ export default function WhatsAppPage() {
 
           {/* RIGHT */}
           <section className="flex-1 flex flex-col relative" style={{
-            backgroundImage: `radial-gradient(circle at 50% 50%, hsl(275 40% 10%) 0%, hsl(270 50% 5%) 100%), url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><g fill='%23a855f7' fill-opacity='0.04'><circle cx='40' cy='40' r='1'/><circle cx='10' cy='10' r='0.5'/><circle cx='70' cy='20' r='0.5'/><circle cx='20' cy='65' r='0.5'/></g></svg>")`,
+            backgroundImage: `radial-gradient(circle at 50% 50%, hsl(190 40% 10%) 0%, hsl(190 50% 5%) 100%), url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><g fill='%2306b6d4' fill-opacity='0.04'><circle cx='40' cy='40' r='1'/><circle cx='10' cy='10' r='0.5'/><circle cx='70' cy='20' r='0.5'/><circle cx='20' cy='65' r='0.5'/></g></svg>")`,
             backgroundBlendMode: "overlay",
           }}>
             {!activeContact ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center px-8">
-                <div className="w-32 h-32 rounded-full bg-gradient-to-br from-purple-600/20 to-fuchsia-600/20 flex items-center justify-center mb-6 border border-purple-500/30">
-                  <MessageCircle className="w-16 h-16 text-purple-300/60" />
+                <div className="w-32 h-32 rounded-full bg-gradient-to-br from-cyan-600/20 to-teal-600/20 flex items-center justify-center mb-6 border border-cyan-500/30">
+                  <MessageCircle className="w-16 h-16 text-cyan-300/60" />
                 </div>
                 <h2 className="text-2xl font-light text-white mb-2">
-                  Messagerie <span className="bg-gradient-to-r from-purple-400 to-fuchsia-400 bg-clip-text text-transparent font-semibold">Nex</span>
+                  Messagerie <span className="bg-gradient-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent font-semibold">Nex</span>
                 </h2>
-                <p className="text-sm text-purple-200/50 max-w-md">
+                <p className="text-sm text-cyan-200/50 max-w-md">
                   Sélectionnez un contact pour commencer à discuter, ou ajoutez-en un nouveau via le bouton +.
                 </p>
               </div>
@@ -562,13 +562,13 @@ export default function WhatsAppPage() {
                     </div>
                     <div>
                       <div className="text-white font-medium leading-tight">{activeContact.name}</div>
-                      <div className="text-[11px] text-purple-200/50">{activeContact.phone}</div>
+                      <div className="text-[11px] text-cyan-200/50">{activeContact.phone}</div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 text-purple-200/70">
-                    <button className="p-2 rounded-full hover:bg-purple-500/20 hover:text-white transition-colors"><Video className="w-5 h-5" /></button>
-                    <button className="p-2 rounded-full hover:bg-purple-500/20 hover:text-white transition-colors"><Phone className="w-5 h-5" /></button>
-                    <button className="p-2 rounded-full hover:bg-purple-500/20 hover:text-white transition-colors"><Search className="w-5 h-5" /></button>
+                  <div className="flex items-center gap-1 text-cyan-200/70">
+                    <button className="p-2 rounded-full hover:bg-cyan-500/20 hover:text-white transition-colors"><Video className="w-5 h-5" /></button>
+                    <button className="p-2 rounded-full hover:bg-cyan-500/20 hover:text-white transition-colors"><Phone className="w-5 h-5" /></button>
+                    <button className="p-2 rounded-full hover:bg-cyan-500/20 hover:text-white transition-colors"><Search className="w-5 h-5" /></button>
                     <button className="p-2 rounded-full hover:bg-red-500/20 hover:text-red-300 transition-colors"
                       title="Supprimer le contact" onClick={() => handleDeleteContact(activeContact.id)}>
                       <X className="w-5 h-5" />
@@ -579,7 +579,7 @@ export default function WhatsAppPage() {
                 <div className="flex-1 overflow-y-auto px-12 py-4 space-y-1.5">
                   {activeMessages.length === 0 && (
                     <div className="flex justify-center mt-8">
-                      <div className={`${PANEL_HEADER} text-purple-200/60 text-xs px-4 py-2 rounded-lg border ${BORDER}`}>
+                      <div className={`${PANEL_HEADER} text-cyan-200/60 text-xs px-4 py-2 rounded-lg border ${BORDER}`}>
                         Aucun message. Dites bonjour à {activeContact.name} 👋
                       </div>
                     </div>
@@ -588,8 +588,8 @@ export default function WhatsAppPage() {
                     <div key={m.id} className={`flex ${m.fromMe ? "justify-end" : "justify-start"}`}>
                       <div className={`max-w-[65%] px-3 py-2 rounded-2xl shadow-md relative ${
                         m.fromMe
-                          ? "bg-gradient-to-br from-purple-600 to-fuchsia-700 text-white rounded-br-sm"
-                          : "bg-[hsl(275_30%_15%)] text-white border border-purple-500/20 rounded-bl-sm"
+                          ? "bg-gradient-to-br from-cyan-600 to-teal-700 text-white rounded-br-sm"
+                          : "bg-[hsl(275_30%_15%)] text-white border border-cyan-500/20 rounded-bl-sm"
                       }`}>
                         {/* Attachment rendering */}
                         {m.attachment?.kind === "image" && (
@@ -634,16 +634,16 @@ export default function WhatsAppPage() {
                     {pendingAttachment.kind === "image" ? (
                       <img src={pendingAttachment.dataUrl} className="w-12 h-12 rounded object-cover" />
                     ) : pendingAttachment.kind === "audio" ? (
-                      <Mic className="w-6 h-6 text-purple-300" />
+                      <Mic className="w-6 h-6 text-cyan-300" />
                     ) : (
-                      <FileText className="w-6 h-6 text-purple-300" />
+                      <FileText className="w-6 h-6 text-cyan-300" />
                     )}
                     <div className="flex-1 min-w-0">
                       <div className="text-sm text-white truncate">{pendingAttachment.name}</div>
-                      <div className="text-[11px] text-purple-200/50">{formatBytes(pendingAttachment.size)}</div>
+                      <div className="text-[11px] text-cyan-200/50">{formatBytes(pendingAttachment.size)}</div>
                     </div>
                     <button onClick={() => setPendingAttachment(null)}
-                      className="p-1.5 rounded-full hover:bg-red-500/20 text-purple-200/70 hover:text-red-300">
+                      className="p-1.5 rounded-full hover:bg-red-500/20 text-cyan-200/70 hover:text-red-300">
                       <X className="w-4 h-4" />
                     </button>
                   </div>
@@ -660,10 +660,10 @@ export default function WhatsAppPage() {
                       <div className="flex-1 flex items-center gap-3 px-3">
                         <span className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />
                         <span className="text-sm text-white font-mono">{formatDuration(recordSeconds)}</span>
-                        <span className="text-xs text-purple-200/60">Enregistrement…</span>
+                        <span className="text-xs text-cyan-200/60">Enregistrement…</span>
                       </div>
                       <button onClick={() => stopRecording(false)}
-                        className="text-white p-2.5 bg-gradient-to-r from-purple-500 to-fuchsia-600 hover:opacity-90 rounded-full shadow-[0_0_15px_rgba(168,85,247,0.5)]"
+                        className="text-white p-2.5 bg-gradient-to-r from-cyan-500 to-teal-600 hover:opacity-90 rounded-full shadow-[0_0_15px_rgba(168,85,247,0.5)]"
                         title="Envoyer le vocal">
                         <Send className="w-5 h-5" />
                       </button>
@@ -673,7 +673,7 @@ export default function WhatsAppPage() {
                       {/* Emoji */}
                       <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
                         <PopoverTrigger asChild>
-                          <button className="text-purple-200/60 hover:text-white p-2 transition-colors" title="Émoji">
+                          <button className="text-cyan-200/60 hover:text-white p-2 transition-colors" title="Émoji">
                             <Smile className="w-6 h-6" />
                           </button>
                         </PopoverTrigger>
@@ -682,11 +682,11 @@ export default function WhatsAppPage() {
                           <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
                             {EMOJI_GROUPS.map((g) => (
                               <div key={g.label}>
-                                <div className="text-[10px] uppercase tracking-wider text-purple-200/50 mb-1.5">{g.label}</div>
+                                <div className="text-[10px] uppercase tracking-wider text-cyan-200/50 mb-1.5">{g.label}</div>
                                 <div className="flex flex-wrap gap-1">
                                   {g.emojis.map((e, i) => (
                                     <button key={i} onClick={() => insertEmoji(e)}
-                                      className="text-xl w-8 h-8 rounded hover:bg-purple-500/20 transition-colors">
+                                      className="text-xl w-8 h-8 rounded hover:bg-cyan-500/20 transition-colors">
                                       {e}
                                     </button>
                                   ))}
@@ -700,7 +700,7 @@ export default function WhatsAppPage() {
                       {/* Joindre menu */}
                       <Popover>
                         <PopoverTrigger asChild>
-                          <button className="text-purple-200/60 hover:text-white p-2 transition-colors" title="Joindre">
+                          <button className="text-cyan-200/60 hover:text-white p-2 transition-colors" title="Joindre">
                             <Paperclip className="w-6 h-6" />
                           </button>
                         </PopoverTrigger>
@@ -708,16 +708,16 @@ export default function WhatsAppPage() {
                           className={`w-48 ${PANEL_HEADER} ${BORDER} text-white p-2`}>
                           <button
                             onClick={() => imageInputRef.current?.click()}
-                            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-purple-500/20 transition-colors text-left"
+                            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-cyan-500/20 transition-colors text-left"
                           >
-                            <ImageIcon className="w-5 h-5 text-purple-300" />
+                            <ImageIcon className="w-5 h-5 text-cyan-300" />
                             <span className="text-sm">Photo</span>
                           </button>
                           <button
                             onClick={() => fileInputRef.current?.click()}
-                            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-purple-500/20 transition-colors text-left"
+                            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-cyan-500/20 transition-colors text-left"
                           >
-                            <FileText className="w-5 h-5 text-purple-300" />
+                            <FileText className="w-5 h-5 text-cyan-300" />
                             <span className="text-sm">Document</span>
                           </button>
                         </PopoverContent>
@@ -730,16 +730,16 @@ export default function WhatsAppPage() {
                       <input ref={inputRef} value={draft} onChange={(e) => setDraft(e.target.value)}
                         onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
                         placeholder="Tapez un message"
-                        className={`flex-1 ${INPUT_BG} text-white placeholder:text-purple-200/30 rounded-lg px-4 py-2.5 text-sm outline-none border ${BORDER} focus:border-purple-500/50 transition-colors`} />
+                        className={`flex-1 ${INPUT_BG} text-white placeholder:text-cyan-200/30 rounded-lg px-4 py-2.5 text-sm outline-none border ${BORDER} focus:border-cyan-500/50 transition-colors`} />
 
                       {draft.trim() || pendingAttachment ? (
                         <button onClick={() => handleSend()} title="Envoyer"
-                          className="text-white p-2.5 bg-gradient-to-r from-purple-500 to-fuchsia-600 hover:opacity-90 rounded-full shadow-[0_0_15px_rgba(168,85,247,0.5)] transition-opacity">
+                          className="text-white p-2.5 bg-gradient-to-r from-cyan-500 to-teal-600 hover:opacity-90 rounded-full shadow-[0_0_15px_rgba(168,85,247,0.5)] transition-opacity">
                           <Send className="w-5 h-5" />
                         </button>
                       ) : (
                         <button onClick={startRecording}
-                          className="text-purple-200/60 hover:text-white p-2 transition-colors" title="Enregistrer un vocal">
+                          className="text-cyan-200/60 hover:text-white p-2 transition-colors" title="Enregistrer un vocal">
                           <Mic className="w-6 h-6" />
                         </button>
                       )}
