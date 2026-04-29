@@ -8,6 +8,8 @@ import {
   ArrowLeft, Coins, Sparkles, Zap, Crown, Package, Check, X, Gift, Infinity as InfinityIcon,
 } from "lucide-react";
 import { toast } from "sonner";
+import { usePaddleCheckout } from "@/hooks/usePaddleCheckout";
+import { PaymentTestModeBanner } from "@/components/PaymentTestModeBanner";
 
 interface CreditState {
   subscription_credits: number;
@@ -24,6 +26,7 @@ const TIERS: Array<{
   price: string;
   priceNum: number;
   credits: number;
+  priceId?: string;
   icon: typeof Sparkles;
   tone: string;
   popular?: boolean;
@@ -52,9 +55,10 @@ const TIERS: Array<{
   {
     id: "starter",
     label: "Starter",
-    price: "5 €",
-    priceNum: 5,
-    credits: 2000,
+    price: "9,99 €",
+    priceNum: 9.99,
+    credits: 500,
+    priceId: "sub_starter_monthly",
     icon: Sparkles,
     tone: "from-sky-500/20 to-sky-500/5",
     tagline: "Pour un usage occasionnel",
@@ -69,9 +73,10 @@ const TIERS: Array<{
   {
     id: "pro",
     label: "Pro",
-    price: "15 €",
-    priceNum: 15,
-    credits: 8000,
+    price: "29,99 €",
+    priceNum: 29.99,
+    credits: 2000,
+    priceId: "sub_pro_monthly",
     icon: Zap,
     tone: "from-violet-500/20 to-violet-500/5",
     popular: true,
@@ -86,15 +91,16 @@ const TIERS: Array<{
   {
     id: "ultra",
     label: "Ultra",
-    price: "40 €",
-    priceNum: 40,
-    credits: 25000,
+    price: "99,99 €",
+    priceNum: 99.99,
+    credits: 10000,
+    priceId: "sub_ultra_monthly",
     icon: Crown,
     tone: "from-amber-500/20 to-amber-500/5",
     tagline: "Pour les power users",
     features: [
       { label: "Tout du plan Pro", included: true },
-      { label: "25 000 crédits / mois", included: true },
+      { label: "10 000 crédits / mois", included: true },
       { label: "Accès anticipé aux nouveautés", included: true },
       { label: "Support prioritaire +", included: true },
     ],
@@ -102,9 +108,10 @@ const TIERS: Array<{
 ];
 
 const PACKS = [
-  { id: "pack-small",  label: "Pack 1 000",  price: "3 €",  credits: 1000 },
-  { id: "pack-medium", label: "Pack 5 000",  price: "12 €", credits: 5000 },
-  { id: "pack-large",  label: "Pack 10 000", price: "22 €", credits: 10000 },
+  { id: "pack_decouverte_100",  label: "Pack Découverte",  price: "2,99 €",  priceNum: 2.99,  credits: 100 },
+  { id: "pack_starter_500",     label: "Pack Starter",     price: "9,99 €",  priceNum: 9.99,  credits: 500 },
+  { id: "pack_pro_2000",        label: "Pack Pro",         price: "29,99 €", priceNum: 29.99, credits: 2000 },
+  { id: "pack_ultra_10000",     label: "Pack Ultra",       price: "99,99 €", priceNum: 99.99, credits: 10000 },
 ];
 
 function costPer1k(price: number, credits: number): string {
@@ -125,6 +132,7 @@ export default function Billing() {
   const navigate = useNavigate();
   const [credits, setCredits] = useState<CreditState | null>(null);
   const [loading, setLoading] = useState(true);
+  const { openCheckout, loading: checkoutLoading } = usePaddleCheckout();
 
   useEffect(() => {
     let mounted = true;
@@ -147,12 +155,9 @@ export default function Billing() {
   const total = (credits?.subscription_credits ?? 0) + (credits?.purchased_credits ?? 0);
   const currentTier = (credits?.subscription_tier ?? "free") as TierId;
 
-  const notReady = () => toast.info("Paiement bientôt disponible", {
-    description: "Le module de paiement sera activé une fois le fournisseur configuré.",
-  });
-
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <PaymentTestModeBanner />
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
         <button
           onClick={() => navigate(-1)}
