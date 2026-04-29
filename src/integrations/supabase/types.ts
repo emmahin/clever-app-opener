@@ -833,6 +833,10 @@ export type Database = {
       paddle_tier_for_price: { Args: { _price_id: string }; Returns: string }
       promote_to_admin: { Args: { _target_user_id: string }; Returns: Json }
       revoke_admin: { Args: { _target_user_id: string }; Returns: Json }
+      transfer_primary_admin: {
+        Args: { _target_user_id: string }
+        Returns: Json
+      }
     }
     Enums: {
       app_role: "admin" | "user"
