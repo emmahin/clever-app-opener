@@ -370,9 +370,9 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
     // "y a-t-il eu de la parole ?".
     const ABSOLUTE_FLOOR = 0.012;          // plancher absolu (sous ça = silence pur)
     const VOICE_RATIO = 0.35;              // un son doit faire ≥ 35% du pic vocal
-    // 600ms de silence suffisent pour détecter une fin de phrase naturelle
-    // en conversation rapide. Lia enchaîne quasi instantanément.
-    const SILENCE_DURATION_MS = 600;
+    // 800ms de silence pour bien marquer la fin de la demande de l'utilisateur :
+    // on évite ainsi de couper la parole sur une micro-pause naturelle.
+    const SILENCE_DURATION_MS = 800;
     const MAX_DURATION_MS = 30000;         // 30s max par tour
     const MIN_SPEECH_MS = 350;             // au moins 0.35s de voix réelle
     // Délai d'attente AVANT la première parole : on laisse l'utilisateur le
