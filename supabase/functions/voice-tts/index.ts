@@ -11,7 +11,7 @@ const OPENAI_DEFAULT_VOICE = "shimmer";
 const OPENAI_ALLOWED_VOICES = new Set(["alloy", "echo", "fable", "onyx", "nova", "shimmer", "sage", "coral"]);
 
 // ─── Fallback ElevenLabs (uniquement si OpenAI échoue) ───────────────
-const ELEVEN_DEFAULT_VOICE_ID = "EXAVITQu4vr4xnSDxMaL"; // Sarah
+const ELEVEN_DEFAULT_VOICE_ID = "IKne3meq5aSn9XLyUdCD"; // Charlie — masculine, chaleureuse
 const ELEVEN_MODEL = "eleven_turbo_v2_5";
 const MAX_TEXT_LEN = 4000;
 // `tts-1` est SENSIBLEMENT plus rapide à générer que `gpt-4o-mini-tts`
