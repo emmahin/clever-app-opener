@@ -295,8 +295,10 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
         audio.volume = 1;
         audio.muted = false;
         audio.preload = "auto";
-        // Vitesse de lecture accélérée pour une élocution plus dynamique.
-        audio.playbackRate = 1.12;
+        // Vitesse de lecture accélérée côté client EN PLUS de la vitesse
+        // demandée à OpenAI (1.25). Résultat global ≈ 1.4x — élocution
+        // rapide et énergique, sans déformation audible.
+        audio.playbackRate = 1.15;
         currentAudioRef.current = audio;
         // L'indicateur de niveau audio reste piloté par le moniteur micro
         // permanent (voir startMicMonitor) — l'utilisateur voit en continu si
