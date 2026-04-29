@@ -59,20 +59,6 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const { message_id, conversation_id, content } = body;
     if (!message_id || !conversation_id || !content || typeof content !== "string") {
-      // (existing validation continues below)
-    }
-
-    // ─── Pré-flight crédits : 1 crédit fixe (très court appel JSON) ──────
-    {
-      const check = await checkCredits(user.id, 1, {
-        action: "analyze-mood",
-        model: "google/gemini-2.5-flash-lite",
-        cors: corsHeaders,
-        breakdown: { fixed_cost: 1, reason: "mood analysis (single message)" },
-      });
-      if (!check.ok) return check.response;
-    }
-    if (!message_id || !conversation_id || !content || typeof content !== "string") {
       return new Response(JSON.stringify({ error: "missing fields" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -84,6 +70,17 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: true, skipped: "too_short" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // ─── Pré-flight crédits : 1 crédit fixe (court appel JSON) ──────────
+    {
+      const check = await checkCredits(user.id, 1, {
+        action: "analyze-mood",
+        model: "google/gemini-2.5-flash-lite",
+        cors: corsHeaders,
+        breakdown: { fixed_cost: 1, reason: "mood analysis (single message)" },
+      });
+      if (!check.ok) return check.response;
     }
 
     const apiKey = Deno.env.get("LOVABLE_API_KEY");
