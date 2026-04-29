@@ -362,14 +362,14 @@ export const VoiceCallMode = forwardRef<HTMLDivElement, Props>(function VoiceCal
             // Oscillation très lente : impression de respiration organique.
             const t1 = Date.now() / 600 + i * 0.45;
             const wiggle = 0.55 + 0.18 * Math.sin(t1) * Math.cos(t1 * 0.5 + i * 0.3);
-            // Respiration de fond permanente (légère) pour ne jamais figer.
-            const breath = 0.05 + 0.025 * Math.sin(Date.now() / 1400 + i * 0.2);
+            // Respiration de fond permanente (très subtile) pour ne jamais figer.
+            const breath = 0.025 + 0.012 * Math.sin(Date.now() / 1400 + i * 0.2);
             // Le niveau lissé (smoothedLevel) intègre l'inertie : pas de pic
             // brusque, transitions fluides via lerp ci-dessous.
             const active = phase === "listening" && smoothedLevel > 0.08;
-            const signal = active ? Math.min(smoothedLevel * 0.18, 0.22) : 0;
+            const signal = active ? Math.min(smoothedLevel * 0.09, 0.11) : 0;
             const amp = envelope * (wiggle * (signal + breath));
-            const h = 2 + amp * 26;
+            const h = 2 + amp * 14;
             const color =
               phase === "speaking"
                 ? "hsl(150 80% 60%)"
