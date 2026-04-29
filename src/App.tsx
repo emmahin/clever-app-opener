@@ -3,7 +3,8 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import Index from "./pages/Index.tsx";
+import Voice from "./pages/Voice.tsx";
+import Menu from "./pages/Menu.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import Dashboard from "./pages/Dashboard.tsx";
 import Analytics from "./pages/Analytics.tsx";
@@ -41,7 +42,8 @@ const App = () => (
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route path="/install" element={<Install />} />
-            <Route path="/" element={<AuthGuard><Index /></AuthGuard>} />
+            <Route path="/" element={<AuthGuard><Voice /></AuthGuard>} />
+            <Route path="/menu" element={<AuthGuard><Menu /></AuthGuard>} />
             <Route path="/dashboard" element={<AuthGuard><Dashboard /></AuthGuard>} />
             <Route path="/analytics" element={<AuthGuard><Analytics /></AuthGuard>} />
             <Route path="/settings" element={<AuthGuard><Settings /></AuthGuard>} />
