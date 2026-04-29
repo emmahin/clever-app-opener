@@ -6,54 +6,54 @@
 
 @layer base {
   :root {
-    --background: 250 35% 6%;
-    --foreground: 250 20% 96%;
+    --background: 200 40% 6%;
+    --foreground: 190 25% 96%;
 
-    --card: 250 35% 9%;
-    --card-foreground: 250 20% 96%;
+    --card: 200 40% 9%;
+    --card-foreground: 190 25% 96%;
 
-    --popover: 250 40% 8%;
-    --popover-foreground: 250 20% 96%;
+    --popover: 200 45% 8%;
+    --popover-foreground: 190 25% 96%;
 
-    --primary: 270 90% 65%;
-    --primary-foreground: 250 20% 98%;
-    --primary-glow: 285 95% 70%;
+    --primary: 185 90% 55%;
+    --primary-foreground: 200 40% 8%;
+    --primary-glow: 175 95% 60%;
 
-    --secondary: 250 30% 14%;
-    --secondary-foreground: 250 20% 96%;
+    --secondary: 195 35% 14%;
+    --secondary-foreground: 190 25% 96%;
 
-    --muted: 250 25% 14%;
-    --muted-foreground: 250 15% 65%;
+    --muted: 195 30% 14%;
+    --muted-foreground: 190 20% 65%;
 
-    --accent: 285 80% 60%;
-    --accent-foreground: 250 20% 98%;
+    --accent: 175 80% 50%;
+    --accent-foreground: 200 40% 8%;
 
     --destructive: 0 75% 60%;
-    --destructive-foreground: 250 20% 98%;
+    --destructive-foreground: 190 25% 98%;
 
-    --border: 260 30% 18%;
-    --input: 260 30% 14%;
-    --ring: 270 90% 65%;
+    --border: 195 35% 18%;
+    --input: 195 35% 14%;
+    --ring: 185 90% 55%;
 
     --radius: 0.85rem;
 
-    --sidebar-background: 290 65% 35%;
-    --sidebar-foreground: 250 20% 98%;
-    --sidebar-primary: 270 90% 65%;
-    --sidebar-primary-foreground: 250 20% 98%;
-    --sidebar-accent: 285 70% 50%;
-    --sidebar-accent-foreground: 250 20% 98%;
-    --sidebar-border: 285 50% 30%;
-    --sidebar-ring: 270 90% 65%;
+    --sidebar-background: 195 60% 18%;
+    --sidebar-foreground: 190 25% 98%;
+    --sidebar-primary: 185 90% 55%;
+    --sidebar-primary-foreground: 200 40% 8%;
+    --sidebar-accent: 175 75% 45%;
+    --sidebar-accent-foreground: 200 40% 8%;
+    --sidebar-border: 190 50% 25%;
+    --sidebar-ring: 185 90% 55%;
 
-    --gradient-brand: linear-gradient(135deg, hsl(270 90% 60%), hsl(295 85% 55%));
-    --gradient-pillar: linear-gradient(180deg, hsl(280 70% 45%), hsl(315 75% 55%));
-    --gradient-topbar: linear-gradient(90deg, hsl(255 75% 50% / 0.9), hsl(290 75% 55% / 0.9));
-    --gradient-glow: radial-gradient(circle at center, hsl(285 95% 65% / 0.55), transparent 65%);
+    --gradient-brand: linear-gradient(135deg, hsl(185 90% 50%), hsl(170 85% 45%));
+    --gradient-pillar: linear-gradient(180deg, hsl(190 75% 40%), hsl(170 80% 45%));
+    --gradient-topbar: linear-gradient(90deg, hsl(195 75% 40% / 0.9), hsl(175 75% 45% / 0.9));
+    --gradient-glow: radial-gradient(circle at center, hsl(180 95% 60% / 0.55), transparent 65%);
 
-    --shadow-glow: 0 0 60px hsl(285 95% 65% / 0.45);
-    --shadow-elegant: 0 20px 60px -20px hsl(270 80% 30% / 0.6);
-    --shadow-pill: 0 4px 18px hsl(270 80% 20% / 0.4);
+    --shadow-glow: 0 0 60px hsl(180 95% 60% / 0.45);
+    --shadow-elegant: 0 20px 60px -20px hsl(190 80% 25% / 0.6);
+    --shadow-pill: 0 4px 18px hsl(195 80% 18% / 0.4);
 
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
@@ -64,10 +64,10 @@
   body {
     @apply bg-background text-foreground antialiased;
     background-image:
-      radial-gradient(ellipse 90% 70% at 20% 10%, hsl(270 90% 45% / 0.85), transparent 60%),
-      radial-gradient(ellipse 90% 70% at 85% 20%, hsl(295 90% 50% / 0.75), transparent 60%),
-      radial-gradient(ellipse 100% 80% at 50% 100%, hsl(255 85% 40% / 0.85), transparent 65%),
-      linear-gradient(135deg, hsl(260 70% 12%) 0%, hsl(285 75% 18%) 50%, hsl(310 70% 22%) 100%);
+      radial-gradient(ellipse 90% 70% at 20% 10%, hsl(195 90% 25% / 0.85), transparent 60%),
+      radial-gradient(ellipse 90% 70% at 85% 20%, hsl(180 90% 28% / 0.75), transparent 60%),
+      radial-gradient(ellipse 100% 80% at 50% 100%, hsl(170 85% 22% / 0.85), transparent 65%),
+      linear-gradient(135deg, hsl(200 70% 8%) 0%, hsl(190 75% 12%) 50%, hsl(175 70% 14%) 100%);
     background-attachment: fixed;
   }
 }
@@ -82,9 +82,9 @@
   .shadow-pill { box-shadow: var(--shadow-pill); }
   .transition-smooth { transition: var(--transition-smooth); }
   .glass {
-    background: hsl(250 35% 10% / 0.6);
+    background: hsl(200 40% 10% / 0.6);
     backdrop-filter: blur(14px);
-    border: 1px solid hsl(260 40% 22% / 0.7);
+    border: 1px solid hsl(190 45% 22% / 0.7);
   }
   @keyframes pulse-orb {
     0%, 100% { transform: scale(1); opacity: 0.85; }
