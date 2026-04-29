@@ -4,6 +4,8 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+import { checkCredits, getUserIdFromAuth } from "../_shared/credits.ts";
+
 /**
  * voice-chat — edge function ULTRA-LÉGÈRE dédiée au mode vocal.
  *
@@ -64,6 +66,19 @@ Deno.serve(async (req) => {
     const eventsContext: string = typeof body?.eventsContext === "string" ? body.eventsContext : "";
     const customInstructions: string = typeof body?.customInstructions === "string" ? body.customInstructions : "";
     const tz = typeof body?.timezone === "string" && body.timezone ? body.timezone : "UTC";
+
+    // ─── Pré-flight crédits : 2 crédits par tour vocal court (gemini-flash-lite) ──
+    const userId = getUserIdFromAuth(req);
+    if (userId) {
+      const required = 2;
+      const check = await checkCredits(userId, required, {
+        action: "voice-chat",
+        model: "google/gemini-2.5-flash-lite",
+        cors: corsHeaders,
+        breakdown: { fixed_cost: required, reason: "voice turn (short)" },
+      });
+      if (!check.ok) return check.response;
+    }
 
     const now = new Date();
     let nowLocal = now.toISOString();

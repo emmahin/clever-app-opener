@@ -79,8 +79,10 @@ export const webChatService: IChatService = {
       if (resp.status === 429) return onError(new Error("Trop de requêtes — réessayez dans un instant."));
       if (resp.status === 402) {
         let msg = "Crédits insuffisants pour cette requête.";
+        let details: Record<string, unknown> | null = null;
         try {
           const j = await resp.json();
+          details = j;
           if (j?.code === "insufficient_credits") {
             msg = `Crédits insuffisants (solde ${j.balance ?? 0}, requis ${j.required ?? "?"}). Rechargez votre compte.`;
           } else if (j?.error) {
@@ -89,6 +91,7 @@ export const webChatService: IChatService = {
         } catch { /* ignore */ }
         const err = new Error(msg);
         (err as any).code = "insufficient_credits";
+        (err as any).details = details;
         return onError(err);
       }
       if (resp.status === 401) return onError(new Error("Session expirée — reconnectez-vous."));

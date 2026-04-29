@@ -323,3 +323,70 @@ export async function refundCredits(
     console.warn("refund failed", e);
   }
 }
+
+// ---------- Pré-flight (no-debit) ----------
+
+/** Lit le solde courant de l'utilisateur (subscription + purchased). */
+export async function getUserBalance(userId: string): Promise<number> {
+  try {
+    const r = await fetch(
+      `${SUPABASE_URL}/rest/v1/user_credits?user_id=eq.${userId}&select=subscription_credits,purchased_credits`,
+      {
+        headers: {
+          apikey: SERVICE_ROLE,
+          Authorization: `Bearer ${SERVICE_ROLE}`,
+        },
+      },
+    );
+    if (!r.ok) return 0;
+    const rows = await r.json();
+    const row = rows?.[0];
+    if (!row) return 0;
+    return (row.subscription_credits ?? 0) + (row.purchased_credits ?? 0);
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Pré-flight check : compare solde et coût estimé, sans débiter.
+ * - Renvoie { ok: true } si OK (ou si admin → bypass).
+ * - Renvoie { ok: false, response } avec un Response 402 prêt à être renvoyé.
+ * Le body 402 inclut balance/required/missing pour affichage côté UI.
+ */
+export async function checkCredits(
+  userId: string,
+  required: number,
+  opts: {
+    action?: string;
+    model?: string;
+    cors?: HeadersInit;
+    breakdown?: Record<string, unknown>;
+  } = {},
+): Promise<{ ok: true; balance: number } | { ok: false; response: Response }> {
+  // Admin bypass
+  if (await isAdmin(userId)) {
+    return { ok: true, balance: Number.POSITIVE_INFINITY };
+  }
+  const balance = await getUserBalance(userId);
+  if (balance >= required) {
+    return { ok: true, balance };
+  }
+  const body = {
+    error: "insufficient_credits",
+    message: "Crédits insuffisants pour exécuter cette requête.",
+    balance,
+    required,
+    missing: required - balance,
+    action: opts.action ?? null,
+    model: opts.model ?? null,
+    breakdown: opts.breakdown ?? null,
+  };
+  return {
+    ok: false,
+    response: new Response(JSON.stringify(body), {
+      status: 402,
+      headers: { "Content-Type": "application/json", ...(opts.cors ?? {}) },
+    }),
+  };
+}

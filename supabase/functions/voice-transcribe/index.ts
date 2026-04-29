@@ -24,6 +24,8 @@ const corsHeaders = {
 const WHISPER_KEY = Deno.env.get("OPENAI_WHISPER_API_KEY");
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
+import { checkCredits, getUserIdFromAuth } from "../_shared/credits.ts";
+
 function base64ToBytes(b64: string): Uint8Array {
   const bin = atob(b64);
   const out = new Uint8Array(bin.length);
@@ -156,6 +158,22 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "audio too large" }), {
         status: 413, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // ─── Pré-flight crédits : 3 cr (Whisper court < 30s)
+    //                          5 cr (audio > ~1 MB base64 ≈ 30-60s)
+    {
+      const userId = getUserIdFromAuth(req);
+      if (userId) {
+        const required = audio.length > 1_000_000 ? 5 : 3;
+        const check = await checkCredits(userId, required, {
+          action: "voice-transcribe",
+          model: "whisper-1",
+          cors: corsHeaders,
+          breakdown: { audio_bytes_base64: audio.length, fixed_cost: required },
+        });
+        if (!check.ok) return check.response;
+      }
     }
 
     // Extrait le mime depuis le data URI si présent.

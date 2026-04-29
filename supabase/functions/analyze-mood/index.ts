@@ -2,6 +2,7 @@
 // (modèle gratuit : google/gemini-2.5-flash-lite). Stocke le résultat dans message_moods.
 // Tolérante aux pannes : ne casse JAMAIS le chat si l'analyse échoue.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { checkCredits } from "../_shared/credits.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -69,6 +70,17 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: true, skipped: "too_short" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // ─── Pré-flight crédits : 1 crédit fixe (court appel JSON) ──────────
+    {
+      const check = await checkCredits(user.id, 1, {
+        action: "analyze-mood",
+        model: "google/gemini-2.5-flash-lite",
+        cors: corsHeaders,
+        breakdown: { fixed_cost: 1, reason: "mood analysis (single message)" },
+      });
+      if (!check.ok) return check.response;
     }
 
     const apiKey = Deno.env.get("LOVABLE_API_KEY");
