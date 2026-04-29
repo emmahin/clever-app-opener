@@ -20,6 +20,7 @@ import { scheduleService } from "@/services/scheduleService";
 import { toast } from "sonner";
 import { organizeLocally } from "@/lib/localOrganizer";
 import { registerOrganizeFiles } from "@/lib/organizeRegistry";
+import { InsufficientCreditsDialog, type InsufficientCreditsInfo } from "@/components/InsufficientCreditsDialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -131,6 +132,7 @@ export default function Index() {
   const { get: getProject } = useProjects();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [creditsDialog, setCreditsDialog] = useState<InsufficientCreditsInfo | null>(null);
   const [voiceCallOpen, setVoiceCallOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -569,17 +571,18 @@ export default function Index() {
         setIsLoading(false);
         const code = (err as any)?.code;
         if (code === "insufficient_credits") {
-          toast.error(err.message, {
-            action: {
-              label: "Recharger",
-              onClick: () => navigate("/billing"),
-            },
-            duration: 8000,
+          const d: any = (err as any).details || {};
+          setCreditsDialog({
+            balance: Number(d.balance ?? 0),
+            required: Number(d.required ?? 0),
+            missing: Number(d.missing ?? Math.max(0, (d.required ?? 0) - (d.balance ?? 0))),
+            action: d.action ?? "chat",
+            model: d.model ?? null,
+            breakdown: d.breakdown ?? null,
+            message: err.message,
           });
-          // Retire le message assistant vide, et on ne pollue pas avec une bulle d'erreur :
-          // on redirige automatiquement après un court délai.
+          // Retire le message assistant vide pour ne pas laisser de bulle vide.
           setMessages((prev) => prev.filter((m) => m.id !== assistantId));
-          setTimeout(() => navigate("/billing"), 1500);
           return;
         }
         setMessages((prev) =>
