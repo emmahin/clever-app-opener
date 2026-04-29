@@ -244,7 +244,28 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const speak = useCallback((text: string): Promise<void> => {
+  /** Pré-fetch d'une phrase TTS — retourne le blob audio (ou null si fallback). */
+  const fetchTtsBlob = useCallback(async (text: string): Promise<Blob | null> => {
+    if (!text.trim()) return null;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || (import.meta as any).env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const url = `${(import.meta as any).env.VITE_SUPABASE_URL}/functions/v1/voice-tts`;
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ text }),
+      });
+      if (!resp.ok) return null;
+      const ct = resp.headers.get("Content-Type") || "";
+      if (!ct.startsWith("audio/")) return null;
+      return await resp.blob();
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const speak = useCallback((text: string, preloaded?: Blob | null): Promise<void> => {
     return new Promise(async (resolve) => {
       if (!text.trim()) return resolve();
       const speakWithBrowserVoice = () => {
@@ -274,22 +295,25 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
         return true;
       };
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const token = session?.access_token || (import.meta as any).env.VITE_SUPABASE_PUBLISHABLE_KEY;
-        const url = `${(import.meta as any).env.VITE_SUPABASE_URL}/functions/v1/voice-tts`;
-        const resp = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ text }),
-        });
-        if (!resp.ok) throw new Error(`TTS HTTP ${resp.status}`);
-        const contentType = resp.headers.get("Content-Type") || "";
-        if (!contentType.startsWith("audio/")) {
-          const payload = await resp.json().catch(() => null);
-          if (payload?.fallback === "browser") throw new Error(payload.reason || "TTS browser fallback requested");
-          throw new Error("TTS response is not audio");
+        let blob: Blob | null = preloaded ?? null;
+        if (!blob) {
+          const { data: { session } } = await supabase.auth.getSession();
+          const token = session?.access_token || (import.meta as any).env.VITE_SUPABASE_PUBLISHABLE_KEY;
+          const url = `${(import.meta as any).env.VITE_SUPABASE_URL}/functions/v1/voice-tts`;
+          const resp = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ text }),
+          });
+          if (!resp.ok) throw new Error(`TTS HTTP ${resp.status}`);
+          const contentType = resp.headers.get("Content-Type") || "";
+          if (!contentType.startsWith("audio/")) {
+            const payload = await resp.json().catch(() => null);
+            if (payload?.fallback === "browser") throw new Error(payload.reason || "TTS browser fallback requested");
+            throw new Error("TTS response is not audio");
+          }
+          blob = await resp.blob();
         }
-        const blob = await resp.blob();
         const audioUrl = URL.createObjectURL(blob);
         const audio = new Audio(audioUrl);
         audio.volume = 1;
@@ -310,7 +334,24 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
           stopBargeInDetector();
           resolve();
         };
-        audio.onended = cleanup;
+        // Résout la promesse JUSTE AVANT la fin réelle de l'audio pour
+        // enchaîner la phrase suivante sans micro-silence perceptible.
+        let resolved = false;
+        const earlyResolve = () => {
+          if (resolved) return;
+          resolved = true;
+          stopBargeInDetector();
+          resolve();
+        };
+        audio.ontimeupdate = () => {
+          if (!audio.duration || !isFinite(audio.duration)) return;
+          if (audio.currentTime >= audio.duration - 0.08) earlyResolve();
+        };
+        audio.onended = () => {
+          URL.revokeObjectURL(audioUrl);
+          if (currentAudioRef.current === audio) currentAudioRef.current = null;
+          earlyResolve();
+        };
         audio.onerror = cleanup;
         try {
           await audio.play();
