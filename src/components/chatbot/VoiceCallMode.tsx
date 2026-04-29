@@ -343,9 +343,11 @@ export const VoiceCallMode = forwardRef<HTMLDivElement, Props>(function VoiceCal
             // Pas de boost : on respecte le niveau réel après noise-gate
             // côté provider. Les barres restent immobiles tant que la voix
             // ne dépasse pas vraiment le bruit ambiant.
-            const boosted = phase === "listening" ? audioLevel : 0;
+            // Amplitude visuelle réduite : barres très calmes, ne s'animent
+            // qu'au-dessus d'un vrai signal de voix.
+            const boosted = phase === "listening" ? audioLevel * 0.6 : 0;
             const amp = envelope * wiggle * boosted;
-            const h = boosted > 0.05 ? 3 + amp * 70 : 2;
+            const h = boosted > 0.06 ? 2 + amp * 45 : 2;
             const color =
               phase === "speaking"
                 ? "hsl(150 80% 60%)"
