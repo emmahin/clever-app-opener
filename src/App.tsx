@@ -22,6 +22,7 @@ import AdminUsers from "./pages/AdminUsers.tsx";
 import Agenda from "./pages/Agenda.tsx";
 import OpenAIDiagnostics from "./pages/OpenAIDiagnostics.tsx";
 import VoiceAdmin from "./pages/VoiceAdmin.tsx";
+import VoiceSettings from "./pages/VoiceSettings.tsx";
 import { AuthGuard } from "@/components/AuthGuard";
 import { RootErrorBoundary } from "@/components/RootErrorBoundary";
 import { useVoiceNavigation } from "@/hooks/useVoiceNavigation";
@@ -54,6 +55,7 @@ const App = () => (
             <Route path="/dashboard" element={<AuthGuard><Dashboard /></AuthGuard>} />
             <Route path="/analytics" element={<AuthGuard><Analytics /></AuthGuard>} />
             <Route path="/settings" element={<AuthGuard><Settings /></AuthGuard>} />
+            <Route path="/settings/voice" element={<AuthGuard><VoiceSettings /></AuthGuard>} />
             <Route path="/video" element={<AuthGuard><VideoEditor /></AuthGuard>} />
             <Route path="/documents" element={<AuthGuard><Documents /></AuthGuard>} />
             <Route path="/notifications" element={<AuthGuard><Notifications /></AuthGuard>} />
