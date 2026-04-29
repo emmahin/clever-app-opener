@@ -4,7 +4,7 @@
  * Architecture (zéro abonnement payant) :
  *   1. STT (parole→texte)  : voiceService (edge function `voice-transcribe`, Gemini via Lovable AI)
  *   2. LLM (texte→réponse) : edge function `ai-orchestrator` — MÊMES mémoires/insights que le chat texte
- *   3. TTS (texte→parole)  : OpenAI TTS (voix « shimmer ») via edge function `voice-tts`,
+ *   3. TTS (texte→parole)  : OpenAI TTS (voix masculine « onyx ») via edge function `voice-tts`,
  *      avec repli automatique sur la voix native du navigateur en cas d'erreur.
  *
  * On garde EXACTEMENT la même API publique (`useTwinVoiceContext`) pour ne rien
@@ -260,7 +260,7 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
       const resp = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, voice: "onyx" }),
       });
       if (!resp.ok) return null;
       const ct = resp.headers.get("Content-Type") || "";
@@ -311,7 +311,7 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
           const resp = await fetch(url, {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ text }),
+            body: JSON.stringify({ text, voice: "onyx" }),
           });
           if (!resp.ok) throw new Error(`TTS HTTP ${resp.status}`);
           const contentType = resp.headers.get("Content-Type") || "";
@@ -455,12 +455,13 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
         const rms = Math.sqrt(sum / buf.length);
         if (rms < noiseFloor) noiseFloor = noiseFloor * 0.9 + rms * 0.1;
         else noiseFloor = noiseFloor * 0.999 + rms * 0.001;
-        const energy = Math.max(0, rms - noiseFloor * 1.5);
-        const norm = Math.min(1, Math.sqrt(energy * 13));
+        const visualThreshold = Math.max(0.055, noiseFloor * 4.5, voicePeak * 0.55);
+        const energy = rms > visualThreshold ? rms - visualThreshold : 0;
+        const norm = Math.min(1, Math.sqrt(energy * 5));
         displayedLevel = norm > displayedLevel
-          ? displayedLevel * 0.25 + norm * 0.75
-          : displayedLevel * 0.72 + norm * 0.28;
-        setAudioLevel(webVoiceService.isRecording() ? displayedLevel : 0);
+          ? displayedLevel * 0.55 + norm * 0.45
+          : displayedLevel * 0.92 + norm * 0.08;
+        setAudioLevel(webVoiceService.isRecording() && displayedLevel > 0.035 ? displayedLevel : 0);
         const now = Date.now();
         const dt = now - lastTickAt;
         lastTickAt = now;

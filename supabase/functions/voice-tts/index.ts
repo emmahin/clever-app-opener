@@ -6,8 +6,8 @@ const corsHeaders = {
 
 // ─── Provider par défaut : OpenAI TTS (Whisper family) ───────────────
 // L'utilisateur veut explicitement rester sur l'écosystème OpenAI/Whisper.
-// Voix par défaut : « shimmer » (féminine, douce et aérienne).
-const OPENAI_DEFAULT_VOICE = "shimmer";
+// Voix par défaut : « onyx » (masculine, grave et claire).
+const OPENAI_DEFAULT_VOICE = "onyx";
 const OPENAI_ALLOWED_VOICES = new Set(["alloy", "echo", "fable", "onyx", "nova", "shimmer", "sage", "coral"]);
 
 // ─── Fallback ElevenLabs (uniquement si OpenAI échoue) ───────────────
