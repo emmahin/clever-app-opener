@@ -892,49 +892,39 @@ export default function Index() {
           if (intent.kind === "notifications") { navigate("/notifications"); return true; }
           if (intent.kind === "settings") { navigate("/settings"); return true; }
           if (intent.kind === "n8n") {
-            const webhookUrl = localStorage.getItem("n8n_webhook_url");
-            if (!webhookUrl) {
+            const cfg = n8nService.loadConfig();
+            if (!n8nService.isConfigured()) {
               const assistantMsg: ChatMessage = {
                 id: crypto.randomUUID(),
                 role: "assistant",
-                content: "Aucun webhook n8n configuré. Va dans **Paramètres** pour coller l'URL de ton webhook n8n.",
+                content: "Aucun webhook n8n actif. Va dans **Paramètres → n8n** pour activer le webhook et déclarer tes actions.",
                 createdAt: Date.now(),
               };
               setMessages((prev) => [...prev, assistantMsg]);
               void persistVoiceAssistant(assistantMsg, "n8n-missing");
               return true;
             }
-            try {
-              const res = await fetch(webhookUrl, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  source: "lia-voice",
-                  prompt: intent.prompt,
-                  timestamp: new Date().toISOString(),
-                }),
-              });
-              const ok = res.ok;
-              const assistantMsg: ChatMessage = {
-                id: crypto.randomUUID(),
-                role: "assistant",
-                content: ok
-                  ? "✅ Workflow n8n déclenché."
-                  : `❌ Le webhook n8n a répondu ${res.status}.`,
-                createdAt: Date.now(),
-              };
-              setMessages((prev) => [...prev, assistantMsg]);
-              void persistVoiceAssistant(assistantMsg, "n8n");
-            } catch (err) {
-              console.warn("[voice] n8n webhook failed", err);
-              const assistantMsg: ChatMessage = {
-                id: crypto.randomUUID(),
-                role: "assistant",
-                content: "❌ Impossible d'appeler le webhook n8n (réseau ou CORS).",
-                createdAt: Date.now(),
-              };
-              setMessages((prev) => [...prev, assistantMsg]);
-            }
+            // Choisit l'action dont la description matche le prompt vocal,
+            // sinon utilise la première action déclarée, sinon "voice_command".
+            const lower = intent.prompt.toLowerCase();
+            const matched =
+              cfg.actions.find((a) =>
+                a.description && lower.includes(a.description.toLowerCase().split(/\s+/)[0]),
+              ) ||
+              cfg.actions.find((a) => a.id && lower.includes(a.id.toLowerCase())) ||
+              cfg.actions[0];
+            const actionId = matched?.id || "voice_command";
+            const result = await n8nService.trigger(actionId, { prompt: intent.prompt, source: "lia-voice" });
+            const assistantMsg: ChatMessage = {
+              id: crypto.randomUUID(),
+              role: "assistant",
+              content: result.ok
+                ? `✅ Workflow n8n « ${actionId} » déclenché.`
+                : `❌ n8n : ${result.detail || `erreur ${result.status ?? ""}`.trim()}`,
+              createdAt: Date.now(),
+            };
+            setMessages((prev) => [...prev, assistantMsg]);
+            void persistVoiceAssistant(assistantMsg, "n8n");
             return true;
           }
           return false;
