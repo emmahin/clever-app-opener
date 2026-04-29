@@ -5,33 +5,59 @@ import { useTwinVoiceContext } from "@/contexts/TwinVoiceProvider";
 
 /**
  * Routes accessibles par commande vocale.
- * L'ordre compte : on prend le 1er match. Mets les patterns spécifiques avant les génériques.
+ * L'ordre compte : on prend le 1er match. Patterns spécifiques AVANT les génériques.
+ * Note : tout le texte est normalisé sans accents avant le test, donc les patterns
+ * doivent être écrits SANS accents (ex: "reglages" et non "réglages").
  */
 const VOICE_ROUTES: { path: string; label: string; patterns: RegExp[] }[] = [
+  {
+    path: "/admin/voice",
+    label: "l'admin vocal",
+    patterns: [/\b(admin (vocal|voix|voice)|configuration vocale|elevenlabs|reglages? (vocal|voix))\b/i],
+  },
+  {
+    path: "/admin/users",
+    label: "l'admin utilisateurs",
+    patterns: [/\b(admin (users?|utilisateurs?)|gestion (des )?utilisateurs?)\b/i],
+  },
+  { path: "/dashboard",     label: "le tableau de bord", patterns: [/\b(dashboard|tableau de bord)\b/i] },
+  { path: "/analytics",     label: "les analyses",       patterns: [/\b(analytics?|analyses?|statistiques?|stats)\b/i] },
+  { path: "/agenda",        label: "l'agenda",            patterns: [/\b(agenda|calendrier|planning|rendez[- ]?vous)\b/i] },
+  { path: "/documents",     label: "les documents",       patterns: [/\b(documents?|fichiers?|dossiers?)\b/i] },
+  { path: "/notifications", label: "les notifications",   patterns: [/\b(notifications?|alertes?)\b/i] },
+  { path: "/video",         label: "l'éditeur vidéo",      patterns: [/\b(video|montage|editeur video)\b/i] },
+  { path: "/billing",       label: "la facturation",       patterns: [/\b(facturation|abonnement|billing|paiement)\b/i] },
+  { path: "/settings",      label: "les réglages",         patterns: [/\b(reglages?|parametres?|settings|configuration)\b/i] },
+  { path: "/home",          label: "l'accueil classique",  patterns: [/\b(home|page principale|tableau principal|interface chat)\b/i] },
   {
     path: "/",
     label: "le menu vocal",
     patterns: [
-      /\b(menu (principal|vocal)|orbe?|sph[èe]re|page d['e ]?accueil|accueil)\b/,
-      /\bretour (?:au|à la) (?:menu|accueil|principal)\b/,
+      /\bmenu (principal|vocal|d[''e]?accueil)?\b/i,
+      /\b(orbe?|sphere|page d[''e]?accueil|accueil)\b/i,
+      /\bretour (?:au|a la|a l[''e]?) (?:menu|accueil|principal)\b/i,
     ],
   },
-  { path: "/home", label: "l'accueil", patterns: [/\b(home|page principale|tableau principal)\b/] },
-  { path: "/dashboard", label: "le tableau de bord", patterns: [/\b(dashboard|tableau de bord)\b/] },
-  { path: "/analytics", label: "les analyses", patterns: [/\b(analytics?|analyses?|statistiques?|stats)\b/] },
-  { path: "/agenda", label: "l'agenda", patterns: [/\b(agenda|calendrier|planning|rendez[- ]vous)\b/] },
-  { path: "/documents", label: "les documents", patterns: [/\b(documents?|fichiers?|dossiers?)\b/] },
-  { path: "/notifications", label: "les notifications", patterns: [/\b(notifications?|alertes?)\b/] },
-  { path: "/video", label: "l'éditeur vidéo", patterns: [/\b(vid[ée]o|montage|[ée]diteur vid[ée]o)\b/] },
-  { path: "/billing", label: "la facturation", patterns: [/\b(facturation|abonnement|billing|paiement)\b/] },
-  { path: "/settings", label: "les réglages", patterns: [/\b(r[ée]glages?|param[èe]tres?|settings|configuration)\b/] },
-  { path: "/admin/voice", label: "l'admin vocal", patterns: [/\b(admin (vocal|voix)|configuration vocale|elevenlabs)\b/] },
-  { path: "/admin/users", label: "l'admin utilisateurs", patterns: [/\b(admin (users?|utilisateurs?)|gestion utilisateurs?)\b/] },
 ];
 
-/** Verbes d'intention (ouvrir / aller / afficher / montrer / lance / va sur / etc.). */
+/**
+ * Verbes d'intention. OPTIONNEL : si présent on navigue toujours, sinon on
+ * navigue uniquement si la phrase est COURTE (≤ 6 mots) — typique d'une
+ * commande directe ("menu principal", "agenda", "tableau de bord").
+ */
 const INTENT_RE =
-  /\b(ouvre|ouvrir|affiche|afficher|montre|montrer|va sur|va à|va au|am[èe]ne|emm[èe]ne|emmene|lance|d[ée]marre|aller (?:sur|à|au)|navigue|retourne)\b/;
+  /\b(ouvre|ouvrir|affiche|afficher|montre|montrer|va |aller |amene|emmene|emmenes|lance|lancer|demarre|demarrer|navigue|retourne|retour|passe|bascule)\b/i;
+
+/** Retire accents + ponctuation finale + espaces multiples. */
+function normalize(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // strip diacritics
+    .replace(/[.,!?;:…"]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 /** Hook global : écoute les nouveaux messages user et navigue si une intention est détectée. */
 export function useVoiceNavigation() {
@@ -46,13 +72,33 @@ export function useVoiceNavigation() {
     if (lastHandledIdRef.current === last.id) return;
     lastHandledIdRef.current = last.id;
 
-    const text = last.text.toLowerCase().normalize("NFC");
-    if (!INTENT_RE.test(text)) return;
+    const raw = last.text;
+    const text = normalize(raw);
+    if (!text) return;
+
+    const wordCount = text.split(" ").length;
+    const hasIntent = INTENT_RE.test(text);
+    const isShortCommand = wordCount <= 6;
+
+    // On accepte la commande si : verbe d'intention présent, OU phrase très courte.
+    if (!hasIntent && !isShortCommand) {
+      console.debug("[voice-nav] ignoré (pas d'intention, phrase trop longue):", raw);
+      return;
+    }
 
     const match = VOICE_ROUTES.find((r) => r.patterns.some((p) => p.test(text)));
-    if (!match) return;
+    if (!match) {
+      console.debug("[voice-nav] aucune route ne correspond:", text);
+      return;
+    }
 
-    if (window.location.pathname === match.path) return;
+    if (window.location.pathname === match.path) {
+      console.debug("[voice-nav] déjà sur", match.path);
+      toast.info(`Tu es déjà sur ${match.label}`, { duration: 1500 });
+      return;
+    }
+
+    console.info("[voice-nav] navigation:", match.path, "←", raw);
     navigate(match.path);
     toast.success(`Ouverture de ${match.label}`, { duration: 1800 });
   }, [transcript, navigate]);
