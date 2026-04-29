@@ -13,7 +13,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  ArrowLeft, Shield, ShieldOff, Coins, Crown, Search, Lock,
+  ArrowLeft, Shield, ShieldOff, Coins, Crown, Search, Lock, ArrowUpRight,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -42,6 +42,17 @@ export default function AdminUsers() {
   const [creditDialog, setCreditDialog] = useState<{ user: AdminUserRow } | null>(null);
   const [creditAmount, setCreditAmount] = useState("100");
   const [creditBucket, setCreditBucket] = useState<"purchased" | "subscription">("purchased");
+  const [transferDialog, setTransferDialog] = useState<{ user: AdminUserRow } | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? null));
+  }, []);
+
+  const callerIsPrimary = useMemo(
+    () => rows.some(r => r.user_id === currentUserId && r.is_primary_admin),
+    [rows, currentUserId],
+  );
 
   useEffect(() => {
     if (!adminLoading && !isAdmin) navigate("/");
@@ -86,6 +97,20 @@ export default function AdminUsers() {
     const { error } = await supabase.rpc("revoke_admin", { _target_user_id: u.user_id });
     if (error) toast.error("Échec : " + error.message);
     else { toast.success(`Rôle admin retiré à ${u.email}`); load(); }
+  };
+
+  const transferPrimary = async () => {
+    if (!transferDialog) return;
+    const { error } = await supabase.rpc("transfer_primary_admin", {
+      _target_user_id: transferDialog.user.user_id,
+    });
+    if (error) {
+      toast.error("Échec : " + error.message);
+    } else {
+      toast.success(`${transferDialog.user.email} est désormais l'admin principal`);
+      setTransferDialog(null);
+      load();
+    }
   };
 
   const setTier = async (u: AdminUserRow, tier: string) => {
@@ -233,9 +258,22 @@ export default function AdminUsers() {
                                 <Lock className="w-3.5 h-3.5" />
                               </Button>
                             ) : u.is_admin ? (
-                              <Button size="sm" variant="outline" className="h-8 gap-1" onClick={() => revoke(u)}>
-                                <ShieldOff className="w-3.5 h-3.5" /> Révoquer
-                              </Button>
+                              <>
+                                {callerIsPrimary && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-8 gap-1"
+                                    title="Transférer le rôle d'admin principal à cet utilisateur"
+                                    onClick={() => setTransferDialog({ user: u })}
+                                  >
+                                    <Crown className="w-3.5 h-3.5 text-amber-500" />
+                                  </Button>
+                                )}
+                                <Button size="sm" variant="outline" className="h-8 gap-1" onClick={() => revoke(u)}>
+                                  <ShieldOff className="w-3.5 h-3.5" /> Révoquer
+                                </Button>
+                              </>
                             ) : (
                               <Button size="sm" className="h-8 gap-1" onClick={() => promote(u)}>
                                 <Shield className="w-3.5 h-3.5" /> Promouvoir
@@ -286,6 +324,37 @@ export default function AdminUsers() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreditDialog(null)}>Annuler</Button>
             <Button onClick={addCredits}>Confirmer</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!transferDialog} onOpenChange={(o) => !o && setTransferDialog(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Crown className="w-5 h-5 text-amber-500" />
+              Transférer le rôle d'admin principal
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-sm">
+            <p>
+              Vous êtes sur le point de transférer le statut d'<strong>admin principal</strong> à
+              {" "}<strong>{transferDialog?.user.email}</strong>.
+            </p>
+            <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-amber-700 dark:text-amber-300">
+              <p className="font-medium mb-1">⚠️ Action irréversible (sans accès au nouvel admin principal)</p>
+              <ul className="list-disc list-inside space-y-1 text-xs">
+                <li>Vous resterez admin, mais perdrez la protection "principal".</li>
+                <li>Un autre admin pourra alors révoquer votre rôle.</li>
+                <li>Seul le nouvel admin principal pourra vous le retransférer.</li>
+              </ul>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTransferDialog(null)}>Annuler</Button>
+            <Button onClick={transferPrimary} className="gap-2">
+              <ArrowUpRight className="w-4 h-4" /> Confirmer le transfert
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
