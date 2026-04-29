@@ -72,6 +72,9 @@ interface TwinVoiceContextValue {
   }) => void;
   /** Coupe immédiatement la lecture vocale en cours (utilisé par la nav vocale). */
   stopSpeaking: () => void;
+  /** Coupe ou réactive le micro. Quand muted, l'IA ne reçoit plus aucun son. */
+  muted: boolean;
+  setMuted: (m: boolean) => void;
 }
 
 const TwinVoiceContext = createContext<TwinVoiceContextValue | null>(null);
@@ -82,6 +85,7 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
   const [interim] = useState("");
   const [phase, setPhase] = useState<"idle" | "listening" | "thinking" | "speaking">("idle");
   const [audioLevel, setAudioLevel] = useState(0);
+  const [muted, setMutedState] = useState(false);
   const audioLevelRafRef = useRef<number | null>(null);
   const audioLevelCleanupRef = useRef<(() => void) | null>(null);
   // Micro + lecture audio HTML5 requis (dispo partout).
@@ -816,6 +820,18 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
   const value: TwinVoiceContextValue = {
     isCallActive, status, transcript, interim, supported, audioLevel,
     startCall, endCall, clearTranscript, setContextProviders, stopSpeaking,
+    muted,
+    setMuted: (m: boolean) => {
+      setMutedState(m);
+      // Désactive immédiatement les tracks audio des deux streams (barge-in + recording).
+      try {
+        bargeInStreamRef.current?.getAudioTracks().forEach((t) => { t.enabled = !m; });
+      } catch { /* ignore */ }
+      try {
+        const s = webVoiceService.getStream();
+        s?.getAudioTracks().forEach((t) => { t.enabled = !m; });
+      } catch { /* ignore */ }
+    },
   };
 
   return <TwinVoiceContext.Provider value={value}>{children}</TwinVoiceContext.Provider>;
