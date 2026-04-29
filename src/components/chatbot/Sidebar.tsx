@@ -56,7 +56,7 @@ export function Sidebar() {
   }, [chats, query]);
 
   const loadChat = (proj: { id: string; name: string }) => {
-    if (pathname !== "/") navigate("/");
+    if (pathname !== "/menu") navigate("/menu");
     setTimeout(() => {
       window.dispatchEvent(new CustomEvent("nex:loadChat", { detail: { id: proj.id } }));
     }, 50);
@@ -65,7 +65,7 @@ export function Sidebar() {
   };
 
   const newChat = () => {
-    if (pathname !== "/") navigate("/");
+    if (pathname !== "/menu") navigate("/menu");
     setTimeout(() => {
       window.dispatchEvent(new CustomEvent("nex:newChat"));
     }, 50);
@@ -79,7 +79,7 @@ export function Sidebar() {
   };
 
   const goAiTools = () => {
-    if (pathname !== "/") navigate("/");
+    if (pathname !== "/menu") navigate("/menu");
   };
 
   // ─── Contenu replié (rail vertical) ───
