@@ -34,7 +34,7 @@ const VOICE_ROUTES: { path: string; label: string; patterns: RegExp[] }[] = [
     label: "le menu vocal",
     patterns: [
       /\bmenu (principal|vocal|d[''e]?accueil)?\b/i,
-      /\b(orbe?|sphere|page d[''e]?accueil|accueil)\b/i,
+      /\b(orbe?|sphere|page d[''e]?accueil|accueil|voice ?orb)\b/i,
       /\bretour (?:au|a la|a l[''e]?) (?:menu|accueil|principal)\b/i,
     ],
   },
@@ -55,13 +55,18 @@ function normalize(text: string): string {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "") // strip diacritics
     .replace(/[.,!?;:…"]+/g, " ")
+    // "ouvre-slash-home" / "slash home" → on retire le mot "slash" et les "/"
+    .replace(/\bslash\b/g, " ")
+    .replace(/\//g, " ")
+    // tirets entre mots (souvent ajoutés par STT) → espaces
+    .replace(/-/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
 
 /** Hook global : écoute les nouveaux messages user et navigue si une intention est détectée. */
 export function useVoiceNavigation() {
-  const { transcript } = useTwinVoiceContext();
+  const { transcript, stopSpeaking } = useTwinVoiceContext();
   const navigate = useNavigate();
   const lastHandledIdRef = useRef<string | null>(null);
 
@@ -100,6 +105,8 @@ export function useVoiceNavigation() {
 
     console.info("[voice-nav] navigation:", match.path, "←", raw);
     navigate(match.path);
+    // Coupe immédiatement la voix de l'IA pour éviter qu'elle dise "je ne peux pas".
+    try { stopSpeaking(); } catch { /* ignore */ }
     toast.success(`Ouverture de ${match.label}`, { duration: 1800 });
-  }, [transcript, navigate]);
+  }, [transcript, navigate, stopSpeaking]);
 }
