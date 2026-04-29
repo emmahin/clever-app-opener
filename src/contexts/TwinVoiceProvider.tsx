@@ -70,6 +70,8 @@ interface TwinVoiceContextValue {
     onMemoryChange?: () => void;
     onError?: (msg: string) => void;
   }) => void;
+  /** Coupe immédiatement la lecture vocale en cours (utilisé par la nav vocale). */
+  stopSpeaking: () => void;
 }
 
 const TwinVoiceContext = createContext<TwinVoiceContextValue | null>(null);
