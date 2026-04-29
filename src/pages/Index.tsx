@@ -150,6 +150,14 @@ export default function Index() {
     return () => clearTimeout(id);
   }, [settings.autoOpenVoice]);
 
+  // Permet d'ouvrir le mode vocal depuis n'importe quelle page via un évènement global.
+  // Le Header dispatch `app:open-voice-call` après avoir navigué vers "/".
+  useEffect(() => {
+    const open = () => setVoiceCallOpen(true);
+    window.addEventListener("app:open-voice-call", open);
+    return () => window.removeEventListener("app:open-voice-call", open);
+  }, []);
+
   // ID de la conversation persistée actuellement chargée.
   // null = aucune (sera créée au premier message envoyé).
   const conversationIdRef = useRef<string | null>(null);
