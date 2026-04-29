@@ -14,7 +14,10 @@ const OPENAI_ALLOWED_VOICES = new Set(["alloy", "echo", "fable", "onyx", "nova",
 const ELEVEN_DEFAULT_VOICE_ID = "EXAVITQu4vr4xnSDxMaL"; // Sarah
 const ELEVEN_MODEL = "eleven_turbo_v2_5";
 const MAX_TEXT_LEN = 4000;
-const OPENAI_TTS_MODELS = ["gpt-4o-mini-tts", "tts-1", "tts-1-hd"];
+// `tts-1` est SENSIBLEMENT plus rapide à générer que `gpt-4o-mini-tts`
+// (TTFB ~200-400ms au lieu de 600-1000ms). On le met en priorité pour le
+// mode vocal temps-réel ; les autres servent de repli.
+const OPENAI_TTS_MODELS = ["tts-1", "gpt-4o-mini-tts", "tts-1-hd"];
 
 const parseOpenAIError = (raw: string) => {
   try {
@@ -64,7 +67,8 @@ Deno.serve(async (req) => {
             voice: openaiVoice,
             input: safeText,
             response_format: "mp3",
-            speed: 1.15,
+            // 1.25 = élocution dynamique sans devenir caricaturale.
+            speed: 1.25,
           }),
         });
         if (response.ok) {
