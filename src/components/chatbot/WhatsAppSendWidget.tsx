@@ -27,10 +27,10 @@ const LS_CONTACTS = "wa_contacts";
 const LS_MESSAGES = "wa_messages";
 
 const AVATAR_COLORS = [
-  "from-cyan-500 to-teal-600",
-  "from-cyan-500 to-cyan-700",
-  "from-teal-500 to-pink-600",
-  "from-indigo-500 to-cyan-600",
+  "from-purple-500 to-fuchsia-600",
+  "from-violet-500 to-purple-700",
+  "from-fuchsia-500 to-pink-600",
+  "from-indigo-500 to-violet-600",
 ];
 
 function loadContacts(): Contact[] {
@@ -167,7 +167,7 @@ export function WhatsAppSendWidget({
   // === Sent confirmation state ===
   if (sent) {
     return (
-      <div className="rounded-xl border border-emerald-500/40 bg-gradient-to-br from-emerald-900/30 to-teal-900/30 p-4">
+      <div className="rounded-xl border border-emerald-500/40 bg-gradient-to-br from-emerald-900/30 to-purple-900/30 p-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center">
             <Check className="w-5 h-5 text-emerald-400" />
@@ -247,7 +247,7 @@ export function WhatsAppSendWidget({
   // === STEP 1: SELECT — always shown when match isn't a single exact one ===
   if (step === "select") {
     return (
-      <div className="rounded-xl border border-primary/40 bg-gradient-to-br from-teal-900/30 to-teal-900/20 p-4">
+      <div className="rounded-xl border border-primary/40 bg-gradient-to-br from-purple-900/30 to-fuchsia-900/20 p-4">
         <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground mb-3">
           <Users className="w-3.5 h-3.5 text-primary" />
           WHATSAPP — {hasMultipleStrong ? "Plusieurs contacts similaires" : "Vérifie le contact"}
@@ -293,7 +293,7 @@ export function WhatsAppSendWidget({
             size="sm"
             onClick={() => { setConfirmChecked(false); setStep("confirm"); }}
             disabled={!selected}
-            className="flex-1 bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white"
+            className="flex-1 bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 text-white"
           >
             Continuer avec {selected.name.split(" ")[0]}
           </Button>
@@ -325,7 +325,7 @@ export function WhatsAppSendWidget({
 
   // === STEP 2: CONFIRM — final validation before sending ===
   return (
-    <div className="rounded-xl border border-primary/40 bg-gradient-to-br from-teal-900/30 to-teal-900/20 p-4">
+    <div className="rounded-xl border border-primary/40 bg-gradient-to-br from-purple-900/30 to-fuchsia-900/20 p-4">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
           <Check className="w-3.5 h-3.5 text-primary" />
@@ -361,7 +361,7 @@ export function WhatsAppSendWidget({
         />
       ) : (
         <div
-          className="rounded-lg bg-gradient-to-br from-cyan-600/30 to-teal-600/20 border border-primary/20 p-3 mb-1 cursor-text"
+          className="rounded-lg bg-gradient-to-br from-purple-600/30 to-fuchsia-600/20 border border-primary/20 p-3 mb-1 cursor-text"
           onClick={() => setEditing(true)}
         >
           <p className="text-[10px] text-muted-foreground mb-1">MESSAGE</p>
@@ -386,7 +386,7 @@ export function WhatsAppSendWidget({
           size="sm"
           onClick={() => sendTo(selected)}
           disabled={!draft.trim() || !confirmChecked}
-          className="flex-1 bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white disabled:opacity-50"
+          className="flex-1 bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 text-white disabled:opacity-50"
         >
           <Send className="w-3.5 h-3.5 mr-1.5" /> Envoyer
         </Button>

@@ -196,7 +196,7 @@ export function Sidebar() {
       className="fixed left-0 top-0 h-full hidden md:flex flex-col z-50 transition-[width] duration-300 ease-out overflow-hidden"
       style={{
         width: collapsed ? `${SIDEBAR_COLLAPSED}px` : `${SIDEBAR_WIDTH}px`,
-        background: "linear-gradient(180deg, hsl(0, 0%, 4%), hsl(190, 70%, 14%))",
+        background: "linear-gradient(180deg, hsl(0, 0%, 4%), hsl(275, 70%, 18%))",
       }}
     >
       {collapsed ? collapsedContent : expandedContent}
@@ -231,7 +231,7 @@ export function Sidebar() {
           "md:hidden fixed left-0 top-0 h-full w-72 max-w-[85vw] z-[61] flex flex-col transition-transform duration-200 ease-out",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
-        style={{ background: "linear-gradient(180deg, hsl(0, 0%, 4%), hsl(190, 70%, 14%))" }}
+        style={{ background: "linear-gradient(180deg, hsl(0, 0%, 4%), hsl(275, 70%, 18%))" }}
         aria-label="Menu de navigation"
       >
         <div className="flex items-center justify-end px-2 pt-2">

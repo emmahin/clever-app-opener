@@ -17,7 +17,7 @@ const CATEGORY_LABEL: Record<MemoryCategory, string> = {
 
 const CATEGORY_COLOR: Record<MemoryCategory, string> = {
   habit: "bg-blue-500/15 text-blue-300 border-blue-400/30",
-  preference: "bg-cyan-500/15 text-cyan-300 border-cyan-400/30",
+  preference: "bg-purple-500/15 text-purple-300 border-purple-400/30",
   goal: "bg-emerald-500/15 text-emerald-300 border-emerald-400/30",
   fact: "bg-slate-500/15 text-slate-300 border-slate-400/30",
   emotion: "bg-pink-500/15 text-pink-300 border-pink-400/30",

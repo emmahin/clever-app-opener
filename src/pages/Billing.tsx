@@ -73,7 +73,7 @@ const TIERS: Array<{
     priceNum: 15,
     credits: 8000,
     icon: Zap,
-    tone: "from-cyan-500/20 to-cyan-500/5",
+    tone: "from-violet-500/20 to-violet-500/5",
     popular: true,
     tagline: "Pour un usage régulier",
     features: [

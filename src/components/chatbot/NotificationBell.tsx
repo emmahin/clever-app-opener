@@ -31,12 +31,12 @@ function iconFor(type: NotificationType) {
 
 function colorFor(type: NotificationType): string {
   switch (type) {
-    case "chat_response": return "text-cyan-400 bg-cyan-500/15";
+    case "chat_response": return "text-violet-400 bg-violet-500/15";
     case "whatsapp_message": return "text-emerald-400 bg-emerald-500/15";
     case "news": return "text-blue-400 bg-blue-500/15";
     case "stock_alert": return "text-amber-400 bg-amber-500/15";
     case "reminder": return "text-pink-400 bg-pink-500/15";
-    case "ai_insight": return "text-teal-400 bg-teal-500/15";
+    case "ai_insight": return "text-fuchsia-400 bg-fuchsia-500/15";
     case "system": return "text-slate-400 bg-slate-500/15";
   }
 }
@@ -90,7 +90,7 @@ export function NotificationBell() {
         >
           <Bell className="w-5 h-5" />
           {unreadCount > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-teal-500 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-black/40 animate-pulse">
+            <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-fuchsia-500 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-black/40 animate-pulse">
               {unreadCount > 9 ? "9+" : unreadCount}
             </span>
           )}
@@ -99,7 +99,7 @@ export function NotificationBell() {
       <PopoverContent
         align="end"
         sideOffset={8}
-        className="w-[360px] p-0 bg-gradient-to-b from-[hsl(0,0%,6%)] to-[hsl(190,40%,12%)] border-white/10"
+        className="w-[360px] p-0 bg-gradient-to-b from-[hsl(0,0%,6%)] to-[hsl(275,40%,12%)] border-white/10"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
@@ -155,7 +155,7 @@ export function NotificationBell() {
                     !n.read && "bg-primary/5",
                   )}
                 >
-                  {!n.read && <span className="absolute left-1 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-teal-400" />}
+                  {!n.read && <span className="absolute left-1 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-fuchsia-400" />}
                   <div className={cn("shrink-0 w-8 h-8 rounded-lg flex items-center justify-center", colorFor(n.type))}>
                     {iconFor(n.type)}
                   </div>

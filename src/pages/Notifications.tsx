@@ -32,12 +32,12 @@ function iconFor(type: NotificationType) {
 
 function colorFor(type: NotificationType): string {
   switch (type) {
-    case "chat_response": return "text-cyan-400 bg-cyan-500/15";
+    case "chat_response": return "text-violet-400 bg-violet-500/15";
     case "whatsapp_message": return "text-emerald-400 bg-emerald-500/15";
     case "news": return "text-blue-400 bg-blue-500/15";
     case "stock_alert": return "text-amber-400 bg-amber-500/15";
     case "reminder": return "text-pink-400 bg-pink-500/15";
-    case "ai_insight": return "text-teal-400 bg-teal-500/15";
+    case "ai_insight": return "text-fuchsia-400 bg-fuchsia-500/15";
     case "system": return "text-slate-400 bg-slate-500/15";
   }
 }
@@ -107,7 +107,7 @@ export default function Notifications() {
       className="min-h-screen text-foreground"
       style={{
         backgroundImage:
-          "radial-gradient(ellipse 100% 80% at 20% 100%, hsl(190 90% 40%) 0%, transparent 55%), radial-gradient(ellipse 90% 70% at 80% 90%, hsl(175 85% 35%) 0%, transparent 55%), linear-gradient(180deg, hsl(0 0% 0%) 0%, hsl(190 60% 8%) 55%, hsl(190 75% 22%) 100%)",
+          "radial-gradient(ellipse 100% 80% at 20% 100%, hsl(280 90% 40%) 0%, transparent 55%), radial-gradient(ellipse 90% 70% at 80% 90%, hsl(295 85% 35%) 0%, transparent 55%), linear-gradient(180deg, hsl(0 0% 0%) 0%, hsl(275 60% 8%) 55%, hsl(270 75% 22%) 100%)",
         backgroundAttachment: "fixed",
       }}
     >
@@ -182,7 +182,7 @@ export default function Notifications() {
               className={cn(
                 "px-3 py-1 rounded-full text-xs transition-colors border",
                 unreadOnly
-                  ? "bg-teal-500/25 text-foreground border-teal-500/50"
+                  ? "bg-fuchsia-500/25 text-foreground border-fuchsia-500/50"
                   : "bg-white/5 text-muted-foreground hover:bg-white/10 border-transparent",
               )}
             >
@@ -224,7 +224,7 @@ export default function Notifications() {
                         <div className="min-w-0 flex-1">
                           <div className="flex items-baseline gap-2">
                             <h3 className="text-sm font-medium text-foreground">{n.title}</h3>
-                            {!n.read && <span className="w-1.5 h-1.5 rounded-full bg-teal-400" />}
+                            {!n.read && <span className="w-1.5 h-1.5 rounded-full bg-fuchsia-400" />}
                             <span className="ml-auto text-[11px] text-muted-foreground shrink-0">{timeOf(n.createdAt)}</span>
                           </div>
                           {n.body && <p className="text-sm text-muted-foreground mt-1">{n.body}</p>}

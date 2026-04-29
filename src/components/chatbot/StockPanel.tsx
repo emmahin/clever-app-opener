@@ -67,35 +67,35 @@ export function StockPanel() {
                     <LineChart data={s.series} margin={{ top: 8, right: 16, left: 4, bottom: 4 }}>
                       <defs>
                         <marker id={`arrowX-${s.symbol}`} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                          <path d="M0,0 L10,5 L0,10 z" fill="hsl(200, 15%, 55%)" />
+                          <path d="M0,0 L10,5 L0,10 z" fill="hsl(250, 15%, 55%)" />
                         </marker>
                         <marker id={`arrowY-${s.symbol}`} viewBox="0 0 10 10" refX="5" refY="2" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                          <path d="M0,10 L5,0 L10,10 z" fill="hsl(200, 15%, 55%)" />
+                          <path d="M0,10 L5,0 L10,10 z" fill="hsl(250, 15%, 55%)" />
                         </marker>
                       </defs>
-                      <CartesianGrid stroke="hsl(200, 15%, 45% / 0.25)" strokeWidth={0.5} />
+                      <CartesianGrid stroke="hsl(250, 15%, 45% / 0.25)" strokeWidth={0.5} />
                       <XAxis
                         dataKey="t"
-                        tick={{ fill: "hsl(200, 15%, 70%)", fontSize: 9 }}
+                        tick={{ fill: "hsl(250, 15%, 70%)", fontSize: 9 }}
                         tickLine={false}
-                        axisLine={{ stroke: "hsl(200, 15%, 55%)", strokeWidth: 1.2, markerEnd: `url(#arrowX-${s.symbol})` }}
+                        axisLine={{ stroke: "hsl(250, 15%, 55%)", strokeWidth: 1.2, markerEnd: `url(#arrowX-${s.symbol})` }}
                         interval="preserveStartEnd"
                       />
                       <YAxis
-                        tick={{ fill: "hsl(200, 15%, 70%)", fontSize: 9 }}
+                        tick={{ fill: "hsl(250, 15%, 70%)", fontSize: 9 }}
                         tickLine={false}
-                        axisLine={{ stroke: "hsl(200, 15%, 55%)", strokeWidth: 1.2, markerEnd: `url(#arrowY-${s.symbol})` }}
+                        axisLine={{ stroke: "hsl(250, 15%, 55%)", strokeWidth: 1.2, markerEnd: `url(#arrowY-${s.symbol})` }}
                         width={28}
                         domain={["auto", "auto"]}
                       />
                       <Tooltip
                         contentStyle={{
-                          background: "hsl(200, 35%, 9%)",
-                          border: "1px solid hsl(200, 30%, 18%)",
+                          background: "hsl(250, 35%, 9%)",
+                          border: "1px solid hsl(260, 30%, 18%)",
                           borderRadius: "8px",
                           fontSize: "11px",
                         }}
-                        labelStyle={{ color: "hsl(200, 15%, 65%)" }}
+                        labelStyle={{ color: "hsl(250, 15%, 65%)" }}
                         formatter={(v: number) => [v.toFixed(2), "Cours"]}
                       />
                       <Line
