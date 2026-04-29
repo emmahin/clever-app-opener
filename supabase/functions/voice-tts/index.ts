@@ -67,8 +67,10 @@ Deno.serve(async (req) => {
             voice: openaiVoice,
             input: safeText,
             response_format: "mp3",
-            // 1.25 = élocution dynamique sans devenir caricaturale.
-            speed: 1.25,
+            // 1.05 = ton posé et naturel, légèrement plus vif que la valeur
+            // par défaut. L'utilisateur veut un rythme "calme et agréable",
+            // pas une voix précipitée.
+            speed: 1.05,
           }),
         });
         if (response.ok) {

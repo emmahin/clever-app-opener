@@ -256,8 +256,8 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
           voices.find((v) => v.lang.toLowerCase().startsWith("fr")) ||
           null;
         utterance.lang = "fr-FR";
-        utterance.rate = 1.3;
-        utterance.pitch = 1.08;
+        utterance.rate = 1.05;
+        utterance.pitch = 1.05;
         utterance.volume = 1;
         currentUtteranceRef.current = utterance;
         const cleanup = () => {
@@ -295,10 +295,11 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
         audio.volume = 1;
         audio.muted = false;
         audio.preload = "auto";
-        // Vitesse de lecture accélérée côté client EN PLUS de la vitesse
-        // demandée à OpenAI (1.25). Résultat global ≈ 1.4x — élocution
-        // rapide et énergique, sans déformation audible.
-        audio.playbackRate = 1.15;
+        // Lecture à vitesse quasi-naturelle (1.0) : l'utilisateur veut un
+        // rythme posé et chaleureux, pas une voix précipitée. La vitesse
+        // côté serveur (1.05) suffit à donner du dynamisme sans casser le
+        // côté "vraie conversation".
+        audio.playbackRate = 1.0;
         currentAudioRef.current = audio;
         // L'indicateur de niveau audio reste piloté par le moniteur micro
         // permanent (voir startMicMonitor) — l'utilisateur voit en continu si
@@ -533,9 +534,12 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
       // Premier segment : on accepte aussi une virgule ou un saut sur >= 18
       // caractères pour que Lia commence à parler quasi instantanément.
       if (!firstChunkSent && !force) {
-        // On démarre le TTS le plus tôt possible : dès 10 caractères suivis
-        // d'une virgule/ponctuation. Lia commence à parler quasi instantanément.
-        const earlyMatch = sentenceBuf.match(/^([^.!?…,]{10,}?[,.!?…])\s?/);
+        // Premier segment : on attend une VRAIE fin de phrase (. ! ? …)
+        // ou au minimum une proposition complète terminée par une virgule
+        // ASSEZ longue (≥ 25 caractères) pour ne jamais lire un fragment
+        // tronqué qui sonnerait coupé.
+        const earlyMatch = sentenceBuf.match(/^([^.!?…]{25,}?[.!?…])\s?/)
+          || sentenceBuf.match(/^([^.!?…,]{40,}?,)\s/);
         if (earlyMatch) {
           const s = earlyMatch[1].trim();
           onSentence?.(s);
