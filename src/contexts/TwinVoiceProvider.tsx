@@ -820,6 +820,18 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
   const value: TwinVoiceContextValue = {
     isCallActive, status, transcript, interim, supported, audioLevel,
     startCall, endCall, clearTranscript, setContextProviders, stopSpeaking,
+    muted,
+    setMuted: (m: boolean) => {
+      setMutedState(m);
+      // Désactive immédiatement les tracks audio des deux streams (barge-in + recording).
+      try {
+        bargeInStreamRef.current?.getAudioTracks().forEach((t) => { t.enabled = !m; });
+      } catch { /* ignore */ }
+      try {
+        const s = webVoiceService.getStream();
+        s?.getAudioTracks().forEach((t) => { t.enabled = !m; });
+      } catch { /* ignore */ }
+    },
   };
 
   return <TwinVoiceContext.Provider value={value}>{children}</TwinVoiceContext.Provider>;
