@@ -156,14 +156,13 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
       // Noise gate : tout RMS sous ~0.045 = silence/bruit ambiant → 0.
       // Au-dessus, on remappe pour garder une dynamique pleine sans
       // sur-réagir aux petits bruits (clavier, respiration, ventilo).
-      const GATE = 0.045;
+      // Noise gate plus haut : seule une vraie voix dépasse ~0.075 de RMS.
+      const GATE = 0.075;
       const gated = rms > GATE ? (rms - GATE) / (1 - GATE) : 0;
-      const norm = Math.min(1, gated * 2.2);
-      // Lissage plus fort pour amortir les micro-spikes.
-      smoothed = smoothed * 0.82 + norm * 0.18;
-      // Sous un seuil très bas, on force à 0 pour que les barres soient
-      // strictement immobiles quand l'utilisateur ne parle pas.
-      setAudioLevel(smoothed < 0.04 ? 0 : smoothed);
+      const norm = Math.min(1, gated * 1.4);
+      // Lissage encore plus fort pour amortir tout micro-spike.
+      smoothed = smoothed * 0.88 + norm * 0.12;
+      setAudioLevel(smoothed < 0.06 ? 0 : smoothed);
       audioLevelRafRef.current = requestAnimationFrame(tick);
     };
     audioLevelRafRef.current = requestAnimationFrame(tick);
