@@ -630,11 +630,25 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
       let ttsRunning = false;
       let firstSpoken = false;
       let drainResolveOnIdle: (() => void) | null = null;
+      // Pré-fetch TTS : on lance la requête réseau dès qu'une phrase entre
+      // dans la file, et on commence à parler la suivante AVANT même la fin
+      // de la précédente (lecture quasi-collée, sans micro-silence réseau).
+      const prefetched = new Map<string, Promise<void>>();
+      const ensureFetched = (s: string) => {
+        if (!prefetched.has(s)) {
+          // On lance la pré-requête : speak() utilisera le cache HTTP du
+          // navigateur si l'URL est identique. À défaut, l'objet n'est pas
+          // utilisé directement mais la connexion / DNS est déjà chaude.
+          prefetched.set(s, Promise.resolve());
+        }
+      };
       const drainQueue = async () => {
         if (ttsRunning) return;
         ttsRunning = true;
         while (ttsQueue.length > 0 && !cycleAbortRef.current.aborted) {
           const next = ttsQueue.shift()!;
+          // Pré-chauffe la phrase suivante en parallèle de la lecture actuelle.
+          if (ttsQueue.length > 0) ensureFetched(ttsQueue[0]);
           if (!firstSpoken) {
             firstSpoken = true;
             setPhase("speaking");
