@@ -42,13 +42,13 @@ class WebVoiceService implements IVoiceService {
           echoCancellation: { ideal: true },
           noiseSuppression: { ideal: true },
           autoGainControl: { ideal: true },
-          // Chromium proposera "voiceIsolation" si l'OS le supporte (macOS, ChromeOS).
-          // @ts-expect-error – non encore standard
+          // Chromium proposera "voiceIsolation" si l'OS le supporte (macOS/ChromeOS).
+          // Cette propriété n'est pas standard → on cast en any pour la passer.
           voiceIsolation: { ideal: true },
           channelCount: { ideal: 1 },
           sampleRate: { ideal: 48000 },
           sampleSize: { ideal: 16 },
-        } as MediaTrackConstraints,
+        } as unknown as MediaTrackConstraints,
       },
       // Bon compromis : flags standards uniquement.
       {
