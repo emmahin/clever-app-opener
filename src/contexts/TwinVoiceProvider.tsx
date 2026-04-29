@@ -256,7 +256,7 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
           voices.find((v) => v.lang.toLowerCase().startsWith("fr")) ||
           null;
         utterance.lang = "fr-FR";
-        utterance.rate = 1.12;
+        utterance.rate = 1.3;
         utterance.pitch = 1.08;
         utterance.volume = 1;
         currentUtteranceRef.current = utterance;
