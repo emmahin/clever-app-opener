@@ -742,7 +742,7 @@ export function TwinVoiceProvider({ children }: { children: ReactNode }) {
 
   const value: TwinVoiceContextValue = {
     isCallActive, status, transcript, interim, supported, audioLevel,
-    startCall, endCall, clearTranscript, setContextProviders,
+    startCall, endCall, clearTranscript, setContextProviders, stopSpeaking,
   };
 
   return <TwinVoiceContext.Provider value={value}>{children}</TwinVoiceContext.Provider>;
