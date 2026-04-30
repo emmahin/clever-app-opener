@@ -1,8 +1,9 @@
-import { User, LogOut, Settings as SettingsIcon, Coins, Shield, Infinity as InfinityIcon, Calendar, ArrowLeft, Phone } from "lucide-react";
+import { User, LogOut, Settings as SettingsIcon, Coins, Shield, Infinity as InfinityIcon, Calendar, ArrowLeft, Phone, Mic, MicOff, Square } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { NotificationBell } from "./NotificationBell";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { useTwinVoiceContext } from "@/contexts/TwinVoiceProvider";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,6 +23,7 @@ export function Header(_props: HeaderProps = {}) {
   const { isAdmin } = useIsAdmin();
   const navigate = useNavigate();
   const location = useLocation();
+  const voice = useTwinVoiceContext();
   // Le bouton retour est masqué sur l'accueil (rien à quitter).
   const showBack = location.pathname !== "/";
   const goBack = () => {
@@ -29,74 +31,97 @@ export function Header(_props: HeaderProps = {}) {
     if (window.history.length > 1) navigate(-1);
     else navigate("/app");
   };
-  // Bouton « Retour au mode vocal » : ouvre l'overlay VoiceCallMode depuis n'importe quelle page.
-  // Si on n'est pas sur "/", on y navigue d'abord puis on dispatch l'évènement.
-  const openVoiceCall = () => {
+  // Bouton « Mode vocal » : toggle l'appel directement (inline dans /app).
+  // Si on n'est pas sur /app, on y navigue d'abord, puis on déclenche le démarrage.
+  const startVoice = () => {
     if (location.pathname !== "/") {
       navigate("/app");
-      // Laisse le temps à Index de monter et d'attacher le listener.
-      setTimeout(() => window.dispatchEvent(new Event("app:open-voice-call")), 250);
+      setTimeout(() => window.dispatchEvent(new Event("app:start-voice")), 250);
     } else {
-      window.dispatchEvent(new Event("app:open-voice-call"));
+      window.dispatchEvent(new Event("app:start-voice"));
     }
   };
+  const stopVoice = () => {
+    window.dispatchEvent(new Event("app:stop-voice"));
+  };
+  const isCallActive = voice.isCallActive;
   return (
     <header
-      className="fixed top-0 left-0 md:[left:var(--sidebar-w,280px)] md:transition-[left] md:duration-300 right-0 h-14 flex items-center justify-end pl-14 pr-3 md:px-6 gap-2 z-40"
-      style={{ background: "linear-gradient(90deg, hsl(0, 0%, 4%, 0.95), hsl(275, 70%, 22%, 0.95))" }}>
+      className="fixed top-0 left-0 md:[left:var(--sidebar-w,280px)] md:transition-[left] md:duration-300 right-0 h-12 flex items-center justify-end pl-14 pr-3 md:px-5 gap-1.5 z-40 border-b border-white/5"
+      style={{ background: "linear-gradient(90deg, hsl(0, 0%, 2%, 0.95), hsl(265, 18%, 5%, 0.95))" }}>
       {showBack && (
-        <div className="mr-auto flex items-center gap-2">
+        <div className="mr-auto flex items-center gap-1.5">
           <button
             onClick={goBack}
             title="Retour"
             aria-label="Retour"
-            className="w-9 h-9 rounded-lg bg-white/20 flex items-center justify-center text-white hover:bg-white/25 transition-colors"
+            className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors"
           >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <button
-            onClick={openVoiceCall}
-            title="Retour au mode vocal"
-            aria-label="Retour au mode vocal"
-            className="h-9 px-3 rounded-lg flex items-center gap-1.5 text-white text-xs font-semibold transition-colors"
-            style={{ background: "linear-gradient(135deg, hsl(275, 80%, 55%), hsl(290, 75%, 50%))" }}
-          >
-            <Phone className="w-4 h-4" />
-            <span className="hidden sm:inline">Mode vocal</span>
+            <ArrowLeft className="w-4 h-4" />
           </button>
         </div>
       )}
-      {!showBack && (
-        <button
-          onClick={openVoiceCall}
-          title="Ouvrir le mode vocal"
-          aria-label="Ouvrir le mode vocal"
-          className="mr-auto h-9 px-3 rounded-lg flex items-center gap-1.5 text-white text-xs font-semibold transition-colors"
-          style={{ background: "linear-gradient(135deg, hsl(275, 80%, 55%), hsl(290, 75%, 50%))" }}
-        >
-          <Phone className="w-4 h-4" />
-          <span className="hidden sm:inline">Mode vocal</span>
-        </button>
-      )}
+      {/* Contrôles vocaux dans la barre du haut — visibles partout */}
+      <div className={showBack ? "flex items-center gap-1.5" : "mr-auto flex items-center gap-1.5"}>
+        {!isCallActive ? (
+          <button
+            onClick={startVoice}
+            title="Démarrer le mode vocal"
+            aria-label="Démarrer le mode vocal"
+            className="h-8 px-2.5 rounded-lg flex items-center gap-1.5 text-white text-[11px] font-semibold transition-colors"
+            style={{ background: "linear-gradient(135deg, hsl(265, 30%, 18%), hsl(280, 25%, 14%))" }}
+          >
+            <Mic className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Vocal</span>
+          </button>
+        ) : (
+          <>
+            <button
+              onClick={() => voice.setMuted(!voice.muted)}
+              title={voice.muted ? "Réactiver le micro" : "Couper le micro"}
+              aria-label={voice.muted ? "Réactiver le micro" : "Couper le micro"}
+              className={
+                "w-8 h-8 rounded-lg flex items-center justify-center transition-colors " +
+                (voice.muted
+                  ? "bg-rose-500/20 text-rose-200 hover:bg-rose-500/30"
+                  : "bg-emerald-500/15 text-emerald-200 hover:bg-emerald-500/25")
+              }
+            >
+              {voice.muted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+            </button>
+            <button
+              onClick={stopVoice}
+              title="Arrêter l'enregistrement"
+              aria-label="Arrêter l'enregistrement"
+              className="w-8 h-8 rounded-lg flex items-center justify-center bg-rose-500/15 text-rose-200 hover:bg-rose-500/25 transition-colors"
+            >
+              <Square className="w-3.5 h-3.5 fill-current" />
+            </button>
+            <span className="hidden sm:inline text-[11px] text-white/70 ml-1">
+              {voice.status === "speaking" ? "Lia parle…" : voice.status === "thinking" ? "Réflexion…" : "À l'écoute"}
+            </span>
+          </>
+        )}
+      </div>
       {/* Right actions */}
-      <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
+      <div className="flex items-center gap-1.5 md:gap-2 flex-shrink-0">
         <button
           onClick={() => navigate("/agenda")}
           title="Agenda"
           aria-label="Agenda"
-          className="w-9 h-9 rounded-lg bg-white/20 flex items-center justify-center text-white hover:bg-white/25 transition-colors"
+          className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors"
         >
-          <Calendar className="w-5 h-5" />
+          <Calendar className="w-4 h-4" />
         </button>
         {isAdmin ? (
           <button
             onClick={() => navigate("/billing")}
             title="Admin — crédits illimités"
             aria-label="Admin — crédits illimités"
-            className="h-9 px-3 rounded-lg flex items-center gap-1.5 text-white text-xs font-semibold transition-colors"
+            className="h-8 px-2.5 rounded-lg flex items-center gap-1 text-white text-[11px] font-semibold transition-colors"
             style={{ background: "linear-gradient(135deg, hsl(45, 95%, 55%), hsl(35, 95%, 50%))" }}
           >
-            <InfinityIcon className="w-4 h-4" />
+            <InfinityIcon className="w-3.5 h-3.5" />
             <span>Admin</span>
           </button>
         ) : (
@@ -104,9 +129,9 @@ export function Header(_props: HeaderProps = {}) {
             onClick={() => navigate("/billing")}
             title="Crédits & abonnement"
             aria-label="Crédits & abonnement"
-            className="w-9 h-9 rounded-lg bg-white/20 flex items-center justify-center text-white hover:bg-white/25 transition-colors"
+            className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors"
           >
-            <Coins className="w-5 h-5" />
+            <Coins className="w-4 h-4" />
           </button>
         )}
         {isAdmin && (
@@ -114,16 +139,16 @@ export function Header(_props: HeaderProps = {}) {
             onClick={() => navigate("/admin/users")}
             title="Administration"
             aria-label="Administration"
-            className="w-9 h-9 rounded-lg bg-white/20 flex items-center justify-center text-white hover:bg-white/25 transition-colors"
+            className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors"
           >
-            <Shield className="w-5 h-5" />
+            <Shield className="w-4 h-4" />
           </button>
         )}
         <NotificationBell />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="w-9 h-9 rounded-lg bg-white/20 flex items-center justify-center text-white hover:bg-white/25 transition-colors">
-              <User className="w-5 h-5" />
+            <button className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors">
+              <User className="w-4 h-4" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">

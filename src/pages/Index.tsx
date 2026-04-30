@@ -649,7 +649,7 @@ export default function Index() {
       className="min-h-screen text-foreground overflow-hidden"
       style={{
         backgroundImage:
-          "radial-gradient(ellipse 100% 80% at 20% 100%, hsl(280 90% 40%) 0%, transparent 55%), radial-gradient(ellipse 90% 70% at 80% 90%, hsl(295 85% 35%) 0%, transparent 55%), linear-gradient(180deg, hsl(0 0% 0%) 0%, hsl(275 60% 8%) 55%, hsl(270 75% 22%) 100%)",
+          "radial-gradient(ellipse 100% 80% at 20% 100%, hsl(275 25% 5%) 0%, transparent 60%), radial-gradient(ellipse 90% 70% at 80% 90%, hsl(290 22% 4%) 0%, transparent 60%), linear-gradient(180deg, hsl(0 0% 1%) 0%, hsl(265 15% 3%) 55%, hsl(270 18% 6%) 100%)",
         backgroundAttachment: "fixed",
       }}
     >
