@@ -20,10 +20,10 @@ export default function Auth() {
   // Redirect if already authenticated
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate("/", { replace: true });
+      if (data.session) navigate("/app", { replace: true });
     });
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
-      if (s) navigate("/", { replace: true });
+      if (s) navigate("/app", { replace: true });
     });
     return () => sub.subscription.unsubscribe();
   }, [navigate]);
@@ -41,7 +41,7 @@ export default function Auth() {
           email,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/`,
+            emailRedirectTo: `${window.location.origin}/app`,
             data: { display_name: displayName || email.split("@")[0] },
           },
         });
