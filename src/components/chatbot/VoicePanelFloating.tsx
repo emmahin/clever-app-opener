@@ -9,7 +9,7 @@ import { ChatOrb } from "./ChatOrb";
  * Masqué sur /app où le panneau inline est déjà présent dans le chat.
  */
 export function VoicePanelFloating() {
-  const { isCallActive, status, audioLevel } = useTwinVoiceContext();
+  const { isCallActive, status, audioLevel, endCall } = useTwinVoiceContext();
   const [smoothed, setSmoothed] = useState(0);
   const smoothedRef = useRef(0);
   const location = useLocation();
@@ -43,6 +43,7 @@ export function VoicePanelFloating() {
       : "hsl(270 90% 65%)";
 
   const handleStop = () => {
+    endCall();
     window.dispatchEvent(new CustomEvent("app:close-voice-call"));
   };
 
