@@ -20,6 +20,8 @@ export function LocalAppLaunchWidget({ target, args, label }: Props) {
   const [detail, setDetail] = useState<string>("");
   const [logs, setLogs] = useState<string[]>([]);
   const triedRef = useRef(false);
+  // Usage unique : une fois cliqué, on n'autorise plus de nouveau lancement.
+  const [used, setUsed] = useState(false);
 
   const displayName = label || target;
 
@@ -30,6 +32,10 @@ export function LocalAppLaunchWidget({ target, args, label }: Props) {
   };
 
   const launch = async () => {
+    if (used) {
+      addLog("Tentative bloquée : ce widget est à usage unique.");
+      return;
+    }
     addLog(`Demande d'ouverture reçue: ${displayName}`);
     if (!localAgentService.isConfigured()) {
       addLog("Agent local non configuré: affichage du panneau de configuration.");
@@ -38,6 +44,7 @@ export function LocalAppLaunchWidget({ target, args, label }: Props) {
     }
     setStatus("launching");
     setDetail("");
+    setUsed(true);
     addLog(`Envoi à l'agent local: target=${target}${args?.length ? ` args=${args.join(" ")}` : ""}`);
     const r = await localAgentService.launch(target, args || []);
     addLog(`Réponse agent: ok=${r.ok} method=${r.method || "n/a"} target=${r.target || "n/a"} detail=${r.detail || "n/a"}`);
@@ -50,12 +57,7 @@ export function LocalAppLaunchWidget({ target, args, label }: Props) {
     }
   };
 
-  useEffect(() => {
-    if (triedRef.current) return;
-    triedRef.current = true;
-    launch();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Plus d'auto-lancement : usage unique, déclenché par clic utilisateur.
 
   // Mode compact : si tout va bien (lancement réussi ou en cours), on affiche
   // juste une petite ligne discrète. Le panneau complet n'apparaît qu'en cas
@@ -88,10 +90,21 @@ export function LocalAppLaunchWidget({ target, args, label }: Props) {
             {args && args.length > 0 ? ` ${args.join(" ")}` : ""}
           </div>
         </div>
-        <StatusBadge status={status} onRetry={launch} />
+        {status === "idle" && !used ? (
+          <button
+            type="button"
+            onClick={launch}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 transition-opacity"
+          >
+            <Play className="w-3.5 h-3.5" />
+            Lancer
+          </button>
+        ) : (
+          <StatusBadge status={status} onRetry={launch} used={used} />
+        )}
       </div>
 
-      {status === "error" && (
+      {status === "error" && !used && (
         <button
           type="button"
           onClick={launch}
@@ -138,7 +151,7 @@ export function LocalAppLaunchWidget({ target, args, label }: Props) {
   );
 }
 
-function StatusBadge({ status, onRetry }: { status: Status; onRetry: () => void }) {
+function StatusBadge({ status, onRetry, used }: { status: Status; onRetry: () => void; used?: boolean }) {
   if (status === "launching") {
     return (
       <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary text-xs font-medium">
@@ -156,6 +169,14 @@ function StatusBadge({ status, onRetry }: { status: Status; onRetry: () => void 
     );
   }
   if (status === "error") {
+    if (used) {
+      return (
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-destructive/15 text-destructive text-xs font-medium">
+          <AlertTriangle className="w-3.5 h-3.5" />
+          Échec
+        </div>
+      );
+    }
     return (
       <button
         type="button"

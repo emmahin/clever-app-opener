@@ -254,7 +254,7 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
   return (
     <div className="relative">
       <div
-        className="rounded-2xl p-4 shadow-elegant border border-primary/50 backdrop-blur-xl bg-gradient-to-br from-primary/40 via-accent/30 to-fuchsia-400/40 ring-1 ring-primary/30"
+        className="rounded-2xl p-2.5 shadow-elegant border border-primary/30 backdrop-blur-xl bg-gradient-to-br from-primary/15 via-accent/10 to-fuchsia-400/15 ring-1 ring-primary/15"
         onDragOver={(e) => e.preventDefault()}
         onDrop={onDrop}
       >
@@ -331,9 +331,9 @@ export function ChatInput({ onSend, disabled, onOpenVoiceCall }: ChatInputProps)
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
           placeholder={t("askAnything")}
-          rows={2}
+          rows={1}
           disabled={disabled}
-          className="w-full bg-transparent text-foreground placeholder:text-muted-foreground resize-none focus:outline-none text-base"
+          className="w-full bg-transparent text-foreground placeholder:text-muted-foreground resize-none focus:outline-none text-sm leading-snug"
         />
 
         <input
