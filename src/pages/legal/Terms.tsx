@@ -1,6 +1,6 @@
 import { LegalLayout } from "./LegalLayout";
 
-const SELLER = "[VOTRE NOM LÉGAL / RAISON SOCIALE]";
+const SELLER = "Lucas Hin, entrepreneur individuel";
 
 export default function Terms() {
   return (
