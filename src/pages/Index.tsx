@@ -263,32 +263,11 @@ export default function Index() {
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   useEffect(() => scrollToBottom(), [messages]);
 
-  // Au mount (= ouverture/refresh) : on recharge automatiquement le DERNIER chat
-  // pour que l'utilisateur retrouve sa conversation en cours après un refresh.
-  // Si aucune conversation n'existe, on démarre vierge.
+  // Au mount (= ouverture de l'app) : on démarre TOUJOURS sur un nouveau chat vierge.
+  // L'historique reste accessible depuis la sidebar.
   useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        const list = await conversationService.list();
-        if (!active) return;
-        const latest = list[0];
-        if (!latest) {
-          conversationIdRef.current = null;
-          setMessages([]);
-          return;
-        }
-        const msgs = await conversationService.getMessages(latest.id);
-        if (!active) return;
-        conversationIdRef.current = latest.id;
-        setMessages(msgs as ChatMessage[]);
-      } catch (e) {
-        console.warn("[chat] restore latest conversation failed", e);
-        conversationIdRef.current = null;
-        setMessages([]);
-      }
-    })();
-    return () => { active = false; };
+    conversationIdRef.current = null;
+    setMessages([]);
   }, []);
 
   // Au mount : déclenche la génération des insights hebdo (idempotent côté serveur).
