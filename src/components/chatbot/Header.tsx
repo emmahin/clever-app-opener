@@ -27,13 +27,13 @@ export function Header(_props: HeaderProps = {}) {
   const goBack = () => {
     // Si on a un historique applicatif, on revient en arrière, sinon on rentre à l'accueil.
     if (window.history.length > 1) navigate(-1);
-    else navigate("/");
+    else navigate("/app");
   };
   // Bouton « Retour au mode vocal » : ouvre l'overlay VoiceCallMode depuis n'importe quelle page.
   // Si on n'est pas sur "/", on y navigue d'abord puis on dispatch l'évènement.
   const openVoiceCall = () => {
     if (location.pathname !== "/") {
-      navigate("/");
+      navigate("/app");
       // Laisse le temps à Index de monter et d'attacher le listener.
       setTimeout(() => window.dispatchEvent(new Event("app:open-voice-call")), 250);
     } else {
