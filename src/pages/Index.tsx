@@ -6,7 +6,6 @@ import { ChatInput } from "@/components/chatbot/ChatInput";
 import { SuggestionPills } from "@/components/chatbot/SuggestionPills";
 import { ChatMessageItem } from "@/components/chatbot/ChatMessage";
 import { VoicePanelInline } from "@/components/chatbot/VoicePanelInline";
-import { useTwinVoiceContext } from "@/contexts/TwinVoiceProvider";
 import { chatService, ChatMessage, ChatAttachment, APP_CATALOG, localAgentService, twinMemoryService, googleCalendarService, newsService, stockService, n8nService } from "@/services";
 import { conversationService } from "@/services/conversationService";
 import { moodService } from "@/services/moodService";
@@ -132,7 +131,6 @@ export default function Index() {
   const { settings } = useSettings();
   const navigate = useNavigate();
   const { get: getProject } = useProjects();
-  const twinVoice = useTwinVoiceContext();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [creditsDialog, setCreditsDialog] = useState<InsufficientCreditsInfo | null>(null);
