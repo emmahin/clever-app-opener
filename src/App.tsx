@@ -32,6 +32,7 @@ import Pricing from "./pages/Pricing.tsx";
 import { AuthGuard } from "@/components/AuthGuard";
 import { RootErrorBoundary } from "@/components/RootErrorBoundary";
 import { useVoiceNavigation } from "@/hooks/useVoiceNavigation";
+import { VoicePanelFloating } from "@/components/chatbot/VoicePanelFloating";
 
 const queryClient = new QueryClient();
 
@@ -53,6 +54,7 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <VoiceNavigationBridge />
+          <VoicePanelFloating />
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route path="/install" element={<Install />} />
