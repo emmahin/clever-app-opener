@@ -24,6 +24,9 @@ import OpenAIDiagnostics from "./pages/OpenAIDiagnostics.tsx";
 import VoiceAdmin from "./pages/VoiceAdmin.tsx";
 import VoiceSettings from "./pages/VoiceSettings.tsx";
 import Admin from "./pages/Admin.tsx";
+import Terms from "./pages/legal/Terms.tsx";
+import Refund from "./pages/legal/Refund.tsx";
+import Privacy from "./pages/legal/Privacy.tsx";
 import { AuthGuard } from "@/components/AuthGuard";
 import { RootErrorBoundary } from "@/components/RootErrorBoundary";
 import { useVoiceNavigation } from "@/hooks/useVoiceNavigation";
@@ -51,6 +54,9 @@ const App = () => (
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route path="/install" element={<Install />} />
+            <Route path="/legal/terms" element={<Terms />} />
+            <Route path="/legal/refund" element={<Refund />} />
+            <Route path="/legal/privacy" element={<Privacy />} />
             <Route path="/" element={<AuthGuard><Index /></AuthGuard>} />
             <Route path="/home" element={<AuthGuard><Index /></AuthGuard>} />
             <Route path="/dashboard" element={<AuthGuard><Dashboard /></AuthGuard>} />
