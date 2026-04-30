@@ -16,6 +16,14 @@ export interface VoiceTurn {
 interface Props {
   open: boolean;
   onClose: () => void;
+  /**
+   * Mode INLINE : on garde toute la logique (start/stop appel, transcript →
+   * messages, intents → widgets) MAIS on ne rend RIEN visuellement. Le panneau
+   * vocal visible est géré par un autre composant (VoicePanelInline) affiché
+   * au-dessus de la zone de saisie. Les contrôles (start/stop/mute) sont dans
+   * la barre du haut.
+   */
+  inline?: boolean;
   /** Appelé pour chaque nouveau tour de parole (utilisateur ou IA) afin de l'enregistrer dans le chat. */
   onTurn?: (turn: VoiceTurn) => void;
   /**
@@ -107,7 +115,7 @@ const CATEGORY_LABEL: Record<MemoryCategory, string> = {
 };
 
 export const VoiceCallMode = forwardRef<HTMLDivElement, Props>(function VoiceCallMode(
-  { open, onClose, onTurn, onVoiceIntent }: Props,
+  { open, onClose, onTurn, onVoiceIntent, inline }: Props,
   ref,
 ) {
   const { t } = useLanguage();
@@ -261,6 +269,11 @@ export const VoiceCallMode = forwardRef<HTMLDivElement, Props>(function VoiceCal
 
   const phase: "idle" | "listening" | "thinking" | "speaking" =
     starting ? "thinking" : status;
+
+  // Mode inline : aucune UI rendue, mais TOUTES les règles métier (intents,
+  // persistance des turns, contexte mémoire/agenda, démarrage/arrêt d'appel)
+  // restent actives via les `useEffect` plus haut.
+  if (inline) return null;
 
   // Waveform centrée style "audio wave" : nombreuses barres fines, enveloppe
   // en cloche (plus hautes au centre), modulation pseudo-aléatoire animée

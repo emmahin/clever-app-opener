@@ -5,6 +5,7 @@ import { ChatOrb } from "@/components/chatbot/ChatOrb";
 import { ChatInput } from "@/components/chatbot/ChatInput";
 import { SuggestionPills } from "@/components/chatbot/SuggestionPills";
 import { ChatMessageItem } from "@/components/chatbot/ChatMessage";
+import { VoicePanelInline } from "@/components/chatbot/VoicePanelInline";
 import { chatService, ChatMessage, ChatAttachment, APP_CATALOG, localAgentService, twinMemoryService, googleCalendarService, newsService, stockService, n8nService } from "@/services";
 import { conversationService } from "@/services/conversationService";
 import { moodService } from "@/services/moodService";
@@ -140,25 +141,31 @@ export default function Index() {
   const messagesRef = useRef<ChatMessage[]>([]);
   useEffect(() => { messagesRef.current = messages; }, [messages]);
 
-  // Auto-ouverture du mode vocal au premier rendu si l'utilisateur l'a activé
-  // dans Paramètres → Comportement IA. Une seule fois par session.
+  // Mode vocal INLINE : on monte VoiceCallMode en `inline` (sans UI propre),
+  // mais toute sa logique (transcript→messages, intents→widgets, démarrage
+  // de l'appel) reste active. L'orbe + les vagues sont rendus par
+  // <VoicePanelInline /> juste au-dessus de la zone de saisie. Les contrôles
+  // start/stop/mute sont dans la barre du haut.
+  useEffect(() => {
+    const open = () => setVoiceCallOpen(true);
+    const close = () => setVoiceCallOpen(false);
+    window.addEventListener("app:open-voice-call", open);
+    window.addEventListener("app:close-voice-call", close);
+    return () => {
+      window.removeEventListener("app:open-voice-call", open);
+      window.removeEventListener("app:close-voice-call", close);
+    };
+  }, []);
+
+  // Auto-ouverture du mode vocal si activé dans Paramètres → Comportement IA.
   const autoVoiceTriggeredRef = useRef(false);
   useEffect(() => {
     if (autoVoiceTriggeredRef.current) return;
     if (!settings.autoOpenVoice) return;
     autoVoiceTriggeredRef.current = true;
-    // Petit délai pour laisser l'UI se monter et l'auth se stabiliser.
     const id = setTimeout(() => setVoiceCallOpen(true), 400);
     return () => clearTimeout(id);
   }, [settings.autoOpenVoice]);
-
-  // Permet d'ouvrir le mode vocal depuis n'importe quelle page via un évènement global.
-  // Le Header dispatch `app:open-voice-call` après avoir navigué vers "/".
-  useEffect(() => {
-    const open = () => setVoiceCallOpen(true);
-    window.addEventListener("app:open-voice-call", open);
-    return () => window.removeEventListener("app:open-voice-call", open);
-  }, []);
 
   // ID de la conversation persistée actuellement chargée.
   // null = aucune (sera créée au premier message envoyé).
@@ -649,7 +656,7 @@ export default function Index() {
       className="min-h-screen text-foreground overflow-hidden"
       style={{
         backgroundImage:
-          "radial-gradient(ellipse 100% 80% at 20% 100%, hsl(280 90% 40%) 0%, transparent 55%), radial-gradient(ellipse 90% 70% at 80% 90%, hsl(295 85% 35%) 0%, transparent 55%), linear-gradient(180deg, hsl(0 0% 0%) 0%, hsl(275 60% 8%) 55%, hsl(270 75% 22%) 100%)",
+          "radial-gradient(ellipse 100% 80% at 20% 100%, hsl(275 25% 5%) 0%, transparent 60%), radial-gradient(ellipse 90% 70% at 80% 90%, hsl(290 22% 4%) 0%, transparent 60%), linear-gradient(180deg, hsl(0 0% 1%) 0%, hsl(265 15% 3%) 55%, hsl(270 18% 6%) 100%)",
         backgroundAttachment: "fixed",
       }}
     >
@@ -760,6 +767,9 @@ export default function Index() {
                 <SuggestionPills onSelect={handleSuggestion} />
               </div>
 
+              {/* Panneau vocal inline : orbe + vagues juste au-dessus de l'input */}
+              <VoicePanelInline />
+
               <ChatInput
                 onSend={sendMessage}
                 disabled={isLoading}
@@ -786,6 +796,7 @@ export default function Index() {
       <VoiceCallMode
         open={voiceCallOpen}
         onClose={() => setVoiceCallOpen(false)}
+        inline
         onTurn={(turn) => {
           // Enregistre chaque tour vocal (utilisateur + IA) dans le chat texte courant.
           const msg: ChatMessage = {
