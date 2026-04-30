@@ -31,18 +31,18 @@ export function Header(_props: HeaderProps = {}) {
     if (window.history.length > 1) navigate(-1);
     else navigate("/app");
   };
-  // Bouton « Mode vocal » : toggle l'appel directement (inline dans /app).
-  // Si on n'est pas sur /app, on y navigue d'abord, puis on déclenche le démarrage.
+  // Mode vocal : reste actif globalement via le contexte TwinVoice. Quand on
+  // clique « Démarrer », on ouvre le mode vocal INLINE sur /app (pas de modal).
   const startVoice = () => {
     if (location.pathname !== "/") {
       navigate("/app");
-      setTimeout(() => window.dispatchEvent(new Event("app:start-voice")), 250);
+      setTimeout(() => window.dispatchEvent(new Event("app:open-voice-call")), 250);
     } else {
-      window.dispatchEvent(new Event("app:start-voice"));
+      window.dispatchEvent(new Event("app:open-voice-call"));
     }
   };
   const stopVoice = () => {
-    window.dispatchEvent(new Event("app:stop-voice"));
+    window.dispatchEvent(new Event("app:close-voice-call"));
   };
   const isCallActive = voice.isCallActive;
   return (
