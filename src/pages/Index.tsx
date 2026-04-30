@@ -769,6 +769,9 @@ export default function Index() {
                 <SuggestionPills onSelect={handleSuggestion} />
               </div>
 
+              {/* Panneau vocal inline : orbe + vagues juste au-dessus de l'input */}
+              <VoicePanelInline />
+
               <ChatInput
                 onSend={sendMessage}
                 disabled={isLoading}
