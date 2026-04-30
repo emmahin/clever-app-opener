@@ -30,11 +30,10 @@ export function VoicePanelFloating() {
   }, []);
 
   if (!isCallActive) return null;
-  // Sur /app et /home, le panneau inline est déjà visible — on évite le doublon.
-  if (location.pathname === "/app" || location.pathname === "/home") return null;
+  // Note : affiché sur TOUTES les pages, y compris /app — c'est un fond global.
 
   const phase: "idle" | "listening" | "thinking" | "speaking" = status;
-  const BAR_COUNT = 18;
+  const BAR_COUNT = 64;
   const color =
     phase === "speaking"
       ? "hsl(280 95% 70%)"
@@ -42,22 +41,18 @@ export function VoicePanelFloating() {
       ? "hsl(270 80% 60%)"
       : "hsl(270 90% 65%)";
 
-  const handleStop = () => {
-    endCall();
-    window.dispatchEvent(new CustomEvent("app:close-voice-call"));
-  };
-
   return (
     <div
-      className="fixed bottom-4 right-4 z-[60] flex items-center gap-2 rounded-2xl border border-primary/30 bg-black/60 backdrop-blur-xl px-3 py-2 shadow-2xl shadow-primary/20"
-      role="status"
-      aria-live="polite"
+      className="fixed inset-0 z-0 pointer-events-none flex flex-col items-center justify-center gap-8 opacity-40"
+      aria-hidden="true"
     >
-      <div className="scale-[0.3] -my-14 -mx-14 flex-shrink-0">
+      {/* Orbe géant en fond */}
+      <div className="scale-[1.2]">
         <ChatOrb isLoading={phase === "thinking"} />
       </div>
 
-      <div className="flex items-center gap-[2px] h-8">
+      {/* Vague large en fond */}
+      <div className="flex items-center gap-[3px] h-32 w-full max-w-3xl px-8">
         {Array.from({ length: BAR_COUNT }).map((_, i) => {
           const center = (BAR_COUNT - 1) / 2;
           const dist = Math.abs(i - center) / center;
@@ -68,28 +63,16 @@ export function VoicePanelFloating() {
           const active = phase === "listening" && smoothed > 0.08;
           const signal = active ? Math.min(smoothed * 0.09, 0.11) : 0;
           const amp = envelope * (wiggle * (signal + breath));
-          const h = 2 + amp * 30;
+          const h = 4 + amp * 140;
           return (
             <span
               key={i}
-              className="block w-[2px] rounded-full transition-[height] duration-300 ease-out"
+              className="block w-[3px] flex-1 rounded-full transition-[height] duration-300 ease-out"
               style={{ height: `${h}px`, background: color }}
             />
           );
         })}
       </div>
-
-      <span className="text-[10px] text-white/70 min-w-[54px] text-right">
-        {phase === "speaking" ? "Lia parle…" : phase === "thinking" ? "Réflexion…" : "À l'écoute"}
-      </span>
-
-      <button
-        onClick={handleStop}
-        className="ml-1 text-[10px] text-white/60 hover:text-white px-2 py-1 rounded-md border border-white/10 hover:border-white/30 transition"
-        aria-label="Arrêter l'appel vocal"
-      >
-        Stop
-      </button>
     </div>
   );
 }
