@@ -143,42 +143,31 @@ export default function Index() {
   const messagesRef = useRef<ChatMessage[]>([]);
   useEffect(() => { messagesRef.current = messages; }, [messages]);
 
-  // Le mode vocal est désormais INLINE dans /app — plus de modal plein écran.
-  // On écoute les évènements globaux `app:start-voice` / `app:stop-voice`
-  // dispatched par le Header pour démarrer/arrêter l'appel directement via
-  // le contexte TwinVoice. Le panneau VoicePanelInline s'affiche au-dessus
-  // de la zone de saisie quand un appel est actif.
+  // Mode vocal INLINE : on monte VoiceCallMode en `inline` (sans UI propre),
+  // mais toute sa logique (transcript→messages, intents→widgets, démarrage
+  // de l'appel) reste active. L'orbe + les vagues sont rendus par
+  // <VoicePanelInline /> juste au-dessus de la zone de saisie. Les contrôles
+  // start/stop/mute sont dans la barre du haut.
   useEffect(() => {
-    const start = () => {
-      twinVoice.clearTranscript();
-      void twinVoice.startCall().catch((e) => console.warn("[voice] start failed", e));
-    };
-    const stop = () => twinVoice.endCall();
-    window.addEventListener("app:start-voice", start);
-    window.addEventListener("app:stop-voice", stop);
-    // Auto-démarrage si l'utilisateur a activé l'option dans les paramètres.
-    if (settings.autoOpenVoice && !twinVoice.isCallActive) {
-      const id = setTimeout(start, 500);
-      return () => {
-        clearTimeout(id);
-        window.removeEventListener("app:start-voice", start);
-        window.removeEventListener("app:stop-voice", stop);
-      };
-    }
+    const open = () => setVoiceCallOpen(true);
+    const close = () => setVoiceCallOpen(false);
+    window.addEventListener("app:open-voice-call", open);
+    window.addEventListener("app:close-voice-call", close);
     return () => {
-      window.removeEventListener("app:start-voice", start);
-      window.removeEventListener("app:stop-voice", stop);
+      window.removeEventListener("app:open-voice-call", open);
+      window.removeEventListener("app:close-voice-call", close);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings.autoOpenVoice]);
-
-  // Coupe l'appel vocal quand on quitte /app pour éviter qu'il continue ailleurs.
-  useEffect(() => {
-    return () => {
-      if (twinVoice.isCallActive) twinVoice.endCall();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Auto-ouverture du mode vocal si activé dans Paramètres → Comportement IA.
+  const autoVoiceTriggeredRef = useRef(false);
+  useEffect(() => {
+    if (autoVoiceTriggeredRef.current) return;
+    if (!settings.autoOpenVoice) return;
+    autoVoiceTriggeredRef.current = true;
+    const id = setTimeout(() => setVoiceCallOpen(true), 400);
+    return () => clearTimeout(id);
+  }, [settings.autoOpenVoice]);
 
   // ID de la conversation persistée actuellement chargée.
   // null = aucune (sera créée au premier message envoyé).
@@ -806,6 +795,7 @@ export default function Index() {
       <VoiceCallMode
         open={voiceCallOpen}
         onClose={() => setVoiceCallOpen(false)}
+        inline
         onTurn={(turn) => {
           // Enregistre chaque tour vocal (utilisateur + IA) dans le chat texte courant.
           const msg: ChatMessage = {
