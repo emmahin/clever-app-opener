@@ -256,7 +256,12 @@ export default function Auth() {
         </div>
 
         <p className="text-xs text-muted-foreground text-center mt-6">
-          En créant un compte, tu acceptes les conditions d'utilisation.
+          En créant un compte, tu acceptes nos{" "}
+          <a href="/legal/terms" className="underline hover:text-foreground">Conditions</a>,{" "}
+          notre{" "}
+          <a href="/legal/privacy" className="underline hover:text-foreground">Politique de confidentialité</a>{" "}
+          et notre{" "}
+          <a href="/legal/refund" className="underline hover:text-foreground">Politique de remboursement</a>.
         </p>
       </div>
     </div>
