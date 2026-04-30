@@ -55,7 +55,7 @@ export default function AdminUsers() {
   );
 
   useEffect(() => {
-    if (!adminLoading && !isAdmin) navigate("/");
+    if (!adminLoading && !isAdmin) navigate("/app");
   }, [adminLoading, isAdmin, navigate]);
 
   const load = async () => {
@@ -154,7 +154,7 @@ export default function AdminUsers() {
       <div className="max-w-7xl mx-auto p-4 md:p-8">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
+            <Button variant="ghost" size="icon" onClick={() => navigate("/app")}>
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <div>

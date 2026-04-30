@@ -885,7 +885,7 @@ export default function Index() {
             return true;
           }
           if (intent.kind === "news") {
-            navigate("/");
+            navigate("/app");
             const items = await newsService.getLatest();
             const assistantMsg: ChatMessage = {
               id: crypto.randomUUID(),
@@ -899,7 +899,7 @@ export default function Index() {
             return true;
           }
           if (intent.kind === "stocks") {
-            navigate("/");
+            navigate("/app");
             const items = await stockService.getTrending();
             const assistantMsg: ChatMessage = {
               id: crypto.randomUUID(),

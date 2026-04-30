@@ -27,6 +27,8 @@ import Admin from "./pages/Admin.tsx";
 import Terms from "./pages/legal/Terms.tsx";
 import Refund from "./pages/legal/Refund.tsx";
 import Privacy from "./pages/legal/Privacy.tsx";
+import Landing from "./pages/Landing.tsx";
+import Pricing from "./pages/Pricing.tsx";
 import { AuthGuard } from "@/components/AuthGuard";
 import { RootErrorBoundary } from "@/components/RootErrorBoundary";
 import { useVoiceNavigation } from "@/hooks/useVoiceNavigation";
@@ -57,7 +59,9 @@ const App = () => (
             <Route path="/legal/terms" element={<Terms />} />
             <Route path="/legal/refund" element={<Refund />} />
             <Route path="/legal/privacy" element={<Privacy />} />
-            <Route path="/" element={<AuthGuard><Index /></AuthGuard>} />
+            <Route path="/" element={<Landing />} />
+            <Route path="/pricing" element={<Pricing />} />
+            <Route path="/app" element={<AuthGuard><Index /></AuthGuard>} />
             <Route path="/home" element={<AuthGuard><Index /></AuthGuard>} />
             <Route path="/dashboard" element={<AuthGuard><Dashboard /></AuthGuard>} />
             <Route path="/analytics" element={<AuthGuard><Analytics /></AuthGuard>} />
